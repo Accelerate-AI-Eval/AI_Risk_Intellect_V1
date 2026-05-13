@@ -1,0 +1,401 @@
+.riskPage {
+  --risk-surface: #f8f8f8;
+  --risk-card: #151b24;
+  --risk-border: rgba(148, 163, 184, 0.12);
+  --risk-text: #f8fafc;
+  --risk-muted: #94a3b8;
+  --risk-input-bg: #1e293b;
+  --risk-input-border: rgba(148, 163, 184, 0.2);
+  --risk-btn-border: rgba(148, 163, 184, 0.25);
+  --risk-btn-hover: rgba(148, 163, 184, 0.12);
+
+  flex: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  background: #f8f8f8;
+  color: var(--risk-text);
+  font-family: var(--app-font-family, "Inter", sans-serif);
+}
+
+.riskPage__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.riskPage__headerText {
+  min-width: 0;
+}
+
+.riskPage__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--risk-text);
+}
+
+.riskPage__subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--risk-muted);
+}
+
+.riskPage__headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.riskPage .usersPage__inviteBtn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.riskPage__btnIcon--spin {
+  animation: riskPageSpin 0.85s linear infinite;
+}
+
+@keyframes riskPageSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.riskPage__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+@media (max-width: 1100px) {
+  .riskPage__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .riskPage__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.riskPage__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.15rem 1.2rem;
+  border-radius: 10px;
+  background: var(--risk-card);
+  border: 1px solid var(--risk-border);
+  box-sizing: border-box;
+}
+
+.riskPage__card--total {
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.08);
+}
+
+.riskPage__card--technical {
+  border-color: rgba(234, 179, 8, 0.45);
+  box-shadow: 0 0 0 1px rgba(234, 179, 8, 0.08);
+}
+
+.riskPage__card--operational {
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.08);
+}
+
+.riskPage__card--business {
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.06);
+}
+
+.riskPage__cardIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+}
+
+.riskPage__cardIcon--total {
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+
+.riskPage__cardIcon--technical {
+  background: rgba(234, 179, 8, 0.18);
+  color: #fbbf24;
+}
+
+.riskPage__cardIcon--operational {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+}
+
+.riskPage__cardIcon--business {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+}
+
+.riskPage__cardBody {
+  min-width: 0;
+  padding-top: 0.1rem;
+}
+
+.riskPage__cardLabel {
+  margin: 0 0 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--risk-muted);
+}
+
+.riskPage__cardValue {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--risk-text);
+  line-height: 1.1;
+}
+
+.riskPage__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 10px;
+  background: var(--risk-card);
+  border: 1px solid var(--risk-border);
+  box-sizing: border-box;
+}
+
+.riskPage__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: min(160px, 100%);
+}
+
+.riskPage__filter label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--risk-muted);
+}
+
+.riskPage__filter select {
+  height: 40px;
+  padding: 0 2rem 0 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--risk-input-border);
+  background: var(--risk-input-bg);
+  color: var(--risk-text);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+}
+
+.riskPage__filter select:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.riskPage__searchWrap {
+  position: relative;
+  flex: 0 1 420px;
+  min-width: 200px;
+  max-width: 420px;
+  margin-left: auto;
+}
+
+.riskPage__searchIcon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--main-text-muted, #64748b);
+  pointer-events: none;
+}
+
+.riskPage__searchInput {
+  width: 100%;
+  padding-left: 2.35rem;
+  height: 40px;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+  border: 1px solid rgba(28, 176, 212, 0.25);
+  border-radius: var(--ui-border-radius, 5px);
+  background: var(--risk-input-bg);
+  color: var(--risk-text);
+  font: inherit;
+}
+
+.riskPage__searchInput::placeholder {
+  color: #94a3b8;
+}
+
+.riskPage__clearBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 40px;
+  padding: 0 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--risk-btn-border);
+  background: transparent;
+  color: var(--risk-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.riskPage__clearBtn:hover {
+  color: var(--risk-text);
+  background: var(--risk-btn-hover);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.riskPage__tableSection {
+  min-width: 0;
+}
+
+.riskPage__tableWrap {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--risk-border);
+  background: var(--risk-card);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.riskPage__tableScroll {
+  overflow-x: auto;
+}
+
+.riskPage__table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.riskPage__th {
+  padding: 0.75rem 1rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--risk-muted);
+  background: rgba(0, 0, 0, 0.22);
+  border-bottom: 1px solid var(--risk-border);
+  white-space: nowrap;
+}
+
+.riskPage__th--left {
+  text-align: left;
+}
+
+.riskPage__th--right {
+  text-align: right;
+}
+
+.riskPage__td {
+  padding: 0.95rem 1rem;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--risk-border);
+  color: var(--risk-text);
+  font-size: 14px;
+}
+
+.riskPage__table tbody tr:last-child .riskPage__td {
+  border-bottom: none;
+}
+
+.riskPage__td--right {
+  text-align: right;
+}
+
+.riskPage__td--title {
+  max-width: 14rem;
+  font-weight: 500;
+}
+
+.riskPage__td--muted {
+  color: var(--risk-muted);
+}
+
+.riskPage__td--score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.riskPage__id {
+  font-weight: 600;
+  color: #22d3ee;
+}
+
+.riskPage__emptyCell {
+  text-align: center;
+  color: var(--risk-muted);
+  font-size: 14px;
+  padding: 2.5rem 1rem;
+}
+
+.riskPage__pager.dtPagination {
+  border-top-color: var(--risk-border);
+}
+
+html:not(.app-theme-dark) .riskPage {
+  --risk-surface: #f1f5f9;
+  --risk-card: #fff;
+  --risk-border: rgba(15, 23, 42, 0.08);
+  --risk-text: #0f172a;
+  --risk-muted: #64748b;
+  --risk-input-bg: #fff;
+  --risk-input-border: #cbd5e1;
+  --risk-btn-border: #cbd5e1;
+  --risk-btn-hover: rgba(15, 23, 42, 0.04);
+}
+
+html:not(.app-theme-dark) .riskPage__filter select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+}
+
+html.app-theme-dark .riskPage__searchInput {
+  background: #0f172a;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #f1f5f9;
+}
+
+html:not(.app-theme-dark) .riskPage__th {
+  background: #f1f5f9;
+}
+
+html.app-theme-dark .riskPage {
+  --risk-surface: #0f172a;
+  --risk-card: #1e293b;
+}

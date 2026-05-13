@@ -1,0 +1,498 @@
+.adminPage {
+  --adm-surface: #0f1419;
+  --adm-card: #151b24;
+  --adm-border: rgba(148, 163, 184, 0.12);
+  --adm-text: #f8fafc;
+  --adm-muted: #94a3b8;
+  --adm-input-bg: #1e293b;
+  --adm-input-border: rgba(148, 163, 184, 0.22);
+  --adm-outline: rgba(248, 250, 252, 0.35);
+  --adm-primary: var(--main-auth-button-color, #1cb0d4);
+  --adm-primary-strong: var(--main-auth-button-color-strong, #149bb8);
+  --adm-danger: #dc2626;
+  --adm-danger-hover: #b91c1c;
+  --adm-status-ok: #34d399;
+  --adm-status-bad: #f87171;
+
+  flex: 1;
+  box-sizing: border-box;
+  min-width: 0;
+  background: var(--adm-surface);
+  color: var(--adm-text);
+  font-family: var(--app-font-family, "Inter", sans-serif);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.adminPage__header {
+  margin-bottom: 0.25rem;
+}
+
+.adminPage__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--adm-text);
+}
+
+.adminPage__subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--adm-muted);
+  max-width: 40rem;
+}
+
+.adminPage__card {
+  padding: 1.15rem 1.25rem 1.2rem;
+  border-radius: 10px;
+  background: var(--adm-card);
+  border: 1px solid var(--adm-border);
+  box-sizing: border-box;
+}
+
+.adminPage__cardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+
+.adminPage__cardIconWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+}
+
+.adminPage__cardHeadText {
+  min-width: 0;
+}
+
+.adminPage__cardTitle {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adm-text);
+  line-height: 1.25;
+}
+
+.adminPage__cardHint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--adm-muted);
+}
+
+.adminPage__serviceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.adminPage__serviceRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--adm-border);
+}
+
+.adminPage__serviceRow:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.adminPage__serviceName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--adm-text);
+  min-width: 0;
+}
+
+.adminPage__statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.adminPage__statusPillDot {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Same visual language as Settings → Disconnected (.settingsPage__pill--bad), slightly smaller */
+.adminPage__statusPill--stopped {
+  color: var(--adm-status-bad);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.adminPage__statusPill--stopped .adminPage__statusPillDot {
+  background: var(--adm-status-bad);
+}
+
+/* Same as Settings → Connected (.settingsPage__pill--ok), slightly smaller */
+.adminPage__statusPill--running {
+  color: var(--adm-status-ok);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.adminPage__statusPill--running .adminPage__statusPillDot {
+  background: var(--adm-status-ok);
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+}
+
+.adminPage__serviceActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.adminPage__split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .adminPage__split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.adminPage__ingestRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.adminPage__ingestRow .adminPage__input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.adminPage .usersPage__inviteBtn {
+  flex-shrink: 0;
+}
+
+.adminPage__input {
+  height: 40px;
+  padding: 0 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--adm-input-border);
+  background: var(--adm-input-bg);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.875rem;
+  box-sizing: border-box;
+}
+
+.adminPage__input::placeholder {
+  color: #64748b;
+}
+
+.adminPage__input:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+}
+
+.adminPage__fileFields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.adminPage__fileField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.adminPage__fileField--tight {
+  margin-bottom: 0.35rem;
+}
+
+.adminPage__fileLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--adm-muted);
+}
+
+.adminPage__fileInput {
+  width: 100%;
+  max-width: 100%;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--adm-muted);
+  cursor: pointer;
+}
+
+.adminPage__fileInput::file-selector-button {
+  margin-right: 0.65rem;
+  height: 34px;
+  padding: 0 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--adm-input-border);
+  background: var(--adm-input-bg);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.adminPage__fileInput::file-selector-button:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.adminPage__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--adm-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.adminPage__check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--adm-primary);
+  cursor: pointer;
+}
+
+.adminPage__cardFoot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 0.25rem;
+}
+
+.adminPage__dataGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 1024px) {
+  .adminPage__dataGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.adminPage__dataCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem 1.05rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  box-sizing: border-box;
+}
+
+.adminPage__dataCol--danger {
+  border-color: rgba(220, 38, 38, 0.25);
+  background: rgba(127, 29, 29, 0.12);
+}
+
+.adminPage__dataColTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--adm-text);
+}
+
+.adminPage__dataColDesc {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--adm-muted);
+}
+
+.adminPage__ghostBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.85rem;
+  margin-top: auto;
+  border-radius: 8px;
+  border: 1px solid var(--adm-outline);
+  background: rgba(15, 23, 42, 0.25);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.adminPage__ghostBtn:hover {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(248, 250, 252, 0.5);
+}
+
+.adminPage__dangerInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 0.85rem;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid #dc2626;
+  background: var(--adm-input-bg);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.adminPage__dangerInput::placeholder {
+  color: #94a3b8;
+}
+
+.adminPage__dangerInput:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+}
+
+.adminPage__dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.85rem;
+  margin-top: 0.15rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--adm-danger);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.adminPage__dangerBtn:hover:not(:disabled) {
+  background: var(--adm-danger-hover);
+}
+
+.adminPage__dangerBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.adminPage__visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+html:not(.app-theme-dark) .adminPage__statusPill--stopped {
+  color: #dc2626;
+  background: rgba(254, 226, 226, 0.9);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+html:not(.app-theme-dark) .adminPage__statusPill--stopped .adminPage__statusPillDot {
+  background: #dc2626;
+}
+
+html:not(.app-theme-dark) .adminPage__statusPill--running {
+  color: #047857;
+  background: rgba(209, 250, 229, 0.95);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+html:not(.app-theme-dark) .adminPage__statusPill--running .adminPage__statusPillDot {
+  background: #059669;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.28);
+}
+
+html:not(.app-theme-dark) .adminPage {
+  --adm-surface: #f8f8f8;
+  --adm-card: #fff;
+  --adm-border: rgba(15, 23, 42, 0.08);
+  --adm-text: #0f172a;
+  --adm-muted: #64748b;
+  --adm-input-bg: #fff;
+  --adm-input-border: #cbd5e1;
+  --adm-outline: #cbd5e1;
+}
+
+html:not(.app-theme-dark) .adminPage__dataCol {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+html:not(.app-theme-dark) .adminPage__dataCol--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+html:not(.app-theme-dark) .adminPage__ghostBtn {
+  background: #fff;
+}
+
+html:not(.app-theme-dark) .adminPage__fileInput::file-selector-button {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+html.app-theme-dark .adminPage {
+  --adm-surface: #0f172a;
+  --adm-card: #1e293b;
+}
