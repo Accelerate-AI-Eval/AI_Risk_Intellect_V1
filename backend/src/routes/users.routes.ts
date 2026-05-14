@@ -5,8 +5,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   inviteUserHandler,
   listUsersHandler,
+  patchUserHandler,
 } from "../controllers/users/users.controller.js";
-import { inviteUserSchema } from "../validators/users.validators.js";
+import {
+  inviteUserSchema,
+  updateUserSchema,
+  userIdParamSchema,
+} from "../validators/users.validators.js";
 
 export const usersRouter: Router = Router();
 
@@ -16,4 +21,11 @@ usersRouter.post(
   requireAuth,
   validate(inviteUserSchema),
   asyncHandler(inviteUserHandler),
+);
+usersRouter.patch(
+  "/:id",
+  requireAuth,
+  validate(userIdParamSchema, "params"),
+  validate(updateUserSchema),
+  asyncHandler(patchUserHandler),
 );

@@ -48,7 +48,7 @@ const InviteSetPassword = () => {
       try {
         const res = await fetch(
           apiUrl(
-            `/api/auth/invite/set-password?token=${encodeURIComponent(token)}`,
+            `/auth/invite/set-password?token=${encodeURIComponent(token)}`,
           ),
         );
         const data = (await res.json().catch(() => ({}))) as {
@@ -104,7 +104,7 @@ const InviteSetPassword = () => {
 
     setSubmitStatus("loading");
     try {
-      const res = await fetch(apiUrl("/api/auth/invite/set-password"), {
+      const res = await fetch(apiUrl("/auth/invite/set-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

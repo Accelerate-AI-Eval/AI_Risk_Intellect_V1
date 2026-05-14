@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { users, type User } from "../schema/users/users.js";
+import { userProfileUpdateLogs } from "../schema/userProfileUpdateLogs.js";
 import {
   decodeInviteSetPasswordTokenUnsafe,
   verifyInviteSetPasswordToken,
@@ -126,41 +127,108 @@ export async function getUserById(id: string): Promise<SafeUser | null> {
 
 export async function updateMyProfile(
   userId: string,
-  input: { username: string; fullName?: string },
+  input: { username: string; fullName?: string; reason: string },
 ): Promise<SafeUser> {
+  return updateUserProfileRecord({
+    targetUserId: userId,
+    updatedByUserId: userId,
+    username: input.username,
+    fullName: input.fullName,
+    reason: input.reason,
+  });
+}
+
+/** Updates profile fields on a user row and records reason + field diffs in `user_profile_update_logs`. */
+export async function updateUserProfileRecord(input: {
+  targetUserId: string;
+  updatedByUserId: string;
+  username: string;
+  fullName?: string;
+  reason: string;
+  isActive?: boolean;
+}): Promise<SafeUser> {
   const normalized = input.username.trim();
-  const [other] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.username, normalized))
-    .limit(1);
-  if (other && other.id !== userId) {
-    throw HttpError.conflict("That username is already taken");
-  }
+  const reason = input.reason.trim();
 
-  const patch: {
-    username: string;
-    fullName?: string | null;
-    updatedAt: Date;
-  } = {
-    username: normalized,
-    updatedAt: new Date(),
-  };
-  if (input.fullName !== undefined) {
-    const t = input.fullName.trim();
-    patch.fullName = t.length === 0 ? null : t;
-  }
+  return await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, input.targetUserId))
+      .limit(1);
 
-  const [updated] = await db
-    .update(users)
-    .set(patch)
-    .where(eq(users.id, userId))
-    .returning();
+    if (!before) {
+      throw HttpError.notFound("User not found");
+    }
 
-  if (!updated) {
-    throw HttpError.notFound("User not found");
-  }
-  return toSafeUser(updated);
+    const [other] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, normalized))
+      .limit(1);
+    if (other && other.id !== input.targetUserId) {
+      throw HttpError.conflict("That username is already taken");
+    }
+
+    if (
+      input.isActive === false &&
+      input.targetUserId === input.updatedByUserId
+    ) {
+      throw HttpError.badRequest(
+        "You cannot deactivate your own account here.",
+      );
+    }
+
+    const changes: Record<string, { from: unknown; to: unknown }> = {};
+    if (before.username !== normalized) {
+      changes.username = { from: before.username, to: normalized };
+    }
+
+    const patch: {
+      username: string;
+      updatedAt: Date;
+      fullName?: string | null;
+      isActive?: boolean;
+    } = {
+      username: normalized,
+      updatedAt: new Date(),
+    };
+
+    if (input.fullName !== undefined) {
+      const t = input.fullName.trim();
+      const nextFullName = t.length === 0 ? null : t;
+      patch.fullName = nextFullName;
+      if (before.fullName !== nextFullName) {
+        changes.fullName = { from: before.fullName, to: nextFullName };
+      }
+    }
+
+    if (input.isActive !== undefined) {
+      patch.isActive = input.isActive;
+      if (before.isActive !== input.isActive) {
+        changes.isActive = { from: before.isActive, to: input.isActive };
+      }
+    }
+
+    const [updated] = await tx
+      .update(users)
+      .set(patch)
+      .where(eq(users.id, input.targetUserId))
+      .returning();
+
+    if (!updated) {
+      throw HttpError.notFound("User not found");
+    }
+
+    await tx.insert(userProfileUpdateLogs).values({
+      targetUserId: input.targetUserId,
+      updatedByUserId: input.updatedByUserId,
+      reason,
+      changes,
+    });
+
+    return toSafeUser(updated);
+  });
 }
 
 export async function changeMyPassword(

@@ -33,7 +33,7 @@ const ForgotPassword = () => {
     const trimmed = email.trim();
     setStatus("loading");
     try {
-      const res = await fetch(apiUrl("/api/auth/forgot-password"), {
+      const res = await fetch(apiUrl("/auth/forgot-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: trimmed }),

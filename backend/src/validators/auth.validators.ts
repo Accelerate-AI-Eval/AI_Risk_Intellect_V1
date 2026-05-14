@@ -55,6 +55,11 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export const updateMyProfileSchema = z.object({
   username: registerSchema.shape.username,
   fullName: z.string().max(255, "Full name must be at most 255 characters").trim().optional(),
+  reason: z
+    .string()
+    .min(1, "Please enter a reason for this change")
+    .max(2000, "Reason must be at most 2000 characters")
+    .trim(),
 });
 export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>;
 

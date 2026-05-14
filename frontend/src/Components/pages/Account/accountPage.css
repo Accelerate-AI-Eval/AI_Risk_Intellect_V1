@@ -105,6 +105,28 @@
   box-shadow: var(--main-auth-focus-ring-shadow, 0 0 0 2px rgba(28, 176, 212, 0.35));
 }
 
+.accountPage__textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 5.5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-family: inherit;
+  resize: none;
+  border: 1px solid rgba(28, 176, 212, 0.25);
+  border-radius: var(--ui-border-radius, 5px);
+  background: #fff;
+  color: var(--main-text-color, #1f2937);
+}
+
+.accountPage__textarea:focus {
+  outline: none;
+  border-color: var(--main-auth-button-color, #1cb0d4);
+  box-shadow: var(--main-auth-focus-ring-shadow, 0 0 0 2px rgba(28, 176, 212, 0.35));
+}
+
 .accountPage__actions {
   margin-top: 1.25rem;
   display: flex;
@@ -186,4 +208,10 @@ html.app-theme-dark .accountPage__input {
 html.app-theme-dark .accountPage__input:read-only {
   background: #334155;
   color: #94a3b8;
+}
+
+html.app-theme-dark .accountPage__textarea {
+  background: #0f172a;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #f1f5f9;
 }

@@ -10,6 +10,7 @@ import {
   AtSign,
   Lock,
   CheckCircle2,
+  MessageSquareText,
 } from "lucide-react";
 import { PageHeading } from "../../Layout/PageHeading";
 import { authFetch } from "../../../utils/authFetch";
@@ -51,6 +52,7 @@ export function AccountPage() {
 
   const [usernameDraft, setUsernameDraft] = useState("");
   const [fullNameDraft, setFullNameDraft] = useState("");
+  const [profileUpdateReason, setProfileUpdateReason] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -70,7 +72,7 @@ export function AccountPage() {
       return;
     }
     setLoadState("loading");
-    void authFetch("/api/auth/me")
+    void authFetch("/auth/me")
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as {
           user?: MeUser;
@@ -91,6 +93,7 @@ export function AccountPage() {
         setMe(data.user);
         setUsernameDraft(data.user.username);
         setFullNameDraft(data.user.fullName?.trim() ?? "");
+        setProfileUpdateReason("");
         setLoadState("idle");
       })
       .catch(() => {
@@ -115,10 +118,13 @@ export function AccountPage() {
     me && fullNameTrim !== (me.fullName?.trim() ?? ""),
   );
   const profileDirty = usernameDirty || fullNameDirty;
+  const reasonTrim = profileUpdateReason.trim();
+  const reasonValid = reasonTrim.length > 0 && reasonTrim.length <= 2000;
   const canSaveProfile =
     profileDirty &&
     usernameValid &&
     fullNameValid &&
+    reasonValid &&
     !savingProfile &&
     loadState === "idle";
 
@@ -127,12 +133,13 @@ export function AccountPage() {
     if (!canSaveProfile) return;
     setSavingProfile(true);
     try {
-      const res = await authFetch("/api/auth/me", {
+      const res = await authFetch("/auth/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: usernameTrim,
           fullName: fullNameTrim,
+          reason: reasonTrim,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -150,6 +157,7 @@ export function AccountPage() {
       setMe(data.user);
       setUsernameDraft(data.user.username);
       setFullNameDraft(data.user.fullName?.trim() ?? "");
+      setProfileUpdateReason("");
       applyAuthResponse({
         user: data.user,
         accessToken: data.accessToken,
@@ -176,7 +184,7 @@ export function AccountPage() {
     }
     setSavingPassword(true);
     try {
-      const res = await authFetch("/api/auth/me/change-password", {
+      const res = await authFetch("/auth/me/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -346,6 +354,34 @@ export function AccountPage() {
                   aria-invalid={usernameDraft.length > 0 && !usernameValid}
                 />
               </div>
+              {profileDirty ? (
+                <div className="accountPage__field">
+                  <label
+                    className="accountPage__label accountPage__label--withIcon"
+                    htmlFor="account-update-reason"
+                  >
+                    <MessageSquareText
+                      className="usersPage__labelIcon"
+                      size={15}
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                    <span>Reason for this change</span>
+                  </label>
+                  <textarea
+                    id="account-update-reason"
+                    className="accountPage__textarea"
+                    value={profileUpdateReason}
+                    onChange={(e) => setProfileUpdateReason(e.target.value)}
+                    maxLength={2000}
+                    rows={3}
+                    placeholder="Briefly describe why you are updating your profile"
+                    aria-invalid={
+                      profileUpdateReason.length > 0 && !reasonValid
+                    }
+                  />
+                </div>
+              ) : null}
               <div className="accountPage__actions">
                 <button
                   type="submit"

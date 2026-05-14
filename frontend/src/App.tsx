@@ -17,6 +17,7 @@ import { AdminPage } from './Components/pages/Admin/AdminPage'
 import { ReviewPage } from './Components/pages/Review/ReviewPage'
 import { SettingsPage } from './Components/pages/Settings/SettingsPage'
 import { AccountPage } from './Components/pages/Account/AccountPage'
+import { RequireAuth } from './Components/RequireAuth'
 
 function App() {
   return (
@@ -29,16 +30,18 @@ function App() {
         <Route path="/resetPassword" element={<ResetPassword />} />
         <Route path="/invite/set-password" element={<InviteSetPassword />} />
 
-        <Route element={<MainLayout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/jobs" element={<JobsPage />} />
-          <Route path="/risk" element={<RiskPage />} />
-          <Route path="/articles" element={<ArticlesPage />} />
-          <Route path="/admin" element={<AdminPage />} />
-          <Route path="/review" element={<ReviewPage />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/account" element={<AccountPage />} />
+        <Route element={<RequireAuth />}>
+          <Route element={<MainLayout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/risk" element={<RiskPage />} />
+            <Route path="/articles" element={<ArticlesPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/review" element={<ReviewPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/account" element={<AccountPage />} />
+          </Route>
         </Route>
 
         <Route path="/" element={<Navigate to="/signin" replace />} />

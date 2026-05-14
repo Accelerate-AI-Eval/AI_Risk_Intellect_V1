@@ -13,8 +13,7 @@ const BACKEND_LABEL = "FastAPI v0.100+";
 type ConnState = "checking" | "connected" | "disconnected";
 
 function healthUrlForBase(baseTrimmed: string): string {
-  if (!baseTrimmed) return apiUrl("/api/v1/health");
-  return `${baseTrimmed.replace(/\/$/, "")}/api/v1/health`;
+  return apiUrl("/health", { base: baseTrimmed });
 }
 
 async function pingHealth(url: string): Promise<boolean> {

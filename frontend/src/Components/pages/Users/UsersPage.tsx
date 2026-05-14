@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   Activity,
   RefreshCw,
+  MessageSquareText,
 } from "lucide-react";
 import { DataTablePagination } from "../../common/DataTablePagination";
 import { PageHeading } from "../../Layout/PageHeading";
@@ -35,6 +36,8 @@ type UserRow = {
   createdAt: string;
   updatedAt: string;
 };
+
+const USERNAME_RE = /^[a-zA-Z0-9_.-]+$/;
 
 function userInitials(u: UserRow): string {
   const name = u.fullName?.trim();
@@ -141,7 +144,9 @@ export function UsersPage() {
     username: "",
     email: "",
     isActive: true,
+    reason: "",
   });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => {
     setDocumentPageTitle("Users");
@@ -160,7 +165,7 @@ export function UsersPage() {
 
     void (async () => {
       try {
-        const res = await authFetch("/api/users");
+        const res = await authFetch("/users");
         const data = (await res.json().catch(() => ({}))) as {
           users?: UserRow[];
           error?: { message?: string };
@@ -197,6 +202,95 @@ export function UsersPage() {
     setRowMenuOpenId(null);
     setRowMenuAnchor(null);
   }, []);
+
+  const canSubmitEdit = useMemo(() => {
+    if (!editUser || savingEdit) return false;
+    const reasonTrim = editDraft.reason.trim();
+    if (reasonTrim.length === 0 || reasonTrim.length > 2000) return false;
+    const usernameTrim = editDraft.username.trim();
+    const fullNameTrim = editDraft.fullName.trim();
+    if (
+      usernameTrim.length < 3 ||
+      usernameTrim.length > 64 ||
+      !USERNAME_RE.test(usernameTrim)
+    ) {
+      return false;
+    }
+    if (fullNameTrim.length > 255) return false;
+    const usernameDirty = usernameTrim !== editUser.username;
+    const fullNameDirty =
+      fullNameTrim !== (editUser.fullName?.trim() ?? "");
+    const statusDirty = editDraft.isActive !== editUser.isActive;
+    return usernameDirty || fullNameDirty || statusDirty;
+  }, [editUser, editDraft, savingEdit]);
+
+  const submitEditUser = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editUser || savingEdit || !canSubmitEdit) return;
+      const reasonTrim = editDraft.reason.trim();
+      if (!reasonTrim) {
+        toast.error("Please enter a reason for this update.", {
+          autoClose: 4000,
+        });
+        return;
+      }
+      const usernameTrim = editDraft.username.trim();
+      if (
+        usernameTrim.length < 3 ||
+        usernameTrim.length > 64 ||
+        !USERNAME_RE.test(usernameTrim)
+      ) {
+        toast.error(
+          "Username must be 3–64 characters (letters, digits, . _ -).",
+          { autoClose: 4000 },
+        );
+        return;
+      }
+      const fullNameTrim = editDraft.fullName.trim();
+      if (fullNameTrim.length > 255) {
+        toast.error("Full name must be at most 255 characters.", {
+          autoClose: 4000,
+        });
+        return;
+      }
+      setSavingEdit(true);
+      try {
+        const res = await authFetch(`/users/${editUser.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: usernameTrim,
+            fullName: fullNameTrim,
+            isActive: editDraft.isActive,
+            reason: reasonTrim,
+          }),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          user?: UserRow;
+          error?: { message?: string };
+        };
+        if (!res.ok || !data.user) {
+          toast.error(
+            data.error?.message ?? "Could not update user.",
+            { autoClose: 4000 },
+          );
+          return;
+        }
+        const updated = data.user;
+        setUsers((prev) =>
+          prev.map((u) => (u.id === updated.id ? { ...u, ...updated } : u)),
+        );
+        toast.success("User updated.", { autoClose: 2500 });
+        setEditUser(null);
+      } catch {
+        toast.error("Could not update user.", { autoClose: 4000 });
+      } finally {
+        setSavingEdit(false);
+      }
+    },
+    [editUser, editDraft, savingEdit, canSubmitEdit],
+  );
 
   const activeCount = useMemo(
     () => users.reduce((n, u) => n + (u.isActive ? 1 : 0), 0),
@@ -293,6 +387,7 @@ export function UsersPage() {
         username: editUser.username,
         email: editUser.email,
         isActive: editUser.isActive,
+        reason: "",
       });
     }
   }, [editUser]);
@@ -349,7 +444,7 @@ export function UsersPage() {
       return { ok: false, error: "Sign in again to send invites." };
     }
     try {
-      const res = await authFetch("/api/users/invite", {
+      const res = await authFetch("/users/invite", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -434,7 +529,7 @@ export function UsersPage() {
     const token = sessionStorage.getItem("accessToken");
     if (!token) return;
     setLoadState("loading");
-    void authFetch("/api/users")
+    void authFetch("/users")
       .then(async (res) => {
         if (res.status === 401) {
           setLoadState("idle");
@@ -902,14 +997,7 @@ export function UsersPage() {
             </div>
             <form
               className="usersPage__dialogBody"
-              onSubmit={(e) => {
-                e.preventDefault();
-                toast.info(
-                  "Saving user changes is not connected to the API yet.",
-                  { autoClose: 5000 },
-                );
-                setEditUser(null);
-              }}
+              onSubmit={submitEditUser}
             >
               <div className="usersPage__formGrid">
                 <div className="usersPage__formField">
@@ -1006,6 +1094,31 @@ export function UsersPage() {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
+                <div className="usersPage__formField usersPage__formField--span2">
+                  <label
+                    className="usersPage__label usersPage__label--withIcon"
+                    htmlFor="edit-reason"
+                  >
+                    <MessageSquareText
+                      className="usersPage__labelIcon"
+                      size={16}
+                      strokeWidth={2}
+                      aria-hidden
+                    />
+                    <span>Reason for this update</span>
+                  </label>
+                  <textarea
+                    id="edit-reason"
+                    className="usersPage__textarea"
+                    value={editDraft.reason}
+                    onChange={(e) =>
+                      setEditDraft((d) => ({ ...d, reason: e.target.value }))
+                    }
+                    maxLength={2000}
+                    rows={3}
+                    placeholder="Briefly describe why you are changing this user"
+                  />
+                </div>
               </div>
               <div className="usersPage__dialogActions">
                 <button
@@ -1016,9 +1129,27 @@ export function UsersPage() {
                   <CircleX size={16} strokeWidth={1.75} aria-hidden />
                   Cancel
                 </button>
-                <button type="submit" className="usersPage__btn usersPage__btn--primary">
-                  <RefreshCw size={16} strokeWidth={2} aria-hidden />
-                  Update
+                <button
+                  type="submit"
+                  className="usersPage__btn usersPage__btn--primary"
+                  disabled={!canSubmitEdit}
+                >
+                  {savingEdit ? (
+                    <>
+                      <Loader2
+                        className="usersPage__spinner"
+                        size={16}
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                      Updating…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw size={16} strokeWidth={2} aria-hidden />
+                      Update
+                    </>
+                  )}
                 </button>
               </div>
             </form>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { Eye, EyeOff, CheckCircle, Loader2, User, Lock, MoveRightIcon } from "lucide-react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, type Location } from "react-router-dom";
 import { apiUrl } from "../../../utils/apiBase";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { AuthShell } from "../AuthShell";
@@ -30,7 +30,7 @@ const Signin = () => {
     }
     setIsSubmitting(true);
     try {
-      const res = await fetch(apiUrl("/api/auth/login"), {
+      const res = await fetch(apiUrl("/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -56,7 +56,12 @@ const Signin = () => {
         sessionStorage.setItem("userName", data.user.username);
         sessionStorage.setItem("userEmail", data.user.email);
         toast.success("Signed in.", { autoClose: 1500 });
-        navigate("/dashboard");
+        const from = (location.state as { from?: Location } | null)?.from;
+        const target =
+          from && from.pathname && from.pathname !== "/signin"
+            ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+            : "/dashboard";
+        navigate(target, { replace: true });
       } else {
         toast.error("Unexpected response from server.", { autoClose: 5005 });
       }

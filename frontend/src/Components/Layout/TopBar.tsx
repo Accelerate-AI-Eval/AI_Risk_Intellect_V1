@@ -85,7 +85,7 @@ export function TopBar() {
   const logout = async () => {
     close();
     try {
-      await authFetch("/api/auth/logout", {
+      await authFetch("/auth/logout", {
         method: "POST",
         skipAuthExpiredRedirect: true,
       });

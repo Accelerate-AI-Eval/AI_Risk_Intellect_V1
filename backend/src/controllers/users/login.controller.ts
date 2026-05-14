@@ -38,7 +38,7 @@ function refreshCookieOptions(expiresAt?: Date): CookieOptions {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
     sameSite: env.COOKIE_SECURE ? "none" : "lax",
-    path: "/api",
+    path: "/api/v1",
     domain: env.COOKIE_DOMAIN,
     expires: expiresAt,
   };
@@ -230,9 +230,9 @@ export async function patchMe(req: Request, res: Response): Promise<void> {
   if (!req.user) {
     throw HttpError.unauthorized();
   }
-  const { username, fullName } = req.body as UpdateMyProfileInput;
+  const { username, fullName, reason } = req.body as UpdateMyProfileInput;
   const accessToken = bearerAccessToken(req);
-  const user = await updateMyProfile(req.user.sub, { username, fullName });
+  const user = await updateMyProfile(req.user.sub, { username, fullName, reason });
   await revokeSessionByAccessToken(accessToken);
   const meta = clientMeta(req);
   const tokens = await issueTokenPair({ user, ...meta });

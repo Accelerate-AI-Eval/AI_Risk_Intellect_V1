@@ -1,8 +1,12 @@
 import type { Request, Response } from "express";
-import { listUsers, upsertInvitedUser } from "../../services/auth.service.js";
+import {
+  listUsers,
+  upsertInvitedUser,
+  updateUserProfileRecord,
+} from "../../services/auth.service.js";
 import { sendUserInviteEmail } from "../../services/inviteEmail.service.js";
 import { signInviteSetPasswordToken } from "../../utils/jwt.js";
-import type { InviteUserInput } from "../../validators/users.validators.js";
+import type { InviteUserInput, UpdateUserInput } from "../../validators/users.validators.js";
 
 export async function listUsersHandler(
   _req: Request,
@@ -28,4 +32,24 @@ export async function inviteUserHandler(
   });
 
   res.status(200).json({ ok: true, message: "Invitation email sent." });
+}
+
+export async function patchUserHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const actor = req.user!;
+  const { id: targetUserId } = req.params as { id: string };
+  const { username, fullName, isActive, reason } = req.body as UpdateUserInput;
+
+  const user = await updateUserProfileRecord({
+    targetUserId,
+    updatedByUserId: actor.sub,
+    username,
+    fullName,
+    isActive,
+    reason,
+  });
+
+  res.status(200).json({ user });
 }

@@ -18,8 +18,6 @@ type QueueItem = {
   category: string;
 };
 
-const QUEUE_COUNT = 1152;
-
 const MOCK_QUEUE: QueueItem[] = [
   {
     id: "#49",
@@ -44,33 +42,32 @@ const MOCK_QUEUE: QueueItem[] = [
   },
 ];
 
-const FEEDBACK_SAMPLE_COUNT = 0;
-const PROMPT_VERSION_COUNT = 0;
+/** Placeholder until feedback samples are loaded from the API. */
+const MOCK_FEEDBACK_SAMPLES: { id: string }[] = [];
 
-type ReviewTabDef = {
+/** Placeholder until prompt versions are loaded from the API. */
+const MOCK_PROMPT_VERSIONS: { id: string }[] = [];
+
+type ReviewTabMeta = {
   id: ReviewTab;
   label: string;
-  count: number;
   ariaLabel: (n: number) => string;
 };
 
-const REVIEW_TAB_DEFS: readonly ReviewTabDef[] = [
+const REVIEW_TAB_METAS: readonly ReviewTabMeta[] = [
   {
     id: "queue",
-    label: "Queue",
-    count: QUEUE_COUNT,
+    label: "Review Queue",
     ariaLabel: (n) => `Queue, ${n} item${n === 1 ? "" : "s"}`,
   },
   {
     id: "feedback",
     label: "Feedback",
-    count: FEEDBACK_SAMPLE_COUNT,
     ariaLabel: (n) => `Feedback, ${n} sample${n === 1 ? "" : "s"}`,
   },
   {
     id: "prompts",
     label: "Prompts",
-    count: PROMPT_VERSION_COUNT,
     ariaLabel: (n) => `Prompts, ${n} version${n === 1 ? "" : "s"}`,
   },
 ];
@@ -124,6 +121,15 @@ export function ReviewPage() {
     );
   }, [reviewSearch]);
 
+  const tabCounts = useMemo(
+    (): Record<ReviewTab, number> => ({
+      queue: MOCK_QUEUE.length,
+      feedback: MOCK_FEEDBACK_SAMPLES.length,
+      prompts: MOCK_PROMPT_VERSIONS.length,
+    }),
+    [],
+  );
+
   const searchPlaceholder =
     tab === "queue"
       ? "Search queue by title, category, ID…"
@@ -173,8 +179,9 @@ export function ReviewPage() {
 
       <div className="usersPage__toolbar">
         <div className="usersPage__tabs" role="tablist" aria-label="Human review sections">
-          {REVIEW_TAB_DEFS.map(({ id, label, count, ariaLabel }) => {
+          {REVIEW_TAB_METAS.map(({ id, label, ariaLabel }) => {
             const selected = tab === id;
+            const count = tabCounts[id];
             return (
               <button
                 key={id}

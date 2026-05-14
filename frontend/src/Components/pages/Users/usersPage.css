@@ -168,6 +168,28 @@
   background-color: #fff;
 }
 
+textarea.usersPage__textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 5rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-family: inherit;
+  resize: none;
+  border: 1px solid rgba(28, 176, 212, 0.25);
+  border-radius: var(--ui-border-radius, 5px);
+  background: #fff;
+  color: var(--main-text-color, #1f2937);
+}
+
+textarea.usersPage__textarea:focus {
+  outline: none;
+  border-color: var(--main-auth-button-color, #1cb0d4);
+  box-shadow: var(--main-auth-focus-ring-shadow, 0 0 0 2px rgba(28, 176, 212, 0.35));
+}
+
 .usersPage__dialogActions {
   display: flex;
   justify-content: flex-end;
@@ -846,6 +868,10 @@ html.app-theme-dark .usersPage__badge--acctExpired {
   min-width: 0;
 }
 
+.usersPage__formField--span2 {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 440px) {
   .usersPage__detailList,
   .usersPage__formGrid {
@@ -964,6 +990,12 @@ html.app-theme-dark .usersPage__input.usersPage__select {
 
 html.app-theme-dark .usersPage__input.usersPage__select:focus {
   background-color: #0f172a;
+}
+
+html.app-theme-dark textarea.usersPage__textarea {
+  background: #0f172a;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #f1f5f9;
 }
 
 html.app-theme-dark .usersPage__table td {
