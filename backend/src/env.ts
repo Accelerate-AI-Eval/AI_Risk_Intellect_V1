@@ -61,7 +61,7 @@ const EnvSchema = z.object({
   REFRESH_TOKEN_TTL: z.string().default("7d"),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
 
-  CORS_ORIGIN: z.string().default("http://localhost:5176"),
+  CORS_ORIGIN: z.string().default(process.env.BASE_URL || ""),
   COOKIE_DOMAIN: z.string().optional(),
   COOKIE_SECURE: z
     .string()
@@ -74,7 +74,7 @@ const EnvSchema = z.object({
   SENDER_EMAIL_ID: z.string().optional(),
   SENDER_EMAIL_PASSWORD: z.string().optional(),
   /** App origin for invite links (set-password page), e.g. http://localhost:5176 */
-  INVITE_APP_URL: z.string().default("http://localhost:5176"),
+  INVITE_APP_URL: z.string().default(process.env.BASE_URL || ""),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
