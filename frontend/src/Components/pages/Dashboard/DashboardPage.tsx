@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { MetricSparkline } from "./MetricSparkline";
-import { PageHeading } from "../../Layout/PageHeading";
+import { PageHeader } from "../../Layout/PageHeader";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import "../Users/usersPage.css";
 import "./dashboardPage.css";
@@ -946,31 +946,27 @@ export function DashboardPage() {
 
   return (
     <main className="mainLayout__content dashboardPage">
-      <header className="dashboardPage__header">
-        <div className="dashboardPage__titles">
-          <PageHeading className="mainLayout__pageTitle dashboardPage__title">
-            Dashboard
-          </PageHeading>
-          <p className="mainLayout__pageHint dashboardPage__subtitle">
-            AI Risk Intelligence Platform Overview
-          </p>
-        </div>
-        <button
-          type="button"
-          className="usersPage__inviteBtn"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          aria-busy={refreshing}
-        >
-          <RefreshCw
-            size={18}
-            strokeWidth={2}
-            className={refreshing ? "dashboardPage__refreshIcon--spin" : ""}
-            aria-hidden
-          />
-          Refresh
-        </button>
-      </header>
+      <PageHeader
+        title="Dashboard"
+        subtitle="AI Risk Intelligence Platform Overview"
+        actions={
+          <button
+            type="button"
+            className="usersPage__inviteBtn"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-busy={refreshing}
+          >
+            <RefreshCw
+              size={18}
+              strokeWidth={2}
+              className={refreshing ? "pageHeader__refreshIcon--spin" : ""}
+              aria-hidden
+            />
+            Refresh
+          </button>
+        }
+      />
 
       <section className="dashboardPage__section" aria-labelledby="dash-metrics-heading">
         <h2 id="dash-metrics-heading" className="dashboardPage__sectionTitle">

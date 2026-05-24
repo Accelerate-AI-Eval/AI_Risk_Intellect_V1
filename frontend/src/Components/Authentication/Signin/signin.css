@@ -728,3 +728,104 @@ a.login-btn.signin-submit {
 .signin-footer-link:hover {
   color: var(--main-auth-button-color);
 }
+
+/* Dark theme — follows `app-theme-dark` from themePreference (login, forgot, reset, invite) */
+html.app-theme-dark body:has(.authPage) {
+  background-color: #0f172a;
+}
+
+html.app-theme-dark body:has(.authPage--signin) {
+  background-color: #0f172a;
+  background-image: radial-gradient(
+    ellipse 120% 80% at 50% 45%,
+    rgba(30, 41, 59, 0.95) 0%,
+    #0f172a 45%,
+    #020617 100%
+  );
+}
+
+html.app-theme-dark .authPage .loginForm {
+  background-color: #1e293b;
+}
+
+html.app-theme-dark .loginForm--signin {
+  background-color: #1e293b;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+html.app-theme-dark .signin-input {
+  color: var(--main-text-color);
+  background-color: var(--auth-signin-input-bg);
+  border-color: var(--auth-signin-input-border);
+}
+
+html.app-theme-dark .signin-input::placeholder {
+  color: #64748b;
+}
+
+html.app-theme-dark .signin-input-wrap {
+  background-color: var(--auth-signin-input-bg);
+  border-color: var(--auth-signin-input-border);
+}
+
+html.app-theme-dark .signin-input[readonly],
+html.app-theme-dark .signin-input--readonly {
+  background-color: #334155;
+  color: var(--main-text-muted);
+}
+
+html.app-theme-dark .signin-input.signin-input--inviteReadonly[readonly] {
+  color: var(--main-text-color);
+  -webkit-text-fill-color: var(--main-text-color);
+  background-color: #334155;
+}
+
+html.app-theme-dark .signin-input[readonly]:-webkit-autofill,
+html.app-theme-dark .signin-input[readonly]:-webkit-autofill:hover,
+html.app-theme-dark .signin-input[readonly]:-webkit-autofill:focus,
+html.app-theme-dark .signin-input--readonly:-webkit-autofill,
+html.app-theme-dark .signin-input--readonly:-webkit-autofill:hover,
+html.app-theme-dark .signin-input--readonly:-webkit-autofill:focus,
+html.app-theme-dark .signin-input--inviteReadonly:-webkit-autofill,
+html.app-theme-dark .signin-input--inviteReadonly:-webkit-autofill:hover,
+html.app-theme-dark .signin-input--inviteReadonly:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--main-text-color) !important;
+  box-shadow: 0 0 0 1000px #334155 inset !important;
+}
+
+html.app-theme-dark .signin-input.signin-input--inviteReadonly[readonly]:-webkit-autofill,
+html.app-theme-dark .signin-input.signin-input--inviteReadonly[readonly]:-webkit-autofill:hover,
+html.app-theme-dark .signin-input.signin-input--inviteReadonly[readonly]:-webkit-autofill:focus {
+  box-shadow: 0 0 0 1000px #334155 inset !important;
+}
+
+html.app-theme-dark .signin-protocol-line {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #334155 20%,
+    #334155 80%,
+    transparent
+  );
+}
+
+html.app-theme-dark .signin-protocol-text,
+html.app-theme-dark .signin-disclaimer {
+  color: #64748b;
+}
+
+html.app-theme-dark .signin-eye {
+  color: #64748b;
+}
+
+html.app-theme-dark .signin-eye:hover {
+  color: var(--main-text-muted);
+}
+
+html.app-theme-dark .readOnlyField {
+  background-color: #334155;
+  color: var(--main-text-muted);
+  border-color: var(--auth-signin-input-border);
+}

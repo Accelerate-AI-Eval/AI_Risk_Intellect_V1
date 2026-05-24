@@ -7,7 +7,12 @@
   "type": "module",
   "main": "./dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "concurrently -k -n node,py -c blue,green \"npm run dev:api\" \"npm run py:dev\"",
+    "dev:all": "concurrently -k -n api,py,worker -c blue,green,magenta \"npm run dev:api\" \"npm run py:dev\" \"npm run worker\"",
+    "dev:api": "tsx watch src/server.ts",
+    "py:dev": "cross-env PYTHON_PORT=5006 PYTHON_HOST=127.0.0.1 PYTHON_RELOAD=0 npm --prefix ../python run dev",
+    "py:dev:watch": "cross-env PYTHON_PORT=5006 PYTHON_HOST=127.0.0.1 PYTHON_RELOAD=1 npm --prefix ../python run dev",
+    "py:start": "cross-env PYTHON_PORT=5006 PYTHON_RELOAD=0 npm --prefix ../python run start",
     "build": "tsc",
     "watch": "tsc --watch",
     "start": "node --watch dist/server.js",
@@ -16,6 +21,12 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed:admin": "tsx src/scripts/seedAdmin.ts",
+    "discovery": "tsx src/workers/discoveryService.ts",
+    "discovery:once": "cross-env RUN_ONCE=true tsx src/workers/discoveryService.ts",
+    "worker": "tsx src/workers/jobWorker.ts",
+    "workflow:check": "tsx src/scripts/workflowCheck.ts",
+    "py:install": "pip install -r ../python/requirements.txt",
+    "install:all": "npm install && npm run py:install",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
@@ -29,6 +40,8 @@
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^6.9.16",
     "pg": "^8.20.0",
+    "rss-parser": "^3.13.0",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -39,6 +52,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.12.2",
     "@types/pg": "^8.16.4",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
     "drizzle-kit": "^0.30.0",
     "tsx": "^4.19.0",
     "typescript": "^6.0.3"

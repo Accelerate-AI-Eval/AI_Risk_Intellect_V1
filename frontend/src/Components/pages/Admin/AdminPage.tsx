@@ -5,20 +5,104 @@ import {
   Cpu,
   Database,
   Download,
-  Link2,
   Play,
   RotateCw,
   Square,
   Trash2,
   Upload,
 } from "lucide-react";
+import { authFetch } from "../../../utils/authFetch";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
-import { PageHeading } from "../../Layout/PageHeading";
+import { PageHeader } from "../../Layout/PageHeader";
+import {
+  SettingsAboutSection,
+  SettingsApiSection,
+  SettingsSections,
+} from "../Settings/SettingsSections";
 import "../Users/usersPage.css";
+import "../Settings/settingsPage.css";
 import "./adminPage.css";
 
 type ServiceKey = "worker" | "discovery";
-type ServiceState = "stopped" | "running";
+type ApiServiceState = "stopped" | "running";
+type ServiceState = ApiServiceState | "starting" | "stopping";
+type PendingAction = "starting" | "stopping";
+
+const DEFAULT_API_STATUS: Record<ServiceKey, ApiServiceState> = {
+  worker: "stopped",
+  discovery: "stopped",
+};
+
+function serviceStatusLabel(status: ServiceState): string {
+  switch (status) {
+    case "starting":
+      return "Starting...";
+    case "stopping":
+      return "Stopping...";
+    case "running":
+      return "Running";
+    default:
+      return "Stopped";
+  }
+}
+
+function serviceStatusPillClass(status: ServiceState): string {
+  switch (status) {
+    case "running":
+      return "adminPage__statusPill--running";
+    case "starting":
+    case "stopping":
+      return "adminPage__statusPill--pending";
+    default:
+      return "adminPage__statusPill--stopped";
+  }
+}
+
+function isServiceBusy(status: ServiceState): boolean {
+  return status === "starting" || status === "stopping";
+}
+
+function displayServiceStatus(
+  key: ServiceKey,
+  apiStatus: Record<ServiceKey, ApiServiceState>,
+  pending: Partial<Record<ServiceKey, PendingAction>>,
+): ServiceState {
+  return pending[key] ?? apiStatus[key];
+}
+
+async function readServiceApiStatus(): Promise<Record<
+  ServiceKey,
+  ApiServiceState
+> | null> {
+  const res = await authFetch("/admin/services/status");
+  if (!res.ok) return null;
+  const data = (await res.json()) as {
+    services?: Record<string, { running?: boolean }>;
+  };
+  return {
+    worker:
+      data.services?.worker?.running === true ? "running" : "stopped",
+    discovery:
+      data.services?.discovery?.running === true ? "running" : "stopped",
+  };
+}
+
+async function waitForServiceApiState(
+  key: ServiceKey,
+  expectRunning: boolean,
+  maxMs = 30_000,
+): Promise<boolean> {
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    const status = await readServiceApiStatus();
+    if (status) {
+      const running = status[key] === "running";
+      if (running === expectRunning) return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return false;
+}
 
 const SERVICE_ROWS: { key: ServiceKey; label: string }[] = [
   { key: "worker", label: "Worker Service" },
@@ -27,20 +111,40 @@ const SERVICE_ROWS: { key: ServiceKey; label: string }[] = [
 
 export function AdminPage() {
   const baseId = useId();
-  const [serviceStatus, setServiceStatus] = useState<Record<ServiceKey, ServiceState>>({
-    worker: "stopped",
-    discovery: "stopped",
-  });
-  const [ingestUrl, setIngestUrl] = useState("");
-  const [incidentsFile, setIncidentsFile] = useState<File | null>(null);
-  const [reportsFile, setReportsFile] = useState<File | null>(null);
-  const [dryRun, setDryRun] = useState(false);
+  const [apiStatus, setApiStatus] =
+    useState<Record<ServiceKey, ApiServiceState>>(DEFAULT_API_STATUS);
+  const [pendingAction, setPendingAction] = useState<
+    Partial<Record<ServiceKey, PendingAction>>
+  >({});
+  // const [incidentsFile, setIncidentsFile] = useState<File | null>(null);
+  // const [reportsFile, setReportsFile] = useState<File | null>(null);
+  // const [dryRun, setDryRun] = useState(false);
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [resetConfirm, setResetConfirm] = useState("");
 
   useEffect(() => {
-    setDocumentPageTitle("Admin");
+    setDocumentPageTitle("Controls");
   }, []);
+
+  const loadServiceStatus = useCallback(async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) return;
+
+    try {
+      const status = await readServiceApiStatus();
+      if (status) {
+        setApiStatus(status);
+      }
+    } catch {
+      // ignore polling errors
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadServiceStatus();
+    const timer = window.setInterval(() => void loadServiceStatus(), 10_000);
+    return () => window.clearInterval(timer);
+  }, [loadServiceStatus]);
 
   const fid = (name: string) => `${baseId}-${name}`;
 
@@ -50,35 +154,121 @@ export function AdminPage() {
     });
   }, []);
 
-  const handleStart = (key: ServiceKey) => {
-    setServiceStatus((s) => ({ ...s, [key]: "running" }));
-    stub(`Start ${key === "worker" ? "Worker" : "Discovery"} service`);
-  };
+  const clearPending = useCallback((key: ServiceKey) => {
+    setPendingAction((pending) => {
+      if (!pending[key]) return pending;
+      const next = { ...pending };
+      delete next[key];
+      return next;
+    });
+  }, []);
 
-  const handleStop = (key: ServiceKey) => {
-    setServiceStatus((s) => ({ ...s, [key]: "stopped" }));
-    stub(`Stop ${key === "worker" ? "Worker" : "Discovery"} service`);
-  };
+  const handleStart = async (key: ServiceKey) => {
+    const path =
+      key === "worker"
+        ? "/admin/services/worker/start"
+        : "/admin/services/discovery/start";
 
-  const handleEnqueue = () => {
-    if (!ingestUrl.trim()) {
-      toast.error("Enter a URL to enqueue.", { autoClose: 2500 });
-      return;
+    setPendingAction((pending) => ({ ...pending, [key]: "starting" }));
+
+    try {
+      const res = await authFetch(path, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        clearPending(key);
+        toast.error(
+          data.error?.message ??
+            `Could not start ${key === "worker" ? "worker" : "discovery"} service.`,
+          { autoClose: 3500 },
+        );
+        void loadServiceStatus();
+        return;
+      }
+
+      const started = await waitForServiceApiState(key, true);
+      clearPending(key);
+      void loadServiceStatus();
+
+      if (!started) {
+        toast.warning(
+          "Start requested, but the service has not reported running yet.",
+          { autoClose: 4000 },
+        );
+        return;
+      }
+
+      toast.success(data.message ?? "Service started.", {
+        autoClose: 2500,
+      });
+    } catch {
+      clearPending(key);
+      void loadServiceStatus();
+      toast.error("Network error while starting service.", { autoClose: 3000 });
     }
-    stub("Enqueue URL");
   };
 
-  const handleAiidImport = () => {
-    if (!incidentsFile && !reportsFile) {
-      toast.error("Select at least one CSV file.", { autoClose: 2500 });
-      return;
+  const handleStop = async (key: ServiceKey) => {
+    const path =
+      key === "worker"
+        ? "/admin/services/worker/stop"
+        : "/admin/services/discovery/stop";
+
+    setPendingAction((pending) => ({ ...pending, [key]: "stopping" }));
+
+    try {
+      const res = await authFetch(path, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        clearPending(key);
+        toast.error(
+          data.error?.message ??
+            `Could not stop ${key === "worker" ? "worker" : "discovery"} service.`,
+          { autoClose: 3500 },
+        );
+        void loadServiceStatus();
+        return;
+      }
+
+      const stopped = await waitForServiceApiState(key, false);
+      clearPending(key);
+      void loadServiceStatus();
+
+      if (!stopped) {
+        toast.warning(
+          "Stop requested, but the service has not reported stopped yet.",
+          { autoClose: 4000 },
+        );
+        return;
+      }
+
+      toast.success("Stopped successfully.", { autoClose: 2500 });
+    } catch {
+      clearPending(key);
+      void loadServiceStatus();
+      toast.error("Network error while stopping service.", { autoClose: 3000 });
     }
-    stub(
-      dryRun
-        ? "AIID import (dry run)"
-        : "AIID import",
-    );
   };
+
+  // const handleAiidImport = () => {
+  //   if (!incidentsFile && !reportsFile) {
+  //     toast.error("Select at least one CSV file.", { autoClose: 2500 });
+  //     return;
+  //   }
+  //   stub(
+  //     dryRun
+  //       ? "AIID import (dry run)"
+  //       : "AIID import",
+  //   );
+  // };
 
   const handleExportExcel = () => stub("Export risks to Excel");
 
@@ -100,18 +290,15 @@ export function AdminPage() {
 
   return (
     <main className="mainLayout__content adminPage">
-      <header className="adminPage__header">
-        <div>
-          <PageHeading className="adminPage__title">Admin</PageHeading>
-          <p className="adminPage__subtitle">
-            System controls, ingestion, and data management
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        title="Controls"
+        subtitle="System controls, settings, and data management"
+      />
 
-      <section className="adminPage__card" aria-labelledby={fid("services-title")}>
+      <div className="adminPage__topRow">
+        <section className="adminPage__card adminPage__topRowCell" aria-labelledby={fid("services-title")}>
         <div className="adminPage__cardHead">
-          <span className="adminPage__cardIconWrap" aria-hidden>
+          <span className="settingsPage__cardIconWrap" aria-hidden>
             <Cpu size={20} strokeWidth={2} />
           </span>
           <div className="adminPage__cardHeadText">
@@ -125,24 +312,31 @@ export function AdminPage() {
         </div>
         <ul className="adminPage__serviceList">
           {SERVICE_ROWS.map((row) => {
-            const status = serviceStatus[row.key];
-            const running = status === "running";
+            const status = displayServiceStatus(
+              row.key,
+              apiStatus,
+              pendingAction,
+            );
+            const busy = isServiceBusy(status);
+            const canStart = !busy && apiStatus[row.key] === "stopped";
+            const canStop = !busy && apiStatus[row.key] === "running";
             return (
               <li key={row.key} className="adminPage__serviceRow">
                 <span className="adminPage__serviceName">{row.label}</span>
                 <span
                   role="status"
-                  className={`adminPage__statusPill${running ? " adminPage__statusPill--running" : " adminPage__statusPill--stopped"}`}
+                  className={`adminPage__statusPill ${serviceStatusPillClass(status)}`}
+                  aria-live="polite"
                 >
                   <span className="adminPage__statusPillDot" aria-hidden />
-                  {running ? "Running" : "Stopped"}
+                  {serviceStatusLabel(status)}
                 </span>
                 <div className="adminPage__serviceActions">
                   <button
                     type="button"
                     className="usersPage__btn usersPage__btn--primary usersPage__btn--inviteSend"
-                    onClick={() => handleStart(row.key)}
-                    disabled={running}
+                    onClick={() => void handleStart(row.key)}
+                    disabled={!canStart || busy}
                   >
                     <Play size={16} strokeWidth={2} aria-hidden />
                     Start
@@ -150,8 +344,8 @@ export function AdminPage() {
                   <button
                     type="button"
                     className="usersPage__btn usersPage__btn--logoutTone"
-                    onClick={() => handleStop(row.key)}
-                    disabled={!running}
+                    onClick={() => void handleStop(row.key)}
+                    disabled={!canStop || busy}
                   >
                     <Square size={14} strokeWidth={2} aria-hidden />
                     Stop
@@ -163,43 +357,17 @@ export function AdminPage() {
         </ul>
       </section>
 
-      <div className="adminPage__split">
-        <section className="adminPage__card" aria-labelledby={fid("ingest-title")}>
-          <div className="adminPage__cardHead">
-            <span className="adminPage__cardIconWrap" aria-hidden>
-              <Link2 size={20} strokeWidth={2} />
-            </span>
-            <div className="adminPage__cardHeadText">
-              <h2 id={fid("ingest-title")} className="adminPage__cardTitle">
-                URL ingestion
-              </h2>
-              <p className="adminPage__cardHint">
-                Manually queue a URL for risk extraction.
-              </p>
-            </div>
-          </div>
-          <div className="adminPage__ingestRow">
-            <input
-              id={fid("ingest-url")}
-              type="url"
-              className="adminPage__input"
-              placeholder="https://example.com/article"
-              value={ingestUrl}
-              onChange={(e) => setIngestUrl(e.target.value)}
-              autoComplete="off"
-            />
-            <button
-              type="button"
-              className="usersPage__inviteBtn"
-              onClick={handleEnqueue}
-            >
-              <Play size={18} strokeWidth={2} aria-hidden />
-              Enqueue
-            </button>
-          </div>
-        </section>
+        <div className="settingsPage adminPage__topRowCell">
+          <SettingsApiSection />
+        </div>
+      </div>
 
-        <section className="adminPage__card" aria-labelledby={fid("aiid-title")}>
+      <div className="settingsPage adminPage__settings">
+        <SettingsSections />
+      </div>
+
+      {/* AIID import — disabled until API is connected
+      <section className="adminPage__card" aria-labelledby={fid("aiid-title")}>
           <div className="adminPage__cardHead">
             <span className="adminPage__cardIconWrap" aria-hidden>
               <Upload size={20} strokeWidth={2} />
@@ -259,12 +427,12 @@ export function AdminPage() {
               Import
             </button>
           </div>
-        </section>
-      </div>
+      </section>
+      */}
 
       <section className="adminPage__card" aria-labelledby={fid("data-title")}>
         <div className="adminPage__cardHead">
-          <span className="adminPage__cardIconWrap" aria-hidden>
+          <span className="settingsPage__cardIconWrap" aria-hidden>
             <Database size={20} strokeWidth={2} />
           </span>
           <div className="adminPage__cardHeadText">
@@ -350,6 +518,10 @@ export function AdminPage() {
           </div>
         </div>
       </section>
+
+      <div className="settingsPage adminPage__settingsAbout">
+        <SettingsAboutSection />
+      </div>
     </main>
   );
 }

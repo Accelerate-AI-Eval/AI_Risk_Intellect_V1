@@ -40,6 +40,10 @@ if (process.env.NODE_ENV !== "production") {
   }
 }
 
+if (process.env.BACKEND_PORT?.trim() && !process.env.PORT?.trim()) {
+  process.env.PORT = process.env.BACKEND_PORT;
+}
+
 const EnvSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])

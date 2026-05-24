@@ -31,6 +31,12 @@ export function setTheme(mode: ThemeChoice): void {
 
 let systemThemeListenerAttached = false;
 
+export function getResolvedThemeMode(): "light" | "dark" {
+  return document.documentElement.classList.contains("app-theme-dark")
+    ? "dark"
+    : "light";
+}
+
 export function initThemeFromStorage(): void {
   applyTheme(getStoredTheme());
   if (systemThemeListenerAttached) return;

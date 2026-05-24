@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { setDocumentPageTitle } from "../../utils/pageTitle";
-import { PageHeading } from "./PageHeading";
+import { PageHeader } from "./PageHeader";
 
 type ShellPageProps = {
   title: string;
@@ -14,10 +14,7 @@ export function ShellPage({ title }: ShellPageProps) {
 
   return (
     <main className="mainLayout__content">
-      <PageHeading className="mainLayout__pageTitle">{title}</PageHeading>
-      <p className="mainLayout__pageHint">
-        In Progress
-      </p>
+      <PageHeader title={title} subtitle="In Progress" />
     </main>
   );
 }

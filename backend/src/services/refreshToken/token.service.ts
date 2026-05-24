@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
-import { env } from "../env.js";
-import { db } from "../db/index.js";
-import { refreshTokens } from "../schema/refreshTokens.js";
+import { env } from "../../env.js";
+import { db } from "../../db/index.js";
+import { refreshTokens } from "../../schema/refreshTokens.js";
 import {
   hashToken,
   signAccessToken,
@@ -10,8 +10,8 @@ import {
   verifyAccessToken,
   verifyRefreshToken,
   type AccessTokenPayload,
-} from "../utils/jwt.js";
-import { HttpError } from "../utils/httpError.js";
+} from "../../utils/jwt.js";
+import { HttpError } from "../../utils/httpError.js";
 
 export type IssueTokensArgs = {
   user: { id: string; email: string; username: string };

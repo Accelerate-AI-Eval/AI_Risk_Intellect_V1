@@ -1,4 +1,6 @@
 .adminPage {
+  --page-header-title-color: var(--adm-text);
+  --page-header-subtitle-color: var(--adm-muted);
   --adm-surface: #0f1419;
   --adm-card: #151b24;
   --adm-border: rgba(148, 163, 184, 0.12);
@@ -25,24 +27,47 @@
   gap: 1.25rem;
 }
 
-.adminPage__header {
-  margin-bottom: 0.25rem;
+.adminPage__topRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
 }
 
-.adminPage__title {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--adm-text);
+@media (max-width: 900px) {
+  .adminPage__topRow {
+    grid-template-columns: 1fr;
+  }
 }
 
-.adminPage__subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--adm-muted);
-  max-width: 40rem;
+.adminPage__topRowCell {
+  min-width: 0;
+  height: 100%;
+}
+
+.adminPage__topRow .adminPage__card {
+  height: 100%;
+}
+
+.adminPage__topRow .settingsPage__card {
+  height: 100%;
+}
+
+.adminPage__topRow .settingsPage {
+  height: 100%;
+}
+
+.adminPage__settings.settingsPage {
+  flex: none;
+  background: transparent;
+  padding: 0;
+}
+
+.adminPage__settingsAbout.settingsPage {
+  flex: none;
+  background: transparent;
+  padding: 0;
+  max-width: 36rem;
 }
 
 .adminPage__card {
@@ -60,18 +85,6 @@
   margin-bottom: 1.1rem;
 }
 
-.adminPage__cardIconWrap {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 8px;
-  background: rgba(59, 130, 246, 0.18);
-  color: #60a5fa;
-}
-
 .adminPage__cardHeadText {
   min-width: 0;
 }
@@ -87,6 +100,28 @@
 }
 
 .adminPage__cardHint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--adm-muted);
+}
+
+/* Settings cards on Controls — same heading style as System services */
+.adminPage .settingsPage__cardHead {
+  margin-bottom: 1.1rem;
+}
+
+.adminPage .settingsPage__sectionTitle {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--adm-text);
+  line-height: 1.25;
+}
+
+.adminPage .settingsPage__sectionHint {
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.4;
@@ -167,6 +202,27 @@
 .adminPage__statusPill--running .adminPage__statusPillDot {
   background: var(--adm-status-ok);
   box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+}
+
+.adminPage__statusPill--pending {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.adminPage__statusPill--pending .adminPage__statusPillDot {
+  background: #fbbf24;
+  animation: adminPage__statusPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes adminPage__statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .adminPage__serviceActions {
@@ -459,6 +515,16 @@ html:not(.app-theme-dark) .adminPage__statusPill--running {
 html:not(.app-theme-dark) .adminPage__statusPill--running .adminPage__statusPillDot {
   background: #059669;
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.28);
+}
+
+html:not(.app-theme-dark) .adminPage__statusPill--pending {
+  color: #b45309;
+  background: rgba(254, 243, 199, 0.95);
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+html:not(.app-theme-dark) .adminPage__statusPill--pending .adminPage__statusPillDot {
+  background: #d97706;
 }
 
 html:not(.app-theme-dark) .adminPage {

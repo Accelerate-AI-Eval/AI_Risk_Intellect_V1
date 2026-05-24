@@ -1,45 +1,8 @@
 .dashboardPage {
-  --dash-bg: #0b0e14;
+  --dash-bg: #0f172a;
   --dash-card-bg: rgba(15, 23, 42, 0.55);
   --dash-border-subtle: rgba(148, 163, 184, 0.18);
   --dash-label: #94a3b8;
-}
-
-.dashboardPage__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.75rem;
-}
-
-.dashboardPage__titles {
-  min-width: 0;
-}
-
-.dashboardPage__title {
-  margin-bottom: 0.35rem;
-}
-
-.dashboardPage__subtitle {
-  margin: 0;
-  max-width: 42rem;
-}
-
-.dashboardPage .usersPage__inviteBtn:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
-
-.dashboardPage__refreshIcon--spin {
-  animation: dashboard-spin 0.75s linear infinite;
-}
-
-@keyframes dashboard-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .dashboardPage__section {
@@ -272,7 +235,7 @@ html:not(.app-theme-dark) .dashCard--zinc {
 
 /* Reassert dashboard tokens when app dark theme is on (same pattern as articles/jobs pages). */
 html.app-theme-dark .dashboardPage {
-  --dash-bg: #0b0e14;
+  --dash-bg: #0f172a;
   --dash-card-bg: rgba(15, 23, 42, 0.55);
   --dash-border-subtle: rgba(148, 163, 184, 0.18);
   --dash-label: #94a3b8;

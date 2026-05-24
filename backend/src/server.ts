@@ -33,7 +33,7 @@ app.use(
         env.NODE_ENV !== "production" &&
         localhostOriginPattern.test(origin)
       ) {
-        return cb(null, true);
+        return cb(null, origin);
       }
       return cb(null, false);
     },

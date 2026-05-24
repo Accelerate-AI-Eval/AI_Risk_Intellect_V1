@@ -36,7 +36,6 @@ function scheduleSessionExpiredSignOut(): void {
   sessionExpirySignOutPending = true;
 
   toast.warning("Session expired", {
-    position: "top-center",
     className: "app-toast-session-expired",
     autoClose: 3500,
     closeOnClick: false,

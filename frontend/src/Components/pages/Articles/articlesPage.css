@@ -1,11 +1,15 @@
 .articlesPage {
-  --art-surface: #f8f8f8;
+  --page-header-title-color: var(--art-text);
+  --page-header-subtitle-color: var(--art-muted);
+  --art-surface: #0f1419;
   --art-card: #151b24;
   --art-border: rgba(148, 163, 184, 0.12);
   --art-text: #f8fafc;
   --art-muted: #94a3b8;
   --art-input-bg: #1e293b;
   --art-input-border: rgba(148, 163, 184, 0.2);
+  --art-refresh-border: rgba(148, 163, 184, 0.25);
+  --art-refresh-hover: rgba(148, 163, 184, 0.12);
 
   flex: 1;
   box-sizing: border-box;
@@ -13,49 +17,6 @@
   background: var(--art-surface);
   color: var(--art-text);
   font-family: var(--app-font-family, "Inter", sans-serif);
-}
-
-.articlesPage__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-
-.articlesPage__headerText {
-  min-width: 0;
-}
-
-.articlesPage__title {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--art-text);
-}
-
-.articlesPage__subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--art-muted);
-}
-
-.articlesPage .usersPage__inviteBtn:disabled {
-  opacity: 0.65;
-  cursor: wait;
-}
-
-.articlesPage__refreshIcon--spin {
-  animation: articlesPageSpin 0.85s linear infinite;
-}
-
-@keyframes articlesPageSpin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .articlesPage__metrics {
@@ -212,6 +173,74 @@
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
+.articlesPage__clearBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--art-refresh-border);
+  background: transparent;
+  color: var(--art-muted);
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.articlesPage__clearBtn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  z-index: 4;
+  padding: 0.3rem 0.55rem;
+  border-radius: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%) translateY(4px);
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease,
+    transform 0.15s ease;
+  background: #1e293b;
+  color: #f8fafc;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.28);
+}
+
+.articlesPage__clearBtn:hover::after,
+.articlesPage__clearBtn:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.articlesPage__clearBtn:hover {
+  color: var(--art-text);
+  background: var(--art-refresh-hover);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.articlesPage__clearBtn:focus-visible {
+  outline: 2px solid var(--main-auth-button-color, #1cb0d4);
+  outline-offset: 2px;
+}
+
+html:not(.app-theme-dark) .articlesPage__clearBtn[data-tooltip]::after {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
 .articlesPage__searchWrap {
   flex: 0 1 420px;
   width: 100%;
@@ -303,6 +332,10 @@
   font-size: 14px;
 }
 
+.articlesPage__pager.dtPagination {
+  border-top-color: var(--art-border);
+}
+
 .articlesPage__table tbody tr:last-child .articlesPage__td {
   border-bottom: none;
 }
@@ -341,14 +374,17 @@
   text-decoration: underline;
 }
 
+/* Light theme: same shell background as jobs, admin, settings */
 html:not(.app-theme-dark) .articlesPage {
-  --art-surface: #f1f5f9;
+  --art-surface: #f8f8f8;
   --art-card: #fff;
   --art-border: rgba(15, 23, 42, 0.08);
   --art-text: #0f172a;
   --art-muted: #64748b;
   --art-input-bg: #fff;
   --art-input-border: #cbd5e1;
+  --art-refresh-border: #cbd5e1;
+  --art-refresh-hover: rgba(15, 23, 42, 0.04);
 }
 
 html:not(.app-theme-dark) .articlesPage__field select {
@@ -375,4 +411,8 @@ html:not(.app-theme-dark) .articlesPage__metric--avg {
 html.app-theme-dark .articlesPage {
   --art-surface: #0f172a;
   --art-card: #1e293b;
+}
+
+html.app-theme-dark .mainLayout__content.articlesPage {
+  background-color: var(--art-surface);
 }

@@ -145,18 +145,64 @@
   opacity: 0.85;
 }
 
-/* Session expired (authFetch): small label, top center of viewport */
+/* All toasts: top center — same footprint as default react-toastify (320px wide) */
 .Toastify__toast-container--top-center {
   top: 0.75rem !important;
   left: 50% !important;
   right: auto !important;
   transform: translateX(-50%) !important;
-  width: max-content;
-  max-width: min(320px, 94vw);
+  width: var(--toastify-toast-width, 320px);
+  max-width: min(420px, 94vw);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .Toastify__toast-container--top-center .Toastify__toast {
+  margin-bottom: 0.5rem;
+  width: 100%;
+  min-width: var(--toastify-toast-width, 320px);
+  min-height: var(--toastify-toast-min-height, 64px);
+  padding: var(--toastify-toast-padding, 14px);
+}
+
+.Toastify__toast-container--top-center .Toastify__toast:last-child {
   margin-bottom: 0;
+}
+
+/* Info toasts: same chrome as success/error */
+.Toastify__toast-theme--light.Toastify__toast--info {
+  background: var(--bg, #fff);
+  color: var(--main-auth-button-color, #1cb0d4);
+  border: 1px solid rgba(28, 176, 212, 0.18);
+  box-shadow: var(
+    --shadow,
+    rgba(0, 0, 0, 0.08) 0 4px 12px,
+    rgba(0, 0, 0, 0.04) 0 2px 4px
+  );
+}
+
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__toast-body {
+  color: var(--main-auth-button-color, #1cb0d4);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__toast-icon {
+  justify-content: center;
+  align-items: center;
+  color: var(--main-auth-button-color, #1cb0d4);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__toast-icon svg {
+  fill: var(--main-auth-button-color, #1cb0d4);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__progress-bar--bg {
+  background: rgba(28, 176, 212, 0.18);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__progress-bar {
+  background: rgba(28, 176, 212, 0.42);
+  opacity: 0.85;
 }
 
 /* Session expired: same chrome as success/error (icon + progress timer), warning palette */

@@ -1,6 +1,6 @@
 import mainLogo from "../../assets/images/mainlogo.svg";
-import { NavLink, Outlet } from "react-router-dom";
-import { SIDEBAR_NAV } from "./sidebarNav";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { isSidebarNavItemActive, SIDEBAR_NAV } from "./sidebarNav";
 import { TopBar } from "./TopBar";
 import "./mainLayout.css";
 
@@ -12,6 +12,8 @@ const NAV_ICON_PROPS = {
 };
 
 export function MainLayout() {
+  const { pathname } = useLocation();
+
   return (
     <div className="mainLayout">
       <aside className="mainLayout__sidebar" aria-label="Main navigation">
@@ -36,8 +38,12 @@ export function MainLayout() {
                 key={item.to}
                 to={item.to}
                 end
-                className={({ isActive }) =>
-                  `mainLayout__navLink${isActive ? " mainLayout__navLink--active" : ""}`
+                className={() =>
+                  `mainLayout__navLink${
+                    isSidebarNavItemActive(pathname, item.to)
+                      ? " mainLayout__navLink--active"
+                      : ""
+                  }`
                 }
               >
                 <Icon {...NAV_ICON_PROPS} />

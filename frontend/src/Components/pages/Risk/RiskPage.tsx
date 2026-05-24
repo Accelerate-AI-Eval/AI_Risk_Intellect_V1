@@ -1,20 +1,31 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
+  ChartLine,
   Download,
   Eye,
+  FilterX,
   RefreshCw,
-  RotateCcw,
   Search,
   Shield,
 } from "lucide-react";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePagination } from "../../../utils/usePagination";
-import { PageHeading } from "../../Layout/PageHeading";
+import { PageHeader } from "../../Layout/PageHeader";
 import { DataTablePagination } from "../../common/DataTablePagination";
 import "../Users/usersPage.css";
+import { authFetch } from "../../../utils/authFetch";
+import { formatDisplayDate } from "../../../utils/formatDate";
+import {
+  formatRiskDomain,
+  formatRiskId,
+  normalizeRisksFromApi,
+  type RiskDetail,
+  type RiskListMetrics,
+} from "./riskData";
 import "./riskPage.css";
 
 type RiskMetric = {
@@ -25,67 +36,40 @@ type RiskMetric = {
   variant: "total" | "technical" | "operational" | "business";
 };
 
-const RISK_METRICS: RiskMetric[] = [
-  {
-    key: "total",
-    label: "TOTAL RISKS",
-    value: "0",
-    Icon: Shield,
-    variant: "total",
-  },
-  {
-    key: "technical",
-    label: "TECHNICAL RISKS",
-    value: "0",
-    Icon: AlertTriangle,
-    variant: "technical",
-  },
-  {
-    key: "operational",
-    label: "OPERATIONAL RISKS",
-    value: "0",
-    Icon: AlertTriangle,
-    variant: "operational",
-  },
-  {
-    key: "business",
-    label: "BUSINESS RISKS",
-    value: "0",
-    Icon: Eye,
-    variant: "business",
-  },
-];
+function buildRiskMetrics(m: RiskListMetrics): RiskMetric[] {
+  return [
+    {
+      key: "total",
+      label: "TOTAL RISKS",
+      value: String(m.total),
+      Icon: Shield,
+      variant: "total",
+    },
+    {
+      key: "technical",
+      label: "TECHNICAL RISKS",
+      value: String(m.technical),
+      Icon: AlertTriangle,
+      variant: "technical",
+    },
+    {
+      key: "operational",
+      label: "OPERATIONAL RISKS",
+      value: String(m.operational),
+      Icon: AlertTriangle,
+      variant: "operational",
+    },
+    {
+      key: "business",
+      label: "BUSINESS RISKS",
+      value: String(m.business),
+      Icon: Eye,
+      variant: "business",
+    },
+  ];
+}
 
-type RiskRow = {
-  id: string;
-  title: string;
-  domain: string;
-  primaryRisk: string;
-  secondaryRisk: string;
-  sector: string;
-  industry: string;
-  intent: string;
-  qualityScore: string;
-  /** For filter demo */
-  primaryKey: string;
-  tagKey: string;
-};
-
-const MOCK_RISK_ROWS: RiskRow[] = [
-  {
-    id: "R-10042",
-    title: "Bias in recruitment screening model",
-    domain: "Discrimination & Toxicity",
-    primaryRisk: "Technical",
-    secondaryRisk: "Fairness",
-    sector: "Private",
-    industry: "HR Technology",
-    intent: "Commercial",
-    qualityScore: "0.87",
-    primaryKey: "technical",
-    tagKey: "bias",
-  },
-];
+type RiskRow = RiskDetail;
 
 function riskMatchesFilters(
   row: RiskRow,
@@ -103,6 +87,7 @@ function riskMatchesFilters(
   if (!q) return true;
   const hay = [
     row.id,
+    row.displayId ?? "",
     row.title,
     row.domain,
     row.primaryRisk,
@@ -118,6 +103,7 @@ function riskMatchesFilters(
 }
 
 export function RiskPage() {
+  const navigate = useNavigate();
   const baseId = useId();
   const [primaryRisk, setPrimaryRisk] = useState("all");
   const [tag, setTag] = useState("all");
@@ -125,19 +111,72 @@ export function RiskPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [riskPageSize, setRiskPageSize] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
+  const [rows, setRows] = useState<RiskRow[]>([]);
+  const [metrics, setMetrics] = useState<RiskListMetrics>({
+    total: 0,
+    technical: 0,
+    operational: 0,
+    business: 0,
+  });
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
+
+  const loadRisks = useCallback(async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) {
+      setRows([]);
+      setLoadState("idle");
+      return;
+    }
+
+    setLoadState("loading");
+    try {
+      const res = await authFetch("/risks");
+      if (!res.ok) {
+        setLoadState("error");
+        return;
+      }
+      const data = normalizeRisksFromApi(await res.json());
+      setRows(
+        data.risks.map((r) => {
+          const createdAt = r.createdAt ?? r.ingestedAt;
+          return {
+            ...r,
+            createdAt,
+            ingestedAt: createdAt ? formatDisplayDate(createdAt) : "—",
+          };
+        }),
+      );
+      setMetrics(data.metrics);
+      setLoadState("idle");
+    } catch {
+      setLoadState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRisks();
+  }, [loadRisks]);
+
+  const displayMetrics = useMemo(() => buildRiskMetrics(metrics), [metrics]);
 
   const filteredRows = useMemo(
     () =>
-      MOCK_RISK_ROWS.filter((row) =>
+      rows.filter((row) =>
         riskMatchesFilters(row, primaryRisk, tag, searchQuery),
       ),
-    [primaryRisk, tag, searchQuery],
+    [rows, primaryRisk, tag, searchQuery],
   );
 
   const sortedRows = useMemo(() => {
     const copy = [...filteredRows];
+    const createdAtMs = (row: RiskRow) => {
+      const t = new Date(row.createdAt ?? row.ingestedAt).getTime();
+      return Number.isNaN(t) ? 0 : t;
+    };
     if (order === "oldest") {
-      copy.sort((a, b) => a.id.localeCompare(b.id));
+      copy.sort((a, b) => createdAtMs(a) - createdAtMs(b));
     } else if (order === "score") {
       copy.sort(
         (a, b) =>
@@ -145,7 +184,7 @@ export function RiskPage() {
           Number.parseFloat(a.qualityScore),
       );
     } else {
-      copy.sort((a, b) => b.id.localeCompare(a.id));
+      copy.sort((a, b) => createdAtMs(b) - createdAtMs(a));
     }
     return copy;
   }, [filteredRows, order]);
@@ -162,13 +201,12 @@ export function RiskPage() {
 
   const filterId = (name: string) => `${baseId}-${name}`;
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    window.setTimeout(() => {
-      setRefreshing(false);
-      toast.success("Risk list refreshed.", { autoClose: 2000 });
-    }, 650);
-  }, []);
+    await loadRisks();
+    setRefreshing(false);
+    toast.success("Risk list refreshed.", { autoClose: 2000 });
+  }, [loadRisks]);
 
   const handleExport = useCallback(() => {
     toast.info("Export is not connected to the API yet.", {
@@ -185,42 +223,40 @@ export function RiskPage() {
 
   return (
     <main className="mainLayout__content riskPage">
-      <header className="riskPage__header">
-        <div className="riskPage__headerText">
-          <PageHeading className="riskPage__title">Risks</PageHeading>
-          <p className="riskPage__subtitle">
-            AI risk extractions and analysis
-          </p>
-        </div>
-        <div className="riskPage__headerActions">
-          <button
-            type="button"
-            className="usersPage__inviteBtn"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            aria-busy={refreshing}
-          >
-            <RefreshCw
-              size={18}
-              strokeWidth={2}
-              className={refreshing ? "riskPage__btnIcon--spin" : undefined}
-              aria-hidden
-            />
-            Refresh
-          </button>
-          <button
-            type="button"
-            className="usersPage__inviteBtn"
-            onClick={handleExport}
-          >
-            <Download size={18} strokeWidth={2} aria-hidden />
-            Export
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Risks"
+        subtitle="AI risk extractions and analysis"
+        actions={
+          <>
+            <button
+              type="button"
+              className="usersPage__inviteBtn"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              aria-busy={refreshing}
+            >
+              <RefreshCw
+                size={18}
+                strokeWidth={2}
+                className={refreshing ? "pageHeader__refreshIcon--spin" : undefined}
+                aria-hidden
+              />
+              Refresh
+            </button>
+            <button
+              type="button"
+              className="usersPage__inviteBtn"
+              onClick={handleExport}
+            >
+              <Download size={18} strokeWidth={2} aria-hidden />
+              Export
+            </button>
+          </>
+        }
+      />
 
       <div className="riskPage__grid">
-        {RISK_METRICS.map((m) => (
+        {displayMetrics.map((m) => (
           <article
             key={m.key}
             className={`riskPage__card riskPage__card--${m.variant}`}
@@ -276,9 +312,14 @@ export function RiskPage() {
             <option value="score">Highest score</option>
           </select>
         </div>
-        <button type="button" className="riskPage__clearBtn" onClick={clearFilters}>
-          <RotateCcw size={16} strokeWidth={2} aria-hidden />
-          Clear Filters
+        <button
+          type="button"
+          className="riskPage__clearBtn"
+          onClick={clearFilters}
+          aria-label="Clear Filter"
+          data-tooltip="Clear Filter"
+        >
+          <FilterX size={18} strokeWidth={2} aria-hidden />
         </button>
         <div className="riskPage__searchWrap">
           <Search
@@ -307,10 +348,16 @@ export function RiskPage() {
             <table className="riskPage__table">
               <thead>
                 <tr>
-                  <th scope="col" className="riskPage__th riskPage__th--left">
+                  <th
+                    scope="col"
+                    className="riskPage__th riskPage__th--left riskPage__th--sticky riskPage__th--stickyId"
+                  >
                     RISK ID
                   </th>
-                  <th scope="col" className="riskPage__th riskPage__th--left">
+                  <th
+                    scope="col"
+                    className="riskPage__th riskPage__th--left riskPage__th--sticky riskPage__th--stickyTitle"
+                  >
                     TITLE
                   </th>
                   <th scope="col" className="riskPage__th riskPage__th--left">
@@ -334,23 +381,40 @@ export function RiskPage() {
                   <th scope="col" className="riskPage__th riskPage__th--right">
                     QUALITY SCORE
                   </th>
+                  <th scope="col" className="riskPage__th riskPage__th--center">
+                    ACTIONS
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {pager.pageItems.length === 0 ? (
+                {loadState === "loading" ? (
                   <tr>
-                    <td className="riskPage__td riskPage__emptyCell" colSpan={9}>
-                      No risks match your filters or search.
+                    <td className="riskPage__td riskPage__emptyCell" colSpan={10}>
+                      Loading risks…
+                    </td>
+                  </tr>
+                ) : pager.pageItems.length === 0 ? (
+                  <tr>
+                    <td className="riskPage__td riskPage__emptyCell" colSpan={10}>
+                      {searchQuery.trim()
+                        ? "No risks match your filters or search."
+                        : loadState === "error"
+                          ? "Could not load risks."
+                          : "No risks yet. Enqueue a URL and wait for a DONE job."}
                     </td>
                   </tr>
                 ) : (
                   pager.pageItems.map((row) => (
                     <tr key={row.id}>
-                      <td className="riskPage__td">
-                        <span className="riskPage__id">{row.id}</span>
+                      <td className="riskPage__td riskPage__td--sticky riskPage__td--stickyId">
+                        <span className="riskPage__rowKey">{formatRiskId(row)}</span>
                       </td>
-                      <td className="riskPage__td riskPage__td--title">{row.title}</td>
-                      <td className="riskPage__td riskPage__td--muted">{row.domain}</td>
+                      <td className="riskPage__td riskPage__td--title riskPage__td--sticky riskPage__td--stickyTitle">
+                        {row.title}
+                      </td>
+                      <td className="riskPage__td riskPage__td--muted riskPage__td--domain">
+                        <span className="riskPage__domain">{formatRiskDomain(row.domain)}</span>
+                      </td>
                       <td className="riskPage__td">{row.primaryRisk}</td>
                       <td className="riskPage__td riskPage__td--muted">
                         {row.secondaryRisk}
@@ -360,6 +424,23 @@ export function RiskPage() {
                       <td className="riskPage__td riskPage__td--muted">{row.intent}</td>
                       <td className="riskPage__td riskPage__td--right riskPage__td--score">
                         {row.qualityScore}
+                      </td>
+                      <td className="riskPage__td riskPage__td--center riskPage__td--actions">
+                        <div className="riskPage__actions">
+                          <button
+                            type="button"
+                            className="riskPage__actionBtn riskPage__actionBtn--analysis"
+                            aria-label={`View analysis for ${formatRiskId(row)}`}
+                            data-tooltip="Analysis"
+                            onClick={() =>
+                              navigate(
+                                `/risk/${encodeURIComponent(row.id)}?tab=overview`,
+                              )
+                            }
+                          >
+                            <ChartLine size={16} strokeWidth={2} aria-hidden />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -380,6 +461,7 @@ export function RiskPage() {
           />
         </div>
       </section>
+
     </main>
   );
 }

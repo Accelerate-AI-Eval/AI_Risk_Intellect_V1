@@ -1,0 +1,111 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { authFetch } from "../../../utils/authFetch";
+import { formatDisplayDate } from "../../../utils/formatDate";
+import { setDocumentPageTitle } from "../../../utils/pageTitle";
+import {
+  formatRiskId,
+  getRiskById,
+  normalizeRiskDetailFromApi,
+  type RiskDetail,
+} from "./riskData";
+import { parseRiskDetailTab, RiskDetailView } from "./RiskDetailView";
+import "./riskDetailPage.css";
+
+export function RiskDetailPage() {
+  const { riskId } = useParams();
+  const [searchParams] = useSearchParams();
+  const [risk, setRisk] = useState<RiskDetail | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "idle" | "error">(
+    "loading",
+  );
+
+  const initialTab = useMemo(
+    () => parseRiskDetailTab(searchParams.get("tab")) ?? "overview",
+    [searchParams],
+  );
+
+  const loadRisk = useCallback(async () => {
+    const id = riskId?.trim();
+    if (!id) {
+      setRisk(null);
+      setLoadState("idle");
+      return;
+    }
+
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) {
+      setRisk(getRiskById(id) ?? null);
+      setLoadState("idle");
+      return;
+    }
+
+    setLoadState("loading");
+    try {
+      const res = await authFetch(`/risks/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        setRisk(null);
+        setLoadState("error");
+        return;
+      }
+      const parsed = normalizeRiskDetailFromApi(await res.json());
+      if (parsed?.ingestedAt) {
+        parsed.ingestedAt = formatDisplayDate(parsed.ingestedAt);
+      }
+      setRisk(parsed);
+      setLoadState(parsed ? "idle" : "error");
+    } catch {
+      setRisk(null);
+      setLoadState("error");
+    }
+  }, [riskId]);
+
+  useEffect(() => {
+    void loadRisk();
+  }, [loadRisk]);
+
+  useEffect(() => {
+    if (risk) {
+      setDocumentPageTitle(`${formatRiskId(risk)} | Risks`);
+    } else if (loadState === "loading") {
+      setDocumentPageTitle("Loading risk…");
+    } else {
+      setDocumentPageTitle("Risk not found");
+    }
+  }, [risk, loadState]);
+
+  if (loadState === "loading") {
+    return (
+      <main className="mainLayout__content riskDetailPage">
+        <Link to="/risk" className="riskDetailPage__back">
+          <ArrowLeft size={18} strokeWidth={2} aria-hidden />
+          Back to Risks
+        </Link>
+        <p className="riskDetailPage__notFound">Loading risk…</p>
+      </main>
+    );
+  }
+
+  if (!risk) {
+    return (
+      <main className="mainLayout__content riskDetailPage">
+        <Link to="/risk" className="riskDetailPage__back">
+          <ArrowLeft size={18} strokeWidth={2} aria-hidden />
+          Back to Risks
+        </Link>
+        <p className="riskDetailPage__notFound">Risk not found.</p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="mainLayout__content riskDetailPage">
+      <Link to="/risk" className="riskDetailPage__back">
+        <ArrowLeft size={18} strokeWidth={2} aria-hidden />
+        Back to Risks
+      </Link>
+      <RiskDetailView risk={risk} initialTab={initialTab} />
+    </main>
+  );
+}

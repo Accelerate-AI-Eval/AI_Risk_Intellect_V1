@@ -9,18 +9,18 @@ import {
   getUserById,
   registerUser,
   updateMyProfile,
-} from "../../services/auth.service.js";
+} from "../../services/auth/auth.service.js";
 import {
   completePasswordReset,
   requestPasswordReset,
-} from "../../services/passwordReset.service.js";
+} from "../../services/resetPassword/passwordReset.service.js";
 import {
   issueTokenPair,
   revokeRefreshToken,
   revokeSessionByAccessToken,
   revokeAllForUser,
   rotateRefreshToken,
-} from "../../services/token.service.js";
+} from "../../services/refreshToken/token.service.js";
 import type {
   ChangeMyPasswordInput,
   ForgotPasswordInput,

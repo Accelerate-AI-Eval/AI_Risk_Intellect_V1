@@ -1,0 +1,8 @@
+{
+  "name": "ai-risk-python-ingest",
+  "private": true,
+  "scripts": {
+    "dev": "python -m app",
+    "start": "python -m app"
+  }
+}

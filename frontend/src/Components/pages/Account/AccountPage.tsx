@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   MessageSquareText,
 } from "lucide-react";
-import { PageHeading } from "../../Layout/PageHeading";
+import { PageHeader } from "../../Layout/PageHeader";
 import { authFetch } from "../../../utils/authFetch";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { notifySessionProfileChanged } from "../../../utils/sessionProfileEvents";
@@ -223,12 +223,11 @@ export function AccountPage() {
 
   return (
     <main className="mainLayout__content accountPage">
-      <PageHeading className="mainLayout__pageTitle" pageIcon={UserCircle}>
-        My account
-      </PageHeading>
-      <p className="mainLayout__pageHint">
-        View your profile and manage sign-in security.
-      </p>
+      <PageHeader
+        title="My account"
+        subtitle="View your profile and manage sign-in security."
+        pageIcon={UserCircle}
+      />
 
       <div
         className="accountPage__tabs"

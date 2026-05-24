@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { Check, ChevronDown, Pencil, RotateCw, Search, X } from "lucide-react";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
-import { PageHeading } from "../../Layout/PageHeading";
+import { PageHeader } from "../../Layout/PageHeader";
 import "../Users/usersPage.css";
 import "./reviewPage.css";
 
@@ -146,36 +146,34 @@ export function ReviewPage() {
 
   return (
     <main className="mainLayout__content reviewPage usersPage">
-      <header className="reviewPage__header">
-        <div className="reviewPage__headerText">
-          <PageHeading className="reviewPage__title">Human Review</PageHeading>
-          <p className="reviewPage__subtitle" id={fid("subtitle")}>
-            Verify LLM extractions, curate feedback samples, and manage prompt versions.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="usersPage__inviteBtn"
-          onClick={handleHeaderRefresh}
-          disabled={headerRefreshing}
-          aria-busy={headerRefreshing}
-          aria-label={
-            tab === "queue"
-              ? "Refresh review queue"
-              : tab === "feedback"
-                ? "Refresh feedback samples"
-                : "Refresh prompt versions"
-          }
-        >
-          <RotateCw
-            size={18}
-            strokeWidth={2}
-            className={headerRefreshing ? "reviewPage__refreshIcon--spin" : undefined}
-            aria-hidden
-          />
-          Refresh
-        </button>
-      </header>
+      <PageHeader
+        title="Human Review"
+        subtitle="Verify LLM extractions, curate feedback samples, and manage prompt versions."
+        actions={
+          <button
+            type="button"
+            className="usersPage__inviteBtn"
+            onClick={handleHeaderRefresh}
+            disabled={headerRefreshing}
+            aria-busy={headerRefreshing}
+            aria-label={
+              tab === "queue"
+                ? "Refresh review queue"
+                : tab === "feedback"
+                  ? "Refresh feedback samples"
+                  : "Refresh prompt versions"
+            }
+          >
+            <RotateCw
+              size={18}
+              strokeWidth={2}
+              className={headerRefreshing ? "pageHeader__refreshIcon--spin" : undefined}
+              aria-hidden
+            />
+            Refresh
+          </button>
+        }
+      />
 
       <div className="usersPage__toolbar">
         <div className="usersPage__tabs" role="tablist" aria-label="Human review sections">

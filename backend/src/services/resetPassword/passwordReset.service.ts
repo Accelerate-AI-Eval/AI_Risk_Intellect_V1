@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
-import { db } from "../db/index.js";
-import { passwordResetTokens } from "../schema/passwordResetTokens.js";
-import { users, type User } from "../schema/users/users.js";
-import { hashToken } from "../utils/jwt.js";
-import { hashPassword } from "../utils/password.js";
-import { HttpError } from "../utils/httpError.js";
-import type { SafeUser } from "./auth.service.js";
-import { revokeAllForUser } from "./token.service.js";
+import { db } from "../../db/index.js";
+import { passwordResetTokens } from "../../schema/passwordResetTokens.js";
+import { users, type User } from "../../schema/users/users.js";
+import { hashToken } from "../../utils/jwt.js";
+import { hashPassword } from "../../utils/password.js";
+import { HttpError } from "../../utils/httpError.js";
+import type { SafeUser } from "../auth/auth.service.js";
+import { revokeAllForUser } from "../refreshToken/token.service.js";
 import { sendPasswordResetEmail } from "./passwordResetEmail.service.js";
 
 function toSafeUser(user: User): SafeUser {

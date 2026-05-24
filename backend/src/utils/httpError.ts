@@ -31,6 +31,9 @@ export class HttpError extends Error {
   static conflict(message = "Conflict", details?: unknown) {
     return new HttpError(409, message, "CONFLICT", details);
   }
+  static unprocessable(message = "Unprocessable entity", details?: unknown) {
+    return new HttpError(422, message, "UNPROCESSABLE", details);
+  }
   static internal(message = "Internal server error") {
     return new HttpError(500, message, "INTERNAL");
   }

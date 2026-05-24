@@ -1,4 +1,6 @@
 .settingsPage {
+  --page-header-title-color: var(--set-text);
+  --page-header-subtitle-color: var(--set-muted);
   --set-surface: #0f1419;
   --set-card: #151b24;
   --set-border: rgba(148, 163, 184, 0.12);
@@ -16,26 +18,6 @@
   background: var(--set-surface);
   color: var(--set-text);
   font-family: var(--app-font-family, "Inter", sans-serif);
-}
-
-.settingsPage__header {
-  margin-bottom: 1.5rem;
-}
-
-.settingsPage__title {
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--set-text);
-}
-
-.settingsPage__subtitle {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--set-muted);
-  max-width: 40rem;
 }
 
 .settingsPage__sections {

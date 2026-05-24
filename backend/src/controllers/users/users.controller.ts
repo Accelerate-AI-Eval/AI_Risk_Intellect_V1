@@ -3,8 +3,8 @@ import {
   listUsers,
   upsertInvitedUser,
   updateUserProfileRecord,
-} from "../../services/auth.service.js";
-import { sendUserInviteEmail } from "../../services/inviteEmail.service.js";
+} from "../../services/auth/auth.service.js";
+import { sendUserInviteEmail } from "../../services/auth/inviteEmail.service.js";
 import { signInviteSetPasswordToken } from "../../utils/jwt.js";
 import type { InviteUserInput, UpdateUserInput } from "../../validators/users.validators.js";
 

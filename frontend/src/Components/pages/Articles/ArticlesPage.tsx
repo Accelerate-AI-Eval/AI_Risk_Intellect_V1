@@ -1,113 +1,208 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "react-toastify";
-import { ExternalLink, FileText, RefreshCw, Search, Shield } from "lucide-react";
-import { PageHeading } from "../../Layout/PageHeading";
+import {
+  ExternalLink,
+  FileText,
+  FilterX,
+  RefreshCw,
+  Search,
+  Shield,
+} from "lucide-react";
+import { authFetch } from "../../../utils/authFetch";
+import { formatDisplayDate } from "../../../utils/formatDate";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
+import { usePagination } from "../../../utils/usePagination";
+import { PageHeader } from "../../Layout/PageHeader";
+import { DataTablePagination } from "../../common/DataTablePagination";
 import "../Users/usersPage.css";
 import "./articlesPage.css";
 
 type ArticleRow = {
-  id: string;
+  id: number;
   title: string;
   url: string;
   risks: number;
   created: string;
+  createdAt: string;
 };
 
-/** Demo rows until articles API exists. */
-const MOCK_ARTICLES: ArticleRow[] = [
-  {
-    id: "1001",
-    title: "Market brief: AI risk signals and sector watch",
-    url: "https://feeds.example.com/articles/1",
-    risks: 0,
-    created: "May 12, 2025",
-  },
-  {
-    id: "1002",
-    title: "Regulatory roundup: model documentation expectations",
-    url: "https://feeds.example.com/articles/2",
-    risks: 0,
-    created: "May 10, 2025",
-  },
-];
+type ArticleMetrics = {
+  total: number;
+  risksExtracted: number;
+  avgRisksPerArticle: number;
+};
 
-const HARDCODED_TOTAL = 126;
-const HARDCODED_RISKS_EXTRACTED = 0;
-const HARDCODED_AVG_RISKS = "0.0";
+function normalizeArticlesFromApi(raw: unknown): {
+  articles: ArticleRow[];
+  metrics: ArticleMetrics;
+} {
+  const data = raw as {
+    articles?: Array<{
+      id?: number;
+      title?: string | null;
+      url?: string;
+      riskCount?: number;
+      createdAt?: string;
+    }>;
+    metrics?: Partial<ArticleMetrics>;
+  };
+
+  const articles: ArticleRow[] = (data.articles ?? []).map((a) => ({
+    id: a.id ?? 0,
+    title: a.title?.trim() || "Untitled",
+    url: a.url ?? "",
+    risks: a.riskCount ?? 0,
+    created: a.createdAt ? formatDisplayDate(a.createdAt) : "—",
+    createdAt: a.createdAt ?? "",
+  }));
+
+  return {
+    articles,
+    metrics: {
+      total: data.metrics?.total ?? articles.length,
+      risksExtracted: data.metrics?.risksExtracted ?? 0,
+      avgRisksPerArticle: data.metrics?.avgRisksPerArticle ?? 0,
+    },
+  };
+}
 
 export function ArticlesPage() {
   const baseId = useId();
   const [search, setSearch] = useState("");
   const [order, setOrder] = useState<"newest" | "oldest">("newest");
   const [refreshing, setRefreshing] = useState(false);
+  const [rows, setRows] = useState<ArticleRow[]>([]);
+  const [metrics, setMetrics] = useState<ArticleMetrics>({
+    total: 0,
+    risksExtracted: 0,
+    avgRisksPerArticle: 0,
+  });
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
+    "idle",
+  );
+  const [articlePageSize, setArticlePageSize] = useState(10);
+
+  const clearFilters = useCallback(() => {
+    setSearch("");
+    setOrder("newest");
+  }, []);
+
+  const loadArticles = useCallback(async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) {
+      setRows([]);
+      setLoadState("idle");
+      return;
+    }
+
+    setLoadState("loading");
+    try {
+      const res = await authFetch("/articles");
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: { message?: string };
+      };
+      if (res.status === 401) {
+        setLoadState("idle");
+        return;
+      }
+      if (!res.ok) {
+        setLoadState("error");
+        toast.error(
+          data.error?.message ?? "Could not load articles.",
+          { autoClose: 3000 },
+        );
+        return;
+      }
+      const parsed = normalizeArticlesFromApi(data);
+      setRows(parsed.articles);
+      setMetrics(parsed.metrics);
+      setLoadState("idle");
+    } catch {
+      setLoadState("error");
+      toast.error("Network error while loading articles.", { autoClose: 3000 });
+    }
+  }, []);
 
   useEffect(() => {
     setDocumentPageTitle("Articles");
-  }, []);
+    void loadArticles();
+  }, [loadArticles]);
 
   const visibleRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let rows = MOCK_ARTICLES;
+    let filtered = rows;
     if (q) {
-      rows = MOCK_ARTICLES.filter((a) => {
-        const hay = [a.id, a.title, a.url, String(a.risks), a.created]
+      filtered = rows.filter((a) => {
+        const hay = [
+          String(a.id),
+          a.title,
+          a.url,
+          String(a.risks),
+          a.created,
+        ]
           .join(" ")
           .toLowerCase();
         return hay.includes(q);
       });
     }
-    const copy = [...rows];
-    copy.sort((a, b) =>
-      order === "newest"
-        ? Number(b.id) - Number(a.id)
-        : Number(a.id) - Number(b.id),
-    );
+    const copy = [...filtered];
+    copy.sort((a, b) => {
+      const aTime = new Date(a.createdAt).getTime();
+      const bTime = new Date(b.createdAt).getTime();
+      return order === "newest" ? bTime - aTime : aTime - bTime;
+    });
     return copy;
-  }, [search, order]);
+  }, [rows, search, order]);
 
-  const handleRefresh = useCallback(() => {
+  const articlePager = usePagination({
+    items: visibleRows,
+    pageSize: articlePageSize,
+    resetKey: `${search}|${order}`,
+  });
+
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    window.setTimeout(() => {
-      setRefreshing(false);
-      toast.success("Articles list refreshed.", { autoClose: 2000 });
-    }, 650);
-  }, []);
+    await loadArticles();
+    setRefreshing(false);
+    toast.success("Articles list refreshed.", { autoClose: 2000 });
+  }, [loadArticles]);
 
   const fieldId = (name: string) => `${baseId}-${name}`;
 
   return (
     <main className="mainLayout__content articlesPage">
-      <header className="articlesPage__header">
-        <div className="articlesPage__headerText">
-          <PageHeading className="articlesPage__title">Articles</PageHeading>
-          <p className="articlesPage__subtitle">
-            Source articles and documents.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="usersPage__inviteBtn"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          aria-busy={refreshing}
-        >
-          <RefreshCw
-            size={18}
-            strokeWidth={2}
-            className={refreshing ? "articlesPage__refreshIcon--spin" : undefined}
-            aria-hidden
-          />
-          Refresh
-        </button>
-      </header>
+      <PageHeader
+        title="Articles"
+        subtitle="Source articles and documents."
+        actions={
+          <button
+            type="button"
+            className="usersPage__inviteBtn"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || loadState === "loading"}
+            aria-busy={refreshing || loadState === "loading"}
+          >
+            <RefreshCw
+              size={18}
+              strokeWidth={2}
+              className={
+                refreshing || loadState === "loading"
+                  ? "pageHeader__refreshIcon--spin"
+                  : undefined
+              }
+              aria-hidden
+            />
+            Refresh
+          </button>
+        }
+      />
 
       <div className="articlesPage__metrics">
         <article className="articlesPage__metric articlesPage__metric--total">
           <div className="articlesPage__metricInner">
             <div className="articlesPage__metricCopy">
               <p className="articlesPage__metricLabel">Total articles</p>
-              <p className="articlesPage__metricValue">{HARDCODED_TOTAL}</p>
+              <p className="articlesPage__metricValue">{metrics.total}</p>
             </div>
             <div className="articlesPage__metricIcon articlesPage__metricIcon--blue">
               <FileText size={22} strokeWidth={2} aria-hidden />
@@ -118,7 +213,7 @@ export function ArticlesPage() {
           <div className="articlesPage__metricInner">
             <div className="articlesPage__metricCopy">
               <p className="articlesPage__metricLabel">Risks extracted</p>
-              <p className="articlesPage__metricValue">{HARDCODED_RISKS_EXTRACTED}</p>
+              <p className="articlesPage__metricValue">{metrics.risksExtracted}</p>
             </div>
             <div className="articlesPage__metricIcon articlesPage__metricIcon--orange">
               <Shield size={22} strokeWidth={2} aria-hidden />
@@ -130,7 +225,7 @@ export function ArticlesPage() {
             <div className="articlesPage__metricCopy">
               <p className="articlesPage__metricLabel">Avg risks/article</p>
               <p className="articlesPage__metricValue articlesPage__metricValue--tabular">
-                {HARDCODED_AVG_RISKS}
+                {metrics.avgRisksPerArticle.toFixed(1)}
               </p>
             </div>
             <div className="articlesPage__metricIcon articlesPage__metricIcon--slate">
@@ -158,6 +253,15 @@ export function ArticlesPage() {
               <option value="oldest">Oldest first</option>
             </select>
           </div>
+          <button
+            type="button"
+            className="articlesPage__clearBtn"
+            onClick={clearFilters}
+            aria-label="Clear Filter"
+            data-tooltip="Clear Filter"
+          >
+            <FilterX size={18} strokeWidth={2} aria-hidden />
+          </button>
         </div>
         <div className="usersPage__searchWrap articlesPage__searchWrap">
           <Search
@@ -207,16 +311,24 @@ export function ArticlesPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.length === 0 ? (
+                {loadState === "loading" ? (
+                  <tr>
+                    <td className="articlesPage__td articlesPage__td--empty" colSpan={6}>
+                      Loading articles…
+                    </td>
+                  </tr>
+                ) : visibleRows.length === 0 ? (
                   <tr>
                     <td className="articlesPage__td articlesPage__td--empty" colSpan={6}>
                       {search.trim()
                         ? "No articles match your search."
-                        : "No articles to display."}
+                        : loadState === "error"
+                          ? "Could not load articles."
+                          : "No articles to display."}
                     </td>
                   </tr>
                 ) : (
-                  visibleRows.map((row) => (
+                  articlePager.pageItems.map((row) => (
                     <tr key={row.id}>
                       <td className="articlesPage__td">
                         <span className="articlesPage__id">#{row.id}</span>
@@ -257,6 +369,17 @@ export function ArticlesPage() {
               </tbody>
             </table>
           </div>
+          <DataTablePagination
+            className="articlesPage__pager"
+            page={articlePager.page}
+            pageCount={articlePager.pageCount}
+            total={articlePager.total}
+            pageSize={articlePager.pageSize}
+            from={articlePager.from}
+            to={articlePager.to}
+            onPageChange={articlePager.setPage}
+            onPageSizeChange={setArticlePageSize}
+          />
         </div>
       </section>
     </main>

@@ -130,3 +130,25 @@ select:focus {
   color: red;
   font-size: 14px;
 }
+
+/* Shared tokens when user selects dark theme (app + auth pages) */
+html.app-theme-dark {
+  --main-text-color: #f1f5f9;
+  --main-text-muted: #94a3b8;
+  --main-text-label: #cbd5e1;
+  --auth-signin-input-bg: #0f172a;
+  --auth-signin-input-border: rgba(148, 163, 184, 0.28);
+  --main-auth-focus-ring-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+html.app-theme-dark input,
+html.app-theme-dark select,
+html.app-theme-dark textarea {
+  border-color: rgba(148, 163, 184, 0.28);
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+html.app-theme-dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394A3B8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+}

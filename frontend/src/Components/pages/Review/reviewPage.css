@@ -1,4 +1,6 @@
 .reviewPage {
+  --page-header-title-color: var(--rev-text);
+  --page-header-subtitle-color: var(--rev-muted);
   --rev-surface: #0f1419;
   --rev-card: #151b24;
   --rev-border: rgba(148, 163, 184, 0.12);
@@ -32,40 +34,6 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.reviewPage__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.reviewPage__headerText {
-  min-width: 0;
-}
-
-.reviewPage__title {
-  margin: 0 0 0.35rem;
-  font-size: var(--rev-font-title);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--rev-text);
-}
-
-.reviewPage__subtitle {
-  margin: 0;
-  font-size: var(--rev-font-subtitle);
-  font-weight: 500;
-  color: var(--rev-muted);
-  max-width: 42rem;
-  line-height: 1.45;
-}
-
-.reviewPage .usersPage__inviteBtn:disabled {
-  opacity: 0.65;
-  cursor: wait;
 }
 
 /* Tabs + search + header refresh: slightly smaller than default Users styles */
@@ -165,16 +133,6 @@
   pointer-events: none;
   color: var(--rev-text);
   opacity: 0.9;
-}
-
-.reviewPage__refreshIcon--spin {
-  animation: reviewPageSpin 0.85s linear infinite;
-}
-
-@keyframes reviewPageSpin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .reviewPage__panel--feedback {

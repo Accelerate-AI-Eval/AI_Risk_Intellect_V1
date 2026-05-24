@@ -1,8 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
-import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import './styles/toastify-overrides.css'
+import { ThemeToastContainer } from './Components/ThemeToastContainer'
 import Signin from './Components/Authentication/Signin/Signin'
 import ForgotPassword from './Components/Authentication/ForgotPassword/ForgotPassword'
 import ResetPassword from './Components/Authentication/ResetPassword/ResetPassword'
@@ -12,6 +12,7 @@ import { DashboardPage } from './Components/pages/Dashboard/DashboardPage'
 import { UsersPage } from './Components/pages/Users/UsersPage'
 import { JobsPage } from './Components/pages/Jobs/JobsPage'
 import { RiskPage } from './Components/pages/Risk/RiskPage'
+import { RiskDetailPage } from './Components/pages/Risk/RiskDetailPage'
 import { ArticlesPage } from './Components/pages/Articles/ArticlesPage'
 import { AdminPage } from './Components/pages/Admin/AdminPage'
 import { ReviewPage } from './Components/pages/Review/ReviewPage'
@@ -22,7 +23,7 @@ import { RequireAuth } from './Components/RequireAuth'
 function App() {
   return (
     <BrowserRouter>
-      <ToastContainer position="bottom-right" autoClose={4000} theme="light" />
+      <ThemeToastContainer />
       <Routes>
         <Route path="/signin" element={<Signin />} />
         <Route path="/forgotPassword" element={<ForgotPassword />} />
@@ -35,10 +36,12 @@ function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/jobs" element={<JobsPage />} />
             <Route path="/risk" element={<RiskPage />} />
+            <Route path="/risk/:riskId" element={<RiskDetailPage />} />
             <Route path="/articles" element={<ArticlesPage />} />
-            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/controls" element={<AdminPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/users" element={<UsersPage />} />
+            {/* Settings content lives on Controls; redirect legacy URL */}
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>

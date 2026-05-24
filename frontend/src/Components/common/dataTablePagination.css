@@ -45,17 +45,31 @@
   white-space: nowrap;
 }
 
-.dtPagination__sizeSelect {
+.dtPagination .dtPagination__sizeSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: inline-block;
+  width: auto;
+  min-width: 4rem;
+  max-width: 100%;
+  min-height: unset;
   height: 32px;
-  padding: 0 0.5rem;
+  padding: 0 1.65rem 0 0.5rem;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
+  line-height: 1.5;
   border-radius: 6px;
   border: 1px solid var(--dt-pager-border, #cbd5e1);
-  background: var(--dt-pager-input-bg, #fff);
+  background-color: var(--dt-pager-input-bg, #fff);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  background-size: 12px;
   color: var(--dt-pager-strong, #334155);
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .dtPagination__nav {
@@ -109,4 +123,8 @@ html.app-theme-dark .dtPagination {
   --dt-pager-border-hover: rgba(148, 163, 184, 0.55);
   --dt-pager-input-bg: rgba(15, 23, 42, 0.6);
   --dt-pager-btn-hover: rgba(30, 41, 59, 0.85);
+}
+
+html.app-theme-dark .dtPagination .dtPagination__sizeSelect {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
 }

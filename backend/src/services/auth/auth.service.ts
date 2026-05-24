@@ -1,16 +1,16 @@
 import { randomBytes } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { and, desc, eq, isNull, or } from "drizzle-orm";
-import { db } from "../db/index.js";
-import { users, type User } from "../schema/users/users.js";
-import { userProfileUpdateLogs } from "../schema/userProfileUpdateLogs.js";
+import { db } from "../../db/index.js";
+import { users, type User } from "../../schema/users/users.js";
+import { userProfileUpdateLogs } from "../../schema/userProfileUpdateLogs.js";
 import {
   decodeInviteSetPasswordTokenUnsafe,
   verifyInviteSetPasswordToken,
-} from "../utils/jwt.js";
-import { hashPassword, verifyPassword } from "../utils/password.js";
-import { HttpError } from "../utils/httpError.js";
-import type { LoginInput, RegisterInput } from "../validators/auth.validators.js";
+} from "../../utils/jwt.js";
+import { hashPassword, verifyPassword } from "../../utils/password.js";
+import { HttpError } from "../../utils/httpError.js";
+import type { LoginInput, RegisterInput } from "../../validators/auth.validators.js";
 
 export type SafeUser = Omit<User, "passwordHash">;
 

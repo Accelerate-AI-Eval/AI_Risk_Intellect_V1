@@ -20,7 +20,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { DataTablePagination } from "../../common/DataTablePagination";
-import { PageHeading } from "../../Layout/PageHeading";
+import { PageHeader } from "../../Layout/PageHeader";
 import { authFetch } from "../../../utils/authFetch";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePagination } from "../../../utils/usePagination";
@@ -552,19 +552,20 @@ export function UsersPage() {
 
   return (
     <main className="mainLayout__content usersPage">
-      <div className="usersPage__header">
-        <PageHeading id={titleId} className="mainLayout__pageTitle">
-          Users
-        </PageHeading>
-        <button
+      <PageHeader
+        title="Users"
+        titleId={titleId}
+        actions={
+          <button
           type="button"
           className="usersPage__inviteBtn"
           onClick={openInvite}
         >
           <UserPlus size={18} strokeWidth={2} aria-hidden />
           Invite user
-        </button>
-      </div>
+          </button>
+        }
+      />
       {/*
       <p className="mainLayout__pageHint usersPage__intro">
         Manage organization users. Invitations can be sent from here when
