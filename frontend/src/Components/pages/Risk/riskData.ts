@@ -152,6 +152,23 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
         "Article states: \"Large language models generate text based on what they were trained on, so there is a cut-off date when they were trained.\" The piece emphasizes that without retrieval from verified sources, models may hallucinate facts—especially when answering questions about events or policies outside their training window.",
       dataToIdentifyRisk:
         "Audit logs of SLM query outputs and source citations; comparison datasets of SLM-generated responses against verified government records; performance metrics on hallucination rates by topic area; user-reported incidents of incorrect policy guidance; and red-team evaluation results for factual accuracy in government-domain queries.",
+      breakdown: [
+        {
+          field: "Operational constraint",
+          strength: "Strong",
+          sourceText:
+            "Purpose-built small language models provide a practical solution for agencies that cannot deploy frontier-scale models due to distinct constraints around security, governance, and operations.",
+          specificity: "Direct quote from article",
+          taxonomyAlignment: "AI System Safety, Failures, & Limitations",
+        },
+        {
+          field: "Hallucination risk",
+          strength: "Strong",
+          sourceText:
+            "Large language models generate text based on what they were trained on, so there is a cut-off date when they were trained; without retrieval from verified sources, models may hallucinate facts.",
+          specificity: "Explicit limitation described in source",
+        },
+      ],
     },
   },
   {
@@ -210,6 +227,23 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
         "Researchers cite vendor documentation acknowledging that models trained on historical hiring data may encode prior hiring patterns, and note that fairness testing was not uniformly applied across participating employers.",
       dataToIdentifyRisk:
         "Disparate impact ratios by protected class; model feature importance logs; historical hire/ reject labels used in training; vendor fairness audit reports; and complaint records from applicants flagged by automated screening.",
+      breakdown: [
+        {
+          field: "Disparate impact",
+          strength: "Strong",
+          sourceText:
+            "Automated screening tools produced statistically significant differences in pass rates across demographic groups when evaluated on identical qualification profiles.",
+          specificity: "Pilot study finding",
+          taxonomyAlignment: "Discrimination & Toxicity",
+        },
+        {
+          field: "Training data bias",
+          strength: "Medium",
+          sourceText:
+            "Vendor documentation acknowledges that models trained on historical hiring data may encode prior hiring patterns.",
+          specificity: "Secondary source cited in article",
+        },
+      ],
     },
   },
 ];
