@@ -348,8 +348,8 @@
 }
 
 html:not(.app-theme-dark) .settingsPage {
-  --set-surface: #f8f8f8;
-  --set-card: #fff;
+  --set-surface: #fff;
+  --set-card: #f8f8fc;
   --set-border: rgba(15, 23, 42, 0.08);
   --set-text: #0f172a;
   --set-muted: #64748b;
@@ -361,10 +361,9 @@ html:not(.app-theme-dark) .settingsPage {
 }
 
 html:not(.app-theme-dark) .settingsPage__card {
-  border-color: #e2e8f0;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 1px 3px rgba(15, 23, 42, 0.06);
+  background: #f8f8fc;
+  border-color: rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 html:not(.app-theme-dark) .settingsPage__cardIconWrap {

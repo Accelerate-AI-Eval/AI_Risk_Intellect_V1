@@ -11,7 +11,7 @@
   --risk-btn-border: rgba(148, 163, 184, 0.25);
   --risk-btn-hover: rgba(148, 163, 184, 0.12);
   --risk-th-bg: rgba(0, 0, 0, 0.22);
-  --risk-id-color: #22d3ee;
+  --risk-id-color: var(--entity-id-color, #22d3ee);
 
   flex: 1;
   box-sizing: border-box;
@@ -147,6 +147,7 @@
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
+  text-transform: none;
   color: var(--risk-muted);
 }
 
@@ -531,10 +532,10 @@ html:not(.app-theme-dark) .riskPage__actionBtn[data-tooltip]::after {
   color: #f8fafc;
 }
 
-/* Light theme */
+/* Light theme: match Jobs page */
 html:not(.app-theme-dark) .riskPage {
-  --risk-surface: #f8f8f8;
-  --risk-card: #fff;
+  --risk-surface: #fff;
+  --risk-card: #f8f8fc;
   --risk-border: rgba(15, 23, 42, 0.08);
   --risk-text: #0f172a;
   --risk-muted: #64748b;
@@ -543,11 +544,16 @@ html:not(.app-theme-dark) .riskPage {
   --risk-btn-border: #cbd5e1;
   --risk-btn-hover: rgba(15, 23, 42, 0.04);
   --risk-th-bg: #f1f5f9;
-  --risk-id-color: #0891b2;
+  --risk-id-color: var(--entity-id-color, #22d3ee);
 }
 
 html:not(.app-theme-dark) .mainLayout__content.riskPage {
   background-color: var(--risk-surface);
+}
+
+html:not(.app-theme-dark) .riskPage__card,
+html:not(.app-theme-dark) .riskPage__filters {
+  background: #f8f8fc;
 }
 
 html:not(.app-theme-dark) .riskPage__filter select {
@@ -574,7 +580,7 @@ html.app-theme-dark .riskPage {
   --risk-btn-border: rgba(148, 163, 184, 0.25);
   --risk-btn-hover: rgba(148, 163, 184, 0.12);
   --risk-th-bg: rgba(0, 0, 0, 0.22);
-  --risk-id-color: #22d3ee;
+  --risk-id-color: var(--entity-id-color, #22d3ee);
 }
 
 html.app-theme-dark .mainLayout__content.riskPage {

@@ -1,24 +1,66 @@
 import { useEffect, useId, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   Brain,
+  Building2,
+  ClipboardList,
+  Clock,
+  Database,
   Eye,
+  Factory,
   FileText,
+  Flag,
+  Gauge,
+  Globe,
+  Hash,
+  Layers,
+  ExternalLink,
+  Link2,
+  Quote,
+  ScrollText,
+  SearchCheck,
+  ShieldCheck,
   Sparkles,
+  Tags,
   Target,
 } from "lucide-react";
-import { formatRiskDomain, formatRiskId, type RiskDetail } from "./riskData";
-import "../Users/usersPage.css";
+import {
+  EVIDENCE_BREAKDOWN_HEADING_LABELS,
+  formatArticleId,
+  formatEvidenceFactValue,
+  formatEvidenceStrength,
+  formatRiskDomain,
+  orderEvidenceBreakdown,
+  formatRiskId,
+  type CatalogRiskMatch,
+  type RiskDetail,
+} from "./riskData";
 import "./riskDetailDialog.css";
 
 export type RiskDetailTab = "overview" | "analysis" | "scores" | "evidence";
 
-const TABS: { key: RiskDetailTab; label: string }[] = [
-  { key: "overview", label: "Overview" },
-  { key: "analysis", label: "Analysis" },
-  { key: "scores", label: "Scores" },
-  { key: "evidence", label: "Evidence" },
+const SCORE_METRIC_ICONS: Record<string, LucideIcon> = {
+  "Overall decision": Gauge,
+  "Context Clarity": BookOpen,
+  "Keyword Matching": Hash,
+  "Tagging Accuracy": Tags,
+  "Evidence Strength": ShieldCheck,
+};
+
+const EVIDENCE_BREAKDOWN_ICONS: LucideIcon[] = [
+  AlertTriangle,
+  ScrollText,
+  Eye,
+];
+
+const TABS: { key: RiskDetailTab; label: string; icon: LucideIcon }[] = [
+  { key: "overview", label: "Overview", icon: FileText },
+  { key: "analysis", label: "Analysis", icon: Brain },
+  { key: "scores", label: "Scores", icon: BarChart3 },
+  { key: "evidence", label: "Evidence", icon: Eye },
 ];
 
 export function parseRiskDetailTab(value: string | null): RiskDetailTab | undefined {
@@ -36,6 +78,8 @@ export function parseRiskDetailTab(value: string | null): RiskDetailTab | undefi
 type RiskDetailViewProps = {
   risk: RiskDetail;
   initialTab?: RiskDetailTab;
+  /** When set (e.g. page back nav title), used for `aria-labelledby` on the detail shell. */
+  titleElementId?: string;
 };
 
 function confidenceLabel(level: RiskDetail["confidence"]): string {
@@ -52,6 +96,11 @@ function confidenceLabel(level: RiskDetail["confidence"]): string {
 function scorePercent(value: number, max: number): number {
   if (max <= 0) return 0;
   return Math.min(100, Math.round((value / max) * 100));
+}
+
+function ScoreMetricIcon({ label }: { label: string }) {
+  const Icon = SCORE_METRIC_ICONS[label] ?? BarChart3;
+  return <Icon size={16} strokeWidth={2} aria-hidden />;
 }
 
 function ScoreBar({ value, max }: { value: number; max: number }) {
@@ -81,19 +130,119 @@ function DetailText({ children }: { children: string }) {
 function AnalysisBlock({
   label,
   text,
+  icon,
+  iconLabel,
 }: {
   label: string;
   text: string;
+  icon?: LucideIcon;
+  iconLabel?: string;
 }) {
+  const Icon = icon ?? (iconLabel ? (SCORE_METRIC_ICONS[iconLabel] ?? BarChart3) : undefined);
   return (
     <div className="riskDetail__analysisBlock">
-      <h4 className="riskDetail__analysisLabel">{label}</h4>
+      {Icon ? (
+        <div className="riskDetail__classCardHead">
+          <span className="riskDetail__classCardIcon" aria-hidden>
+            <Icon size={16} strokeWidth={2} />
+          </span>
+          <h4 className="riskDetail__innerCardTitle">{label}</h4>
+        </div>
+      ) : (
+        <h4 className="riskDetail__innerCardTitle">{label}</h4>
+      )}
       <DetailText>{text}</DetailText>
     </div>
   );
 }
 
-export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailViewProps) {
+function DetailInfoCard({
+  title,
+  value,
+  children,
+  ddClassName,
+  icon: Icon,
+  headerHref,
+  headerActionLabel,
+}: {
+  title: string;
+  value?: string;
+  children?: React.ReactNode;
+  ddClassName?: string;
+  icon?: LucideIcon;
+  headerHref?: string;
+  headerActionLabel?: string;
+}) {
+  const body = children ?? value ?? "—";
+  const openHref = headerHref?.trim();
+  const showHeaderAction = Boolean(openHref);
+
+  const cardHead = Icon ? (
+    <div className="riskDetail__classCardHead">
+      <span className="riskDetail__classCardIcon" aria-hidden>
+        <Icon size={16} strokeWidth={2} />
+      </span>
+      <dt>{title}</dt>
+    </div>
+  ) : (
+    <dt>{title}</dt>
+  );
+
+  return (
+    <div
+      className={`riskDetail__classCard${Icon ? "" : " riskDetail__classCard--noIcon"}${showHeaderAction ? " riskDetail__classCard--withAction" : ""}`}
+    >
+      {showHeaderAction ? (
+        <div className="riskDetail__classCardHeadRow">
+          {cardHead}
+          <a
+            href={openHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="riskDetail__classCardAction"
+            aria-label={headerActionLabel ?? `Open ${title}`}
+            title={headerActionLabel ?? `Open ${title}`}
+          >
+            <ExternalLink size={16} strokeWidth={2} aria-hidden />
+          </a>
+        </div>
+      ) : (
+        cardHead
+      )}
+      <dd className={ddClassName}>{body}</dd>
+    </div>
+  );
+}
+
+function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
+  return (
+    <li className="riskDetail__catalogMatch">
+      <div className="riskDetail__catalogMatchHead">
+        <span className="riskDetail__riskIdPill">{match.riskId}</span>
+        <span
+          className="riskDetail__catalogMatchScore"
+          title={`Domain: ${match.domainMatchPercent}% · Description: ${match.descriptionMatchPercent}%`}
+        >
+          {match.accuracyPercent}% match
+        </span>
+      </div>
+      <div className="riskDetail__catalogMatchTitleRow">
+        <p className="riskDetail__innerCardTitle riskDetail__catalogMatchTitle">{match.title}</p>
+        <span className="riskDetail__domainHighlight riskDetail__domainHighlight--inline">
+          {formatRiskDomain(match.domain)}
+        </span>
+      </div>
+      <p className="riskDetail__catalogMatchDescription">{match.description}</p>
+      <p className="riskDetail__catalogMatchSummary">{match.matchSummary}</p>
+    </li>
+  );
+}
+
+export function RiskDetailView({
+  risk,
+  initialTab = "overview",
+  titleElementId,
+}: RiskDetailViewProps) {
   const baseId = useId();
   const [tab, setTab] = useState<RiskDetailTab>(initialTab);
 
@@ -107,33 +256,37 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
     <div className="riskDetail riskDetail--page">
       <article
         className="riskDetail__shell"
-        aria-labelledby={`${baseId}-title`}
+        aria-labelledby={titleElementId ?? `${baseId}-title`}
       >
-        <header className="riskDetail__header">
-          <div className="riskDetail__headerMain">
-            <h2 id={`${baseId}-title`} className="riskDetail__title">
+        {!titleElementId ? (
+          <>
+            <h2 id={`${baseId}-title`} className="riskDetail__srTitle">
               {risk.title}
             </h2>
-            <p className="riskDetail__riskId">{formatRiskId(risk)}</p>
-          </div>
-          <div className="riskDetail__headerActions">
-            <span
-              className={`riskDetail__confidence riskDetail__confidence--${risk.confidence.toLowerCase()}`}
-            >
-              <Sparkles size={14} strokeWidth={2} aria-hidden />
-              {confidenceLabel(risk.confidence)}
-            </span>
-            {risk.modelName ? (
-              <span className="riskDetail__modelTag" title="Extraction model">
-                {risk.modelName}
-              </span>
-            ) : null}
-          </div>
-        </header>
+            <header className="riskDetail__header">
+              <div className="riskDetail__headerMain">
+                <p className="riskDetail__riskId">{formatRiskId(risk)}</p>
+              </div>
+              <div className="riskDetail__headerActions">
+                <span
+                  className={`riskDetail__confidence riskDetail__confidence--${risk.confidence.toLowerCase()}`}
+                >
+                  <Sparkles size={14} strokeWidth={2} aria-hidden />
+                  {confidenceLabel(risk.confidence)}
+                </span>
+                {risk.modelName ? (
+                  <span className="riskDetail__modelTag" title="Extraction model">
+                    {risk.modelName}
+                  </span>
+                ) : null}
+              </div>
+            </header>
+          </>
+        ) : null}
 
         <div className="riskDetail__tabBar">
-          <div className="usersPage__tabs" role="tablist" aria-label="Risk detail sections">
-            {TABS.map(({ key, label }) => (
+          <div className="riskDetail__tabs" role="tablist" aria-label="Risk detail sections">
+            {TABS.map(({ key, label, icon: TabIcon }) => (
               <button
                 key={key}
                 type="button"
@@ -142,10 +295,11 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                 aria-selected={tab === key}
                 aria-controls={tabPanelId}
                 tabIndex={tab === key ? 0 : -1}
-                className={`usersPage__tab${tab === key ? " usersPage__tab--selected" : ""}`}
+                className={`riskDetail__tab${tab === key ? " riskDetail__tab--selected" : ""}`}
                 onClick={() => setTab(key)}
               >
-                {label}
+                <TabIcon size={15} strokeWidth={2} className="riskDetail__tabIcon" aria-hidden />
+                <span className="riskDetail__tabLabel">{label}</span>
               </button>
             ))}
           </div>
@@ -159,19 +313,27 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
         >
           {tab === "overview" ? (
             <>
-              <section className="riskDetail__section" aria-labelledby={`${baseId}-source`}>
+              <section
+                className="riskDetail__section riskDetail__section--source riskDetail__cardSection"
+                aria-labelledby={`${baseId}-source`}
+              >
                 <h3 id={`${baseId}-source`} className="riskDetail__sectionTitle">
                   <FileText size={16} strokeWidth={2} aria-hidden />
                   Source Article
                 </h3>
-                <dl className="riskDetail__fields">
-                  <div className="riskDetail__field riskDetail__field--full">
-                    <dt>Title</dt>
-                    <dd>{risk.articleTitle}</dd>
-                  </div>
-                  <div className="riskDetail__field riskDetail__field--full">
-                    <dt>URL</dt>
-                    <dd>
+                <div className="riskDetail__sourceColumns">
+                  <dl className="riskDetail__classification riskDetail__sourceGrid">
+                    <DetailInfoCard
+                      title="Title"
+                      value={risk.articleTitle}
+                      icon={BookOpen}
+                    />
+                    <DetailInfoCard
+                      title="URL"
+                      icon={Link2}
+                      headerHref={risk.articleUrl}
+                      headerActionLabel="Open article in new tab"
+                    >
                       <a
                         href={risk.articleUrl}
                         target="_blank"
@@ -180,21 +342,32 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                       >
                         {risk.articleUrl}
                       </a>
-                    </dd>
-                  </div>
-                  <div className="riskDetail__field">
-                    <dt>Ingested</dt>
-                    <dd>{risk.ingestedAt}</dd>
-                  </div>
-                  <div className="riskDetail__field">
-                    <dt>Quality score</dt>
-                    <dd>{risk.qualityScore}</dd>
-                  </div>
-                </dl>
+                    </DetailInfoCard>
+                  </dl>
+                  <dl className="riskDetail__classification riskDetail__sourceGrid">
+                    <DetailInfoCard
+                      title="Article ID"
+                      value={formatArticleId(risk.articleId)}
+                      icon={Hash}
+                      ddClassName="riskDetail__classCardValue--articleId"
+                    />
+                    <DetailInfoCard
+                      title="Ingested"
+                      value={risk.ingestedAt}
+                      icon={Clock}
+                    />
+                    <DetailInfoCard
+                      title="Quality score"
+                      value={risk.qualityScore}
+                      icon={Gauge}
+                      ddClassName="riskDetail__classCardValue--qualityScore"
+                    />
+                  </dl>
+                </div>
               </section>
 
               <section
-                className="riskDetail__section"
+                className="riskDetail__section riskDetail__cardSection"
                 aria-labelledby={`${baseId}-classification`}
               >
                 <h3 id={`${baseId}-classification`} className="riskDetail__sectionTitle">
@@ -202,32 +375,22 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                   Classification
                 </h3>
                 <dl className="riskDetail__classification">
-                  <div className="riskDetail__field">
-                    <dt>Domain</dt>
-                    <dd>
-                      <span className="riskDetail__pill">{formatRiskDomain(risk.domain)}</span>
-                    </dd>
-                  </div>
-                  <div className="riskDetail__field">
-                    <dt>Primary Risk</dt>
-                    <dd>
-                      <span className="riskDetail__pill">{risk.primaryRisk}</span>
-                    </dd>
-                  </div>
-                  <div className="riskDetail__field">
-                    <dt>Secondary Risk</dt>
-                    <dd>
-                      <span className="riskDetail__pill">{risk.secondaryRisk}</span>
-                    </dd>
-                  </div>
-                  <div className="riskDetail__field">
-                    <dt>Intent</dt>
-                    <dd>
-                      <span className="riskDetail__pill riskDetail__pill--intent">
-                        {risk.intent}
-                      </span>
-                    </dd>
-                  </div>
+                  <DetailInfoCard
+                    title="Domain"
+                    value={formatRiskDomain(risk.domain)}
+                    icon={Globe}
+                  />
+                  <DetailInfoCard
+                    title="Primary Risk"
+                    value={risk.primaryRisk}
+                    icon={AlertTriangle}
+                  />
+                  <DetailInfoCard
+                    title="Secondary Risk"
+                    value={risk.secondaryRisk}
+                    icon={ShieldCheck}
+                  />
+                  <DetailInfoCard title="Intent" value={risk.intent} icon={Flag} />
                 </dl>
               </section>
 
@@ -236,68 +399,115 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                 aria-labelledby={`${baseId}-description`}
               >
                 <h3 id={`${baseId}-description`} className="riskDetail__sectionTitle">
+                  <ScrollText size={16} strokeWidth={2} aria-hidden />
                   Description
                 </h3>
                 <DetailText>{risk.description}</DetailText>
               </section>
 
-              <div className="riskDetail__splitRow">
-                <section
-                  className="riskDetail__section riskDetail__section--split"
-                  aria-labelledby={`${baseId}-attack`}
-                >
-                  <h3 id={`${baseId}-attack`} className="riskDetail__sectionTitle">
-                    <AlertTriangle size={16} strokeWidth={2} aria-hidden />
-                    Attack Vector
-                  </h3>
-                  <DetailText>{risk.attackVector}</DetailText>
-                </section>
-                <section
-                  className="riskDetail__section riskDetail__section--split"
-                  aria-labelledby={`${baseId}-indicators`}
-                >
-                  <h3 id={`${baseId}-indicators`} className="riskDetail__sectionTitle">
-                    <Eye size={16} strokeWidth={2} aria-hidden />
-                    Observable Indicators
-                  </h3>
-                  <DetailText>{risk.observableIndicators}</DetailText>
-                </section>
-              </div>
-
-              <div className="riskDetail__metaRow">
-                <section
-                  className="riskDetail__section riskDetail__section--meta"
-                  aria-labelledby={`${baseId}-sector`}
-                >
-                  <h3 id={`${baseId}-sector`} className="riskDetail__metaLabel">
-                    Sector
-                  </h3>
-                  <p className="riskDetail__metaValue">{risk.sector}</p>
-                </section>
-                <section
-                  className="riskDetail__section riskDetail__section--meta"
-                  aria-labelledby={`${baseId}-industry`}
-                >
-                  <h3 id={`${baseId}-industry`} className="riskDetail__metaLabel">
-                    Industry
-                  </h3>
-                  <p className="riskDetail__metaValue">{risk.industry}</p>
-                </section>
-                <section
-                  className="riskDetail__section riskDetail__section--meta"
-                  aria-labelledby={`${baseId}-timing`}
-                >
-                  <h3 id={`${baseId}-timing`} className="riskDetail__metaLabel">
-                    Timing
-                  </h3>
-                  <p className="riskDetail__metaValue riskDetail__metaValue--block">
-                    {risk.timing}
-                  </p>
-                </section>
+              <div className="riskDetail__dualColRow">
+                <div className="riskDetail__dualCol riskDetail__dualCol--stack">
+                  <section
+                    className="riskDetail__section"
+                    aria-labelledby={`${baseId}-attack`}
+                  >
+                    <h3 id={`${baseId}-attack`} className="riskDetail__sectionTitle">
+                      <AlertTriangle size={16} strokeWidth={2} aria-hidden />
+                      Attack Vector
+                    </h3>
+                    <DetailText>{risk.attackVector}</DetailText>
+                  </section>
+                  <section
+                    className="riskDetail__section"
+                    aria-labelledby={`${baseId}-indicators`}
+                  >
+                    <h3 id={`${baseId}-indicators`} className="riskDetail__sectionTitle">
+                      <Eye size={16} strokeWidth={2} aria-hidden />
+                      Observable Indicators
+                    </h3>
+                    <DetailText>{risk.observableIndicators}</DetailText>
+                  </section>
+                </div>
+                <div className="riskDetail__dualCol riskDetail__dualCol--stack">
+                  <section
+                    className="riskDetail__section"
+                    aria-labelledby={`${baseId}-sector`}
+                  >
+                    <h3 id={`${baseId}-sector`} className="riskDetail__sectionTitle">
+                      <Building2 size={16} strokeWidth={2} aria-hidden />
+                      Sector
+                    </h3>
+                    <DetailText>{risk.sector}</DetailText>
+                  </section>
+                  <section
+                    className="riskDetail__section"
+                    aria-labelledby={`${baseId}-industry`}
+                  >
+                    <h3 id={`${baseId}-industry`} className="riskDetail__sectionTitle">
+                      <Factory size={16} strokeWidth={2} aria-hidden />
+                      Industry
+                    </h3>
+                    <DetailText>{risk.industry}</DetailText>
+                  </section>
+                  <section
+                    className="riskDetail__section"
+                    aria-labelledby={`${baseId}-timing`}
+                  >
+                    <h3 id={`${baseId}-timing`} className="riskDetail__sectionTitle">
+                      <Clock size={16} strokeWidth={2} aria-hidden />
+                      Timing
+                    </h3>
+                    <DetailText>{risk.timing}</DetailText>
+                  </section>
+                </div>
               </div>
             </>
           ) : tab === "analysis" ? (
             <>
+              <section
+                className="riskDetail__section"
+                aria-labelledby={`${baseId}-extracted-risk`}
+              >
+                <h3 id={`${baseId}-extracted-risk`} className="riskDetail__sectionTitle">
+                  <FileText size={16} strokeWidth={2} aria-hidden />
+                  Extracted Risk (from article)
+                </h3>
+                <div className="riskDetail__extractedRisk">
+                  <span className="riskDetail__riskIdPill riskDetail__extractedRiskId">
+                    {formatRiskId(risk)}
+                  </span>
+                  <div className="riskDetail__catalogMatchTitleRow">
+                    <p className="riskDetail__extractedRiskTitle">{risk.title}</p>
+                    <span className="riskDetail__domainHighlight riskDetail__domainHighlight--inline">
+                      {formatRiskDomain(risk.domain)}
+                    </span>
+                  </div>
+                  <DetailText>{risk.description}</DetailText>
+                </div>
+              </section>
+
+              <section
+                className="riskDetail__section"
+                aria-labelledby={`${baseId}-catalog-matches`}
+              >
+                <h3 id={`${baseId}-catalog-matches`} className="riskDetail__sectionTitle">
+                  <Link2 size={16} strokeWidth={2} aria-hidden />
+                  Catalog Risk Mappings
+                </h3>
+                {(risk.riskAnalysis.catalogMatches ?? []).length === 0 ? (
+                  <p className="riskDetail__empty">
+                    No catalog mappings met the minimum relevance threshold for this
+                    risk.
+                  </p>
+                ) : (
+                  <ol className="riskDetail__catalogList">
+                    {(risk.riskAnalysis.catalogMatches ?? []).map((match) => (
+                      <CatalogMatchCard key={match.riskId} match={match} />
+                    ))}
+                  </ol>
+                )}
+              </section>
+
               <section
                 className="riskDetail__section"
                 aria-labelledby={`${baseId}-risk-analysis`}
@@ -310,14 +520,17 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                   <AnalysisBlock
                     label="Risk identified"
                     text={risk.riskAnalysis.risk_identified}
+                    icon={SearchCheck}
                   />
                   <AnalysisBlock
                     label="Article context"
                     text={risk.riskAnalysis.article_context}
+                    icon={BookOpen}
                   />
                   <AnalysisBlock
                     label="Alignment reasoning"
                     text={risk.riskAnalysis.alignment_reasoning}
+                    icon={Link2}
                   />
                 </div>
               </section>
@@ -333,6 +546,7 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                 <AnalysisBlock
                   label="Decision rationale"
                   text={risk.modelSelfEvaluation.decision_rationale}
+                  icon={ClipboardList}
                 />
               </section>
             </>
@@ -343,7 +557,11 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                 aria-labelledby={`${baseId}-overall-score`}
               >
                 <div className="riskDetail__overallHead">
-                  <h3 id={`${baseId}-overall-score`} className="riskDetail__overallLabel">
+                  <h3
+                    id={`${baseId}-overall-score`}
+                    className="riskDetail__sectionTitle riskDetail__overallLabel"
+                  >
+                    <Gauge size={16} strokeWidth={2} aria-hidden />
                     Overall Accuracy Score
                   </h3>
                   <div className="riskDetail__overallRight">
@@ -359,28 +577,31 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                   value={risk.scores.overall.value}
                   max={risk.scores.overall.max}
                 />
+                <DetailText>{risk.scores.justification.decision_rationale}</DetailText>
               </section>
 
-              <div className="riskDetail__scoresGrid">
+              <ul className="riskDetail__evidenceList riskDetail__evidenceList--scores">
                 {risk.scores.metrics.map((metric) => (
-                  <article
-                    key={metric.label}
-                    className="riskDetail__section riskDetail__scoreCard"
-                  >
-                    <div className="riskDetail__scoreCardHead">
-                      <h3 className="riskDetail__scoreCardLabel">{metric.label}</h3>
-                      <p className="riskDetail__scoreCardValue">
+                  <li key={metric.label} className="riskDetail__evidenceItem">
+                    <div className="riskDetail__evidenceItemHead">
+                      <div className="riskDetail__classCardHead">
+                        <span className="riskDetail__classCardIcon" aria-hidden>
+                          <ScoreMetricIcon label={metric.label} />
+                        </span>
+                        <h4 className="riskDetail__innerCardTitle">{metric.label}</h4>
+                      </div>
+                      <span className="riskDetail__evidenceStrength riskDetail__scoreMetricValue">
                         {metric.value}/{metric.max}
-                      </p>
+                      </span>
                     </div>
-                    <ScoreBar value={metric.value} max={metric.max} />
-                    {metric.reasoning?.trim() ? (
-                      <p className="riskDetail__scoreCardReason">{metric.reasoning}</p>
-                    ) : null}
-                  </article>
+                    <p className="riskDetail__evidenceText">
+                      {metric.reasoning?.trim() || "—"}
+                    </p>
+                  </li>
                 ))}
-              </div>
+              </ul>
 
+              {/* Score Justification — content moved under Overall Accuracy Score
               <section
                 className="riskDetail__section"
                 aria-labelledby={`${baseId}-score-justification`}
@@ -389,31 +610,26 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                   id={`${baseId}-score-justification`}
                   className="riskDetail__sectionTitle"
                 >
+                  <ClipboardList size={16} strokeWidth={2} aria-hidden />
                   Score Justification
                 </h3>
                 <div className="riskDetail__analysisStack">
                   <AnalysisBlock
                     label="Overall decision"
+                    iconLabel="Overall decision"
                     text={risk.scores.justification.decision_rationale}
                   />
-                  <AnalysisBlock
-                    label="Context clarity"
-                    text={risk.scores.justification.context_clarity_reasoning ?? ""}
-                  />
-                  <AnalysisBlock
-                    label="Keyword matching"
-                    text={risk.scores.justification.keyword_reasoning ?? ""}
-                  />
-                  <AnalysisBlock
-                    label="Tagging accuracy"
-                    text={risk.scores.justification.tagging_reasoning ?? ""}
-                  />
-                  <AnalysisBlock
-                    label="Evidence strength"
-                    text={risk.scores.justification.evidence_reasoning ?? ""}
-                  />
+                  {risk.scores.metrics.map((metric) => (
+                    <AnalysisBlock
+                      key={metric.label}
+                      label={metric.label}
+                      iconLabel={metric.label}
+                      text={metric.reasoning ?? ""}
+                    />
+                  ))}
                 </div>
               </section>
+              */}
             </>
           ) : (
             <>
@@ -422,6 +638,7 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                 aria-labelledby={`${baseId}-evidence-snippet`}
               >
                 <h3 id={`${baseId}-evidence-snippet`} className="riskDetail__sectionTitle">
+                  <Quote size={16} strokeWidth={2} aria-hidden />
                   Evidence Snippet
                 </h3>
                 <p className="riskDetail__evidenceSnippet">
@@ -429,60 +646,90 @@ export function RiskDetailView({ risk, initialTab = "overview" }: RiskDetailView
                 </p>
               </section>
 
-              <section
-                className="riskDetail__section"
-                aria-labelledby={`${baseId}-evidence-sources`}
-              >
-                <h3 id={`${baseId}-evidence-sources`} className="riskDetail__sectionTitle">
-                  Evidence Sources
-                </h3>
-                <DetailText>{risk.evidence.sources}</DetailText>
-              </section>
+              <div className="riskDetail__dualColRow">
+                <section
+                  className="riskDetail__section"
+                  aria-labelledby={`${baseId}-evidence-data`}
+                >
+                  <h3 id={`${baseId}-evidence-data`} className="riskDetail__sectionTitle">
+                    <Database size={16} strokeWidth={2} aria-hidden />
+                    Data to Identify Risk
+                  </h3>
+                  <DetailText>{risk.evidence.dataToIdentifyRisk}</DetailText>
+                </section>
 
-              <section
-                className="riskDetail__section"
-                aria-labelledby={`${baseId}-evidence-data`}
-              >
-                <h3 id={`${baseId}-evidence-data`} className="riskDetail__sectionTitle">
-                  Data to Identify Risk
-                </h3>
-                <DetailText>{risk.evidence.dataToIdentifyRisk}</DetailText>
-              </section>
+                <section
+                  className="riskDetail__section"
+                  aria-labelledby={`${baseId}-evidence-sources`}
+                >
+                  <h3 id={`${baseId}-evidence-sources`} className="riskDetail__sectionTitle">
+                    <Link2 size={16} strokeWidth={2} aria-hidden />
+                    Evidence Sources
+                  </h3>
+                  <DetailText>{risk.evidence.sources}</DetailText>
+                </section>
+              </div>
 
               <section
                 className="riskDetail__section"
                 aria-labelledby={`${baseId}-evidence-breakdown`}
               >
                 <h3 id={`${baseId}-evidence-breakdown`} className="riskDetail__sectionTitle">
+                  <Layers size={16} strokeWidth={2} aria-hidden />
                   Evidence Breakdown
                 </h3>
                 {risk.evidence.breakdown.length === 0 ? (
                   <p className="riskDetail__empty">No structured evidence breakdown.</p>
                 ) : (
-                  <ul className="riskDetail__evidenceList">
-                    {risk.evidence.breakdown.map((item, index) => (
-                      <li key={`${item.field}-${index}`} className="riskDetail__evidenceItem">
+                  <ul className="riskDetail__evidenceList riskDetail__evidenceList--breakdown">
+                    {orderEvidenceBreakdown(risk.evidence.breakdown).map(
+                      ({ item, headingIndex }) => {
+                        const HeadingIcon =
+                          EVIDENCE_BREAKDOWN_ICONS[headingIndex] ?? AlertTriangle;
+                        const headingLabel =
+                          EVIDENCE_BREAKDOWN_HEADING_LABELS[headingIndex] ??
+                          EVIDENCE_BREAKDOWN_HEADING_LABELS[0];
+                        return (
+                      <li
+                        key={`${headingLabel}-${headingIndex}`}
+                        className="riskDetail__evidenceItem"
+                      >
                         <div className="riskDetail__evidenceItemHead">
-                          <span className="riskDetail__pill">{item.field}</span>
-                          {item.strength ? (
+                          <div className="riskDetail__classCardHead">
+                            <span className="riskDetail__classCardIcon" aria-hidden>
+                              <HeadingIcon size={16} strokeWidth={2} />
+                            </span>
+                            <h4 className="riskDetail__innerCardTitle">{headingLabel}</h4>
+                          </div>
+                          {item.strength?.trim() ? (
                             <span className="riskDetail__evidenceStrength">
-                              {item.strength}
+                              {formatEvidenceStrength(item.strength)}
                             </span>
                           ) : null}
                         </div>
                         <p className="riskDetail__evidenceText">{item.sourceText}</p>
-                        {item.specificity ? (
-                          <p className="riskDetail__evidenceMeta">
-                            Specificity: {item.specificity}
-                          </p>
-                        ) : null}
-                        {item.taxonomyAlignment ? (
-                          <p className="riskDetail__evidenceMeta">
-                            Taxonomy alignment: {item.taxonomyAlignment}
-                          </p>
-                        ) : null}
+                        <dl className="riskDetail__evidenceFacts">
+                          <div className="riskDetail__evidenceFactRow">
+                            <dt>Specificity</dt>
+                            <dd className="riskDetail__evidenceFactValue">
+                              {item.specificity?.trim()
+                                ? formatEvidenceFactValue(item.specificity)
+                                : "—"}
+                            </dd>
+                          </div>
+                          <div className="riskDetail__evidenceFactRow">
+                            <dt>Taxonomy alignment</dt>
+                            <dd className="riskDetail__evidenceFactValue">
+                              {item.taxonomyAlignment?.trim()
+                                ? formatEvidenceFactValue(item.taxonomyAlignment)
+                                : "—"}
+                            </dd>
+                          </div>
+                        </dl>
                       </li>
-                    ))}
+                        );
+                      },
+                    )}
                   </ul>
                 )}
               </section>

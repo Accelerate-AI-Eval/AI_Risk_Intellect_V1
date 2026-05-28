@@ -20,3 +20,9 @@ export const enqueueUrlSchema = z.object({
 });
 
 export type EnqueueUrlInput = z.infer<typeof enqueueUrlSchema>;
+
+export const setLlmModelSchema = z.object({
+  modelId: z.string().trim().min(1, "Model is required.").max(256),
+});
+
+export type SetLlmModelInput = z.infer<typeof setLlmModelSchema>;

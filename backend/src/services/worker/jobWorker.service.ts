@@ -104,7 +104,10 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       return;
     }
 
-    log("done", { riskId: extract.riskId });
+    log(
+      extract.created ? "done" : "done (risk already exists for this model)",
+      { riskId: extract.riskId, created: extract.created },
+    );
     await finishJob(job.id, "done", null);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

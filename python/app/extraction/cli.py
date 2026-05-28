@@ -54,7 +54,7 @@ def main() -> int:
 
     try:
         schema = load_risk_schema()
-        obj, source_flag = extract_with_auto_chunking(
+        obj, source_flag, metrics = extract_with_auto_chunking(
             text,
             schema,
             title=title,
@@ -68,6 +68,7 @@ def main() -> int:
                     "message": "LLM returned stub/fallback extraction",
                     "source_flag": "stub",
                     "object": obj,
+                    "metrics": metrics,
                 },
                 sys.stdout,
             )
@@ -79,6 +80,7 @@ def main() -> int:
                 "object": obj,
                 "source_flag": source_flag,
                 "model": get_current_model_name(),
+                "metrics": metrics,
             },
             sys.stdout,
         )

@@ -38,6 +38,7 @@ type UserRow = {
 };
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]+$/;
+const INVITE_LINK_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 function userInitials(u: UserRow): string {
   const name = u.fullName?.trim();
@@ -88,6 +89,15 @@ function accountStatusBadgeClass(s: UserRow["accountStatus"]): string {
     default:
       return "usersPage__badge";
   }
+}
+
+function canSendInviteEmailForUser(user: UserRow): boolean {
+  if (user.accountStatus === "expired") return true;
+  if (user.accountStatus !== "pending") return false;
+
+  const pendingSinceMs = Date.parse(user.updatedAt || user.createdAt);
+  if (!Number.isFinite(pendingSinceMs)) return false;
+  return Date.now() - pendingSinceMs >= INVITE_LINK_EXPIRY_MS;
 }
 
 function normalizeUsersFromApi(raw: unknown): UserRow[] {
@@ -504,9 +514,9 @@ export function UsersPage() {
   };
 
   const handleRowSendEmail = async (u: UserRow) => {
-    if (u.accountStatus !== "expired") {
+    if (!canSendInviteEmailForUser(u)) {
       toast.info(
-        "Send email is only available when account status is Expired.",
+        "Send email is available for Expired users, or Pending users whose invite link has expired.",
         { autoClose: 4000 },
       );
       closeRowMenu();
@@ -1198,11 +1208,11 @@ export function UsersPage() {
                 type="button"
                 role="menuitem"
                 className="usersPage__rowMenuItem"
-                disabled={rowMenuUser.accountStatus !== "expired"}
+                disabled={!canSendInviteEmailForUser(rowMenuUser)}
                 title={
-                  rowMenuUser.accountStatus === "expired"
+                  canSendInviteEmailForUser(rowMenuUser)
                     ? undefined
-                    : "Send email is only available when account status is Expired."
+                    : "Available for Expired users, or Pending users once the invite link expires."
                 }
                 onClick={() => void handleRowSendEmail(rowMenuUser)}
               >

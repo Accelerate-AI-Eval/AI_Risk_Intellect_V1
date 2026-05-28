@@ -54,7 +54,9 @@ Business: Business/Financial Risk, Reputational Risk, Ethical Risk, Strategic Ri
 
 Extract factual information directly supported by the text:
 - risk_title: Clear, descriptive title (5-50 words)
-- description: Detailed description combining what happened and technical details
+- description: Concise summary of the extracted risk from the article ONLY (50-100 words).
+  Do NOT include catalog/reference risk text. Cover what happened, who is affected, and
+  why it matters — no bullet lists, no repetition of the title.
 - attack_vector: How the risk could occur
 - observable_indicators: Signs this risk is happening
 - data_to_identify_risk: Data needed to detect this risk
@@ -160,7 +162,7 @@ CRITICAL: Be honest in self-assessment. Lower scores help identify improvement a
     "domains": "string (single domain)",
     "primary_risk": "string",
     "secondary_risks": "string",
-    "description": "string (combined description with technical details)",
+    "description": "string (50-100 words; article-based risk summary only)",
     "attack_vector": "string",
     "observable_indicators": "string",
     "data_to_identify_risk": "string",

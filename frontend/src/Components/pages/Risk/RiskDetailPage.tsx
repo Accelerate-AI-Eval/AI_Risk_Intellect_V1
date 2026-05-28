@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { authFetch } from "../../../utils/authFetch";
 import { formatDisplayDate } from "../../../utils/formatDate";
@@ -8,10 +8,83 @@ import {
   formatRiskId,
   getRiskById,
   normalizeRiskDetailFromApi,
+  riskBackNavTitle,
   type RiskDetail,
 } from "./riskData";
 import { parseRiskDetailTab, RiskDetailView } from "./RiskDetailView";
 import "./riskDetailPage.css";
+
+function confidenceLabel(level: RiskDetail["confidence"]): string {
+  switch (level) {
+    case "HIGH":
+      return "HIGH CONFIDENCE";
+    case "MEDIUM":
+      return "MEDIUM CONFIDENCE";
+    default:
+      return "LOW CONFIDENCE";
+  }
+}
+
+type RiskDetailBackNavProps = {
+  risk: RiskDetail | null;
+  fallbackLabel: string;
+};
+
+function RiskDetailBackNav({ risk, fallbackLabel }: RiskDetailBackNavProps) {
+  const displayTitle = risk ? riskBackNavTitle(risk) : fallbackLabel;
+  return (
+    <Link
+      to="/risk"
+      className="riskDetailPage__back"
+      aria-label={
+        risk ? `Back to risks list: ${displayTitle}` : "Back to risks list"
+      }
+    >
+      <ArrowLeft size={18} strokeWidth={2} className="riskDetailPage__backIcon" aria-hidden />
+      <span
+        id={risk ? "risk-detail-page-title" : undefined}
+        className="riskDetailPage__backTitle"
+      >
+        {displayTitle}
+      </span>
+    </Link>
+  );
+}
+
+function RiskDetailPageMeta({ risk }: { risk: RiskDetail }) {
+  const confidence = risk.confidence.toLowerCase();
+  return (
+    <div className="riskDetailPage__meta" aria-label="Risk metadata">
+      <div className="riskDetailPage__metaCluster">
+        <div className="riskDetailPage__metaChip riskDetailPage__metaChip--id">
+          <span className="riskDetailPage__metaChipLabel">Risk ID</span>
+          <span className="riskDetailPage__metaChipValue">{formatRiskId(risk)}</span>
+        </div>
+        <span className="riskDetailPage__metaSep" aria-hidden />
+        <div
+          className={`riskDetailPage__metaChip riskDetailPage__metaChip--confidence riskDetailPage__metaChip--confidence-${confidence}`}
+        >
+          <Sparkles size={13} strokeWidth={2.25} aria-hidden />
+          <span className="riskDetailPage__metaChipValue">
+            {confidenceLabel(risk.confidence)}
+          </span>
+        </div>
+        {risk.modelName ? (
+          <>
+            <span className="riskDetailPage__metaSep" aria-hidden />
+            <div
+              className="riskDetailPage__metaChip riskDetailPage__metaChip--model"
+              title={risk.modelName}
+            >
+              <span className="riskDetailPage__metaChipLabel">Model</span>
+              <span className="riskDetailPage__metaChipValue">{risk.modelName}</span>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export function RiskDetailPage() {
   const { riskId } = useParams();
@@ -75,13 +148,13 @@ export function RiskDetailPage() {
     }
   }, [risk, loadState]);
 
-  if (loadState === "loading") {
+  const fallbackLabel =
+    loadState === "loading" ? "Loading risk…" : "Risks";
+
+  if (loadState === "loading" && !risk) {
     return (
       <main className="mainLayout__content riskDetailPage">
-        <Link to="/risk" className="riskDetailPage__back">
-          <ArrowLeft size={18} strokeWidth={2} aria-hidden />
-          Back to Risks
-        </Link>
+        <RiskDetailBackNav risk={null} fallbackLabel={fallbackLabel} />
         <p className="riskDetailPage__notFound">Loading risk…</p>
       </main>
     );
@@ -90,10 +163,7 @@ export function RiskDetailPage() {
   if (!risk) {
     return (
       <main className="mainLayout__content riskDetailPage">
-        <Link to="/risk" className="riskDetailPage__back">
-          <ArrowLeft size={18} strokeWidth={2} aria-hidden />
-          Back to Risks
-        </Link>
+        <RiskDetailBackNav risk={null} fallbackLabel="Risks" />
         <p className="riskDetailPage__notFound">Risk not found.</p>
       </main>
     );
@@ -101,11 +171,15 @@ export function RiskDetailPage() {
 
   return (
     <main className="mainLayout__content riskDetailPage">
-      <Link to="/risk" className="riskDetailPage__back">
-        <ArrowLeft size={18} strokeWidth={2} aria-hidden />
-        Back to Risks
-      </Link>
-      <RiskDetailView risk={risk} initialTab={initialTab} />
+      <div className="riskDetailPage__stickyBar">
+        <RiskDetailBackNav risk={risk} fallbackLabel={fallbackLabel} />
+        <RiskDetailPageMeta risk={risk} />
+      </div>
+      <RiskDetailView
+        risk={risk}
+        initialTab={initialTab}
+        titleElementId="risk-detail-page-title"
+      />
     </main>
   );
 }

@@ -181,6 +181,11 @@ html:not(.app-theme-dark) .jobsPage__importField select {
   box-sizing: border-box;
 }
 
+html:not(.app-theme-dark) .jobsPage__card,
+html:not(.app-theme-dark) .jobsPage__filters {
+  background: #f8f8fc;
+}
+
 .jobsPage__cardIcon {
   flex-shrink: 0;
   display: flex;
@@ -367,6 +372,8 @@ html:not(.app-theme-dark) .jobsPage__statusHelpPanel {
 }
 
 .jobsPage__filter select {
+  width: 100%;
+  min-width: 10rem;
   height: 40px;
   padding: 0 2rem 0 0.75rem;
   border-radius: 8px;
@@ -492,8 +499,8 @@ html:not(.app-theme-dark) .jobsPage__clearBtn[data-tooltip]::after {
 
 /* Light theme: align with app shell when not in app-theme-dark */
 html:not(.app-theme-dark) .jobsPage {
-  --jobs-surface: #f8f8f8;
-  --jobs-card: #fff;
+  --jobs-surface: #fff;
+  --jobs-card: #f8f8fc;
   --jobs-border: rgba(15, 23, 42, 0.08);
   --jobs-text: #0f172a;
   --jobs-muted: #64748b;
@@ -746,7 +753,7 @@ html:not(.app-theme-dark) .jobsPage__errorInfoPanel {
 
 .jobsPage__id {
   font-weight: 600;
-  color: #22d3ee;
+  color: var(--entity-id-color, #22d3ee);
 }
 
 .jobsPage__url {
@@ -877,10 +884,6 @@ html:not(.app-theme-dark) .jobsPage__badge--ingest {
 .jobsPage__actionBtn--delete:hover {
   color: #fca5a5;
   background: rgba(248, 113, 113, 0.12);
-}
-
-html:not(.app-theme-dark) .jobsPage__id {
-  color: #0891b2;
 }
 
 html:not(.app-theme-dark) .jobsPage__actionBtn--retry {

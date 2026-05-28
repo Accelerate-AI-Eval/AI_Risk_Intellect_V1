@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.risk_processing.description_utils import normalize_narrative_text
+
 
 def merge_extractions(objs: list[dict[str, Any]]) -> dict[str, Any]:
     if not objs:
@@ -22,7 +24,8 @@ def merge_extractions(objs: list[dict[str, Any]]) -> dict[str, Any]:
             descriptions.append(desc)
 
     if descriptions:
-        risk["description"] = "\n\n".join(descriptions[:5])
+        combined = " ".join(descriptions[:5])
+        risk["description"] = normalize_narrative_text(combined)
     base["risk"] = risk
 
     meta = dict(base.get("_meta") or {})

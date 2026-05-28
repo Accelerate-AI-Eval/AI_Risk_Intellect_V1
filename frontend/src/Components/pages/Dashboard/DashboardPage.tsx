@@ -29,100 +29,34 @@ import type { LucideIcon } from "lucide-react";
 import { MetricSparkline } from "./MetricSparkline";
 import { PageHeader } from "../../Layout/PageHeader";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
+import { usePolling } from "../../../utils/usePolling";
+import {
+  fetchDashboardStats,
+  type DashboardApiStats,
+} from "./dashboardData";
 import "../Users/usersPage.css";
+import "../Jobs/jobsPage.css";
 import "./dashboardPage.css";
 
-type ChangeTrend = "up" | "down" | "neutral";
+type MetricAccent = "blue" | "orange" | "green" | "slate" | "zinc";
 
-type MetricConfig = {
-  key: string;
+type MetricDef = {
+  key: keyof DashboardApiStats["metrics"];
   title: string;
-  value: string;
-  accent: "blue" | "orange" | "green" | "slate" | "zinc";
+  accent: MetricAccent;
   Icon: LucideIcon;
-  sparkPoints: number[];
-  trend: ChangeTrend;
-  changePct: string;
-  changeAbs: string;
-  footer: string;
 };
 
-const METRICS: MetricConfig[] = [
-  {
-    key: "articles",
-    title: "Total articles",
-    value: "126",
-    accent: "blue",
-    Icon: FileText,
-    sparkPoints: [12, 18, 22, 35, 48, 52, 68, 74, 82, 95, 110, 126],
-    trend: "up",
-    changePct: "0.0%",
-    changeAbs: "+126",
-    footer: "Previous: 0",
-  },
-  {
-    key: "risks",
-    title: "Risks mapped",
-    value: "0",
-    accent: "orange",
-    Icon: Shield,
-    sparkPoints: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    trend: "neutral",
-    changePct: "0.0%",
-    changeAbs: "0",
-    footer: "Previous: 0",
-  },
-  {
-    key: "success",
-    title: "Success rate",
-    value: "0%",
-    accent: "green",
-    Icon: CheckCircle2,
-    sparkPoints: [42, 38, 40, 35, 32, 28, 30, 26, 22, 18, 12, 8],
-    trend: "neutral",
-    changePct: "0.0%",
-    changeAbs: "0",
-    footer: "Previous: 0",
-  },
-  {
-    key: "activity",
-    title: "24h activity",
-    value: "0",
-    accent: "slate",
-    Icon: Activity,
-    sparkPoints: [2, 4, 3, 6, 8, 7, 9, 11, 10, 12, 11, 14],
-    trend: "neutral",
-    changePct: "0.0%",
-    changeAbs: "0",
-    footer: "~0.0/hour avg",
-  },
-  {
-    key: "avgTime",
-    title: "Avg processing time",
-    value: "0s",
-    accent: "zinc",
-    Icon: Clock,
-    sparkPoints: [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20],
-    trend: "down",
-    changePct: "-10.0%",
-    changeAbs: "0",
-    footer: "10% faster",
-  },
-  {
-    key: "queue",
-    title: "Pending queue",
-    value: "0",
-    accent: "zinc",
-    Icon: Zap,
-    sparkPoints: [28, 26, 24, 22, 18, 16, 14, 12, 10, 8, 6, 4],
-    trend: "down",
-    changePct: "-25.0%",
-    changeAbs: "-10",
-    footer: "Est. 0min to clear",
-  },
+const METRIC_DEFS: MetricDef[] = [
+  { key: "articles", title: "Total articles", accent: "blue", Icon: FileText },
+  { key: "risks", title: "Risks mapped", accent: "orange", Icon: Shield },
+  { key: "success", title: "Success rate", accent: "green", Icon: CheckCircle2 },
+  { key: "activity", title: "24h activity", accent: "slate", Icon: Activity },
+  { key: "avgTime", title: "Avg processing time", accent: "zinc", Icon: Clock },
+  { key: "queue", title: "Pending queue", accent: "zinc", Icon: Zap },
 ];
 
-const ACCENT_COLORS: Record<MetricConfig["accent"], string> = {
+const ACCENT_COLORS: Record<MetricAccent, string> = {
   blue: "#3B82F6",
   orange: "#F59E0B",
   green: "#10B981",
@@ -130,99 +64,9 @@ const ACCENT_COLORS: Record<MetricConfig["accent"], string> = {
   zinc: "#64748b",
 };
 
-const SEVERITY_ROWS = [
-  {
-    key: "low",
-    label: "Low",
-    color: "#22c55e",
-    pct: "45%",
-    count: "2,139",
-    delta: "+247",
-    deltaPct: "(13.1%)",
-    trend: "up" as const,
-  },
-  {
-    key: "medium",
-    label: "Medium",
-    color: "#eab308",
-    pct: "37%",
-    count: "1,756",
-    delta: "-78",
-    deltaPct: "(-4.3%)",
-    trend: "down" as const,
-  },
-  {
-    key: "high",
-    label: "High",
-    color: "#f97316",
-    pct: "13%",
-    count: "632",
-    delta: "+43",
-    deltaPct: "(7.3%)",
-    trend: "up" as const,
-  },
-  {
-    key: "critical",
-    label: "Critical",
-    color: "#ef4444",
-    pct: "4%",
-    count: "189",
-    delta: "-23",
-    deltaPct: "(-10.8%)",
-    trend: "down" as const,
-  },
-];
-
-const CONFIDENCE_BREAKDOWN = [
-  { key: "hi", label: "High (>90%)", count: "2,847", tone: "green" as const },
-  { key: "mid", label: "Medium (70-90%)", count: "892", tone: "amber" as const },
-  { key: "lo", label: "Low (<70%)", count: "153", tone: "red" as const },
-];
-
-const ANALYSIS_CONFIDENCE_PCT = 87.4;
-
-/** Mock 8 weeks × 7 days — replace when activity API is wired */
-const WEEKLY_RISK_HEATMAP_ROWS: {
-  label: string;
-  values: readonly [number, number, number, number, number, number, number];
-  emphasizeTotal?: boolean;
-}[] = [
-  {
-    label: "This Week",
-    values: [34, 28, 42, 19, 45, 36, 46],
-    emphasizeTotal: true,
-  },
-  {
-    label: "Last Week",
-    values: [26, 27, 30, 28, 25, 22, 20],
-  },
-  {
-    label: "3 weeks ago",
-    values: [21, 19, 26, 22, 20, 24, 24],
-  },
-  {
-    label: "4 weeks ago",
-    values: [21, 22, 23, 24, 25, 22, 24],
-  },
-  {
-    label: "5 weeks ago",
-    values: [18, 17, 21, 22, 23, 24, 24],
-  },
-  {
-    label: "6 weeks ago",
-    values: [24, 26, 27, 23, 22, 21, 21],
-  },
-  {
-    label: "7 weeks ago",
-    values: [22, 21, 25, 23, 22, 23, 22],
-  },
-  {
-    label: "8 weeks ago",
-    values: [26, 24, 25, 24, 23, 22, 20],
-  },
-];
-
 const HEATMAP_DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+
+type HeatmapRowInput = DashboardApiStats["heatmap"][number];
 
 function weeklyRiskHeatLevel(value: number): 0 | 1 | 2 | 3 | 4 {
   if (value <= 14) return 0;
@@ -232,14 +76,14 @@ function weeklyRiskHeatLevel(value: number): 0 | 1 | 2 | 3 | 4 {
   return 4;
 }
 
-function WeeklyRiskActivityHeatmap() {
+function WeeklyRiskActivityHeatmap({ heatmap }: { heatmap: HeatmapRowInput[] }) {
   const rows = useMemo(
     () =>
-      WEEKLY_RISK_HEATMAP_ROWS.map((row) => ({
+      heatmap.map((row) => ({
         ...row,
         total: row.values.reduce((a, b) => a + b, 0),
       })),
-    [],
+    [heatmap],
   );
 
   const grandTotal = useMemo(
@@ -359,76 +203,65 @@ type TaxonomyDomain = {
   count: number;
 };
 
-const TAXONOMY_DOMAINS: TaxonomyDomain[] = [
+const TAXONOMY_DOMAIN_META: Omit<TaxonomyDomain, "count">[] = [
   {
     key: "discrimination",
     order: 1,
     label: "Discrimination & Toxicity",
     color: "#ef4444",
-    count: 0,
   },
   {
     key: "privacy",
     order: 2,
     label: "Privacy & Security",
     color: "#a855f7",
-    count: 0,
   },
   {
     key: "misinformation",
     order: 3,
     label: "Misinformation",
     color: "#f97316",
-    count: 0,
   },
   {
     key: "malicious",
     order: 4,
     label: "Malicious Actors",
     color: "#fb7185",
-    count: 0,
   },
   {
     key: "hci",
     order: 5,
     label: "Human-Computer Interaction",
     color: "#38bdf8",
-    count: 0,
   },
   {
     key: "socioeconomic",
     order: 6,
     label: "Socioeconomic & Environmental",
     color: "#22c55e",
-    count: 0,
   },
   {
     key: "ai_safety",
     order: 7,
     label: "AI System Safety, Failures, & Limitations",
     color: "#8b5cf6",
-    count: 0,
   },
 ];
-
-/** Placeholder until articles / sector API is wired */
-const SECTOR_ARTICLE_TOTAL = 0;
-const SECTOR_COUNTS = {
-  private: 0,
-  public: 0,
-  nonprofit: 0,
-} as const;
 
 function sectorPct(count: number, total: number): string {
   if (total <= 0) return "0";
   return ((count / total) * 100).toFixed(1);
 }
 
-function SectorIndustryPanel() {
-  const total = SECTOR_ARTICLE_TOTAL;
-  const pctPrivate = sectorPct(SECTOR_COUNTS.private, total);
-  const pctPublic = sectorPct(SECTOR_COUNTS.public, total);
-  const pctNonprofit = sectorPct(SECTOR_COUNTS.nonprofit, total);
+function SectorIndustryPanel({
+  sector,
+}: {
+  sector: DashboardApiStats["sector"];
+}) {
+  const total = sector.total;
+  const pctPrivate = sectorPct(sector.private, total);
+  const pctPublic = sectorPct(sector.public, total);
+  const pctNonprofit = sectorPct(sector.nonprofit, total);
 
   const industryColumns = [
     {
@@ -462,7 +295,7 @@ function SectorIndustryPanel() {
         </h2>
         <p className="dashSector__total">
           Total:{" "}
-          <span className="dashSector__totalValue">{total}</span> articles
+          <span className="dashSector__totalValue">{total}</span> risks
         </p>
       </header>
 
@@ -474,7 +307,7 @@ function SectorIndustryPanel() {
               <Briefcase size={20} strokeWidth={2} />
             </span>
           </div>
-          <p className="dashSectorCard__value">{SECTOR_COUNTS.private}</p>
+          <p className="dashSectorCard__value">{sector.private}</p>
           <p className="dashSectorCard__sub">{pctPrivate}% of total</p>
         </div>
         <div className="dashSectorCard dashSectorCard--public">
@@ -484,7 +317,7 @@ function SectorIndustryPanel() {
               <Landmark size={20} strokeWidth={2} />
             </span>
           </div>
-          <p className="dashSectorCard__value">{SECTOR_COUNTS.public}</p>
+          <p className="dashSectorCard__value">{sector.public}</p>
           <p className="dashSectorCard__sub">{pctPublic}% of total</p>
         </div>
         <div className="dashSectorCard dashSectorCard--nonprofit">
@@ -494,23 +327,37 @@ function SectorIndustryPanel() {
               <Heart size={20} strokeWidth={2} />
             </span>
           </div>
-          <p className="dashSectorCard__value">{SECTOR_COUNTS.nonprofit}</p>
+          <p className="dashSectorCard__value">{sector.nonprofit}</p>
           <p className="dashSectorCard__sub">{pctNonprofit}% of total</p>
         </div>
       </div>
 
       <div className="dashSector__lists">
-        {industryColumns.map((col) => (
-          <div key={col.key} className="dashSectorList">
-            <h3 className="dashSectorList__title">
-              <span className={`dashSectorList__dot ${col.dotClass}`} aria-hidden />
-              {col.title}
-            </h3>
-            <div className="dashSectorList__body" role="status">
-              <p className="dashSectorList__empty">No industries ranked yet.</p>
+        {industryColumns.map((col) => {
+          const items = sector.industries[col.key];
+          return (
+            <div key={col.key} className="dashSectorList">
+              <h3 className="dashSectorList__title">
+                <span className={`dashSectorList__dot ${col.dotClass}`} aria-hidden />
+                {col.title}
+              </h3>
+              <div className="dashSectorList__body" role="status">
+                {items.length === 0 ? (
+                  <p className="dashSectorList__empty">No industries ranked yet.</p>
+                ) : (
+                  <ul className="dashSectorList__items">
+                    {items.map((item) => (
+                      <li key={item.name} className="dashSectorList__item">
+                        <span>{item.name}</span>
+                        <span className="dashSectorList__itemCount">{item.count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <footer className="dashSector__foot">
@@ -521,7 +368,17 @@ function SectorIndustryPanel() {
   );
 }
 
-function RiskSeverityDistributionCard() {
+function RiskSeverityDistributionCard({
+  severity,
+}: {
+  severity: DashboardApiStats["severity"];
+}) {
+  const totalFormatted = severity.total.toLocaleString("en-US");
+  const totalDeltaFormatted =
+    severity.totalDelta >= 0
+      ? `+${severity.totalDelta.toLocaleString("en-US")}`
+      : severity.totalDelta.toLocaleString("en-US");
+
   return (
     <article className="dashInsight dashInsight--severity">
       <header className="dashInsight__head">
@@ -537,7 +394,7 @@ function RiskSeverityDistributionCard() {
         <p className="dashInsight__confidence">
           Confidence:{" "}
           <span className="dashInsight__confidenceValue">
-            {ANALYSIS_CONFIDENCE_PCT}%
+            {severity.confidencePct}%
           </span>
         </p>
       </header>
@@ -549,7 +406,7 @@ function RiskSeverityDistributionCard() {
 
         <div className="dashSeverityLegend">
           <ul className="dashSeverityLegend__list">
-            {SEVERITY_ROWS.map((row) => (
+            {severity.rows.map((row) => (
               <li key={row.key} className="dashSeverityLegend__row">
                 <span className="dashSeverityLegend__label">
                   <span
@@ -579,10 +436,18 @@ function RiskSeverityDistributionCard() {
           <div className="dashSeverityLegend__row dashSeverityLegend__row--total">
             <span className="dashSeverityLegend__label">Total</span>
             <span className="dashSeverityLegend__pct">100%</span>
-            <span className="dashSeverityLegend__count">4,716</span>
-            <span className="dashSeverityLegend__trend dashSeverityLegend__trend--up">
-              +189{" "}
-              <span className="dashSeverityLegend__trendPct">(4.2%)</span>
+            <span className="dashSeverityLegend__count">{totalFormatted}</span>
+            <span
+              className={
+                severity.totalDelta >= 0
+                  ? "dashSeverityLegend__trend dashSeverityLegend__trend--up"
+                  : "dashSeverityLegend__trend dashSeverityLegend__trend--down"
+              }
+            >
+              {totalDeltaFormatted}{" "}
+              <span className="dashSeverityLegend__trendPct">
+                ({severity.totalDeltaPct})
+              </span>
             </span>
           </div>
         </div>
@@ -600,10 +465,36 @@ function RiskSeverityDistributionCard() {
   );
 }
 
-function AnalysisConfidenceCard() {
+function AnalysisConfidenceCard({
+  confidence,
+}: {
+  confidence: DashboardApiStats["confidence"];
+}) {
+  const avgPct = confidence.avgPct;
+  const breakdown = [
+    {
+      key: "hi",
+      label: "High (≥85)",
+      count: confidence.breakdown.high.toLocaleString("en-US"),
+      tone: "green" as const,
+    },
+    {
+      key: "mid",
+      label: "Medium (65–84)",
+      count: confidence.breakdown.medium.toLocaleString("en-US"),
+      tone: "amber" as const,
+    },
+    {
+      key: "lo",
+      label: "Low (<65)",
+      count: confidence.breakdown.low.toLocaleString("en-US"),
+      tone: "red" as const,
+    },
+  ];
+
   const r = 52;
   const c = 2 * Math.PI * r;
-  const dash = (ANALYSIS_CONFIDENCE_PCT / 100) * c;
+  const dash = (avgPct / 100) * c;
 
   return (
     <article className="dashInsight dashInsight--confidence">
@@ -624,7 +515,7 @@ function AnalysisConfidenceCard() {
           <svg
             className="dashConfRing__svg"
             viewBox="0 0 120 120"
-            aria-label={`Average confidence ${ANALYSIS_CONFIDENCE_PCT} percent`}
+            aria-label={`Average confidence ${avgPct} percent`}
           >
             <circle
               className="dashConfRing__track"
@@ -647,7 +538,7 @@ function AnalysisConfidenceCard() {
             />
           </svg>
           <div className="dashConfRing__label">
-            <span className="dashConfRing__value">{ANALYSIS_CONFIDENCE_PCT}%</span>
+            <span className="dashConfRing__value">{avgPct}%</span>
             <span className="dashConfRing__hint">
               Average confidence in risk classification
             </span>
@@ -657,7 +548,7 @@ function AnalysisConfidenceCard() {
         <div className="dashConfBreakdown">
           <div className="dashSeverityLegend__divider" />
           <ul className="dashConfBreakdown__list">
-            {CONFIDENCE_BREAKDOWN.map((row) => (
+            {breakdown.map((row) => (
               <li key={row.key} className="dashConfBreakdown__row">
                 <span className="dashConfBreakdown__label">{row.label}</span>
                 <span
@@ -674,21 +565,39 @@ function AnalysisConfidenceCard() {
   );
 }
 
-function RiskTaxonomyPanel() {
+function RiskTaxonomyPanel({
+  taxonomy,
+}: {
+  taxonomy: DashboardApiStats["taxonomy"];
+}) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
+  const countByKey = useMemo(
+    () => new Map(taxonomy.map((t) => [t.key, t.count])),
+    [taxonomy],
+  );
+
+  const domains = useMemo(
+    () =>
+      TAXONOMY_DOMAIN_META.map((meta) => ({
+        ...meta,
+        count: countByKey.get(meta.key) ?? 0,
+      })),
+    [countByKey],
+  );
+
   const totalRisks = useMemo(
-    () => TAXONOMY_DOMAINS.reduce((sum, d) => sum + d.count, 0),
-    [],
+    () => domains.reduce((sum, d) => sum + d.count, 0),
+    [domains],
   );
 
   const rows = useMemo(
     () =>
-      TAXONOMY_DOMAINS.map((d) => {
+      domains.map((d) => {
         const pct = totalRisks > 0 ? (d.count / totalRisks) * 100 : 0;
         return { ...d, pct };
       }),
-    [totalRisks],
+    [domains, totalRisks],
   );
 
   return (
@@ -771,14 +680,12 @@ type RiskCategoryRow = {
   subcategories: { key: string; label: string }[];
 };
 
-const TOP_RISK_CATEGORIES: RiskCategoryRow[] = [
+const RISK_CATEGORY_META: Omit<RiskCategoryRow, "pct" | "count">[] = [
   {
     key: "technical",
     label: "Technical",
     dotColor: "#22d3ee",
     subcategoryCount: 4,
-    pct: 0,
-    count: 0,
     subcategories: [
       { key: "t1", label: "System reliability" },
       { key: "t2", label: "Data integrity" },
@@ -791,8 +698,6 @@ const TOP_RISK_CATEGORIES: RiskCategoryRow[] = [
     label: "Operational",
     dotColor: "#f97316",
     subcategoryCount: 4,
-    pct: 0,
-    count: 0,
     subcategories: [
       { key: "o1", label: "Process controls" },
       { key: "o2", label: "Human oversight" },
@@ -805,8 +710,6 @@ const TOP_RISK_CATEGORIES: RiskCategoryRow[] = [
     label: "Business",
     dotColor: "#a855f7",
     subcategoryCount: 4,
-    pct: 0,
-    count: 0,
     subcategories: [
       { key: "b1", label: "Financial exposure" },
       { key: "b2", label: "Reputation" },
@@ -816,8 +719,24 @@ const TOP_RISK_CATEGORIES: RiskCategoryRow[] = [
   },
 ];
 
-function TopRiskCategoriesPanel() {
+function TopRiskCategoriesPanel({
+  topCategories,
+}: {
+  topCategories: DashboardApiStats["topCategories"];
+}) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set());
+
+  const categories = useMemo(() => {
+    const byKey = new Map(topCategories.map((c) => [c.key, c]));
+    return RISK_CATEGORY_META.map((meta) => {
+      const live = byKey.get(meta.key);
+      return {
+        ...meta,
+        count: live?.count ?? 0,
+        pct: live?.pct ?? 0,
+      };
+    });
+  }, [topCategories]);
 
   const toggle = (key: string) => {
     setOpenKeys((prev) => {
@@ -844,7 +763,7 @@ function TopRiskCategoriesPanel() {
       </header>
 
       <ul className="dashRiskCat__list" role="list">
-        {TOP_RISK_CATEGORIES.map((cat) => {
+        {categories.map((cat) => {
           const isOpen = openKeys.has(cat.key);
           return (
             <li key={cat.key} className="dashRiskCat__item">
@@ -931,21 +850,79 @@ function TopRiskCategoriesPanel() {
 
 export function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<DashboardApiStats | null>(null);
 
   useEffect(() => {
     setDocumentPageTitle("Dashboard");
   }, []);
 
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    window.setTimeout(() => {
+  const loadDashboard = useCallback(async (silent = false) => {
+    if (!silent) setRefreshing(true);
+    try {
+      const stats = await fetchDashboardStats();
+      setData(stats);
+      if (!silent) {
+        toast.success("Dashboard metrics refreshed.", { autoClose: 2200 });
+      }
+    } catch {
+      toast.error("Could not load dashboard metrics.");
+    } finally {
+      setLoading(false);
       setRefreshing(false);
-      toast.success("Dashboard metrics refreshed.", { autoClose: 2200 });
-    }, 650);
+    }
   }, []);
 
+  useEffect(() => {
+    void loadDashboard(true);
+  }, [loadDashboard]);
+
+  usePolling(() => loadDashboard(true), 30_000, Boolean(data));
+
+  const handleRefresh = useCallback(() => {
+    void loadDashboard(false);
+  }, [loadDashboard]);
+
+  if (loading && !data) {
+    return (
+      <main className="mainLayout__content dashboardPage jobsPage">
+        <PageHeader
+          title="Dashboard"
+          subtitle="AI Risk Intelligence Platform Overview"
+        />
+        <p className="dashboardPage__loading" role="status">
+          Loading dashboard metrics…
+        </p>
+      </main>
+    );
+  }
+
+  if (!data) {
+    return (
+      <main className="mainLayout__content dashboardPage jobsPage">
+        <PageHeader
+          title="Dashboard"
+          subtitle="AI Risk Intelligence Platform Overview"
+          actions={
+            <button
+              type="button"
+              className="usersPage__inviteBtn"
+              onClick={handleRefresh}
+            >
+              <RefreshCw size={18} strokeWidth={2} aria-hidden />
+              Retry
+            </button>
+          }
+        />
+        <p className="dashboardPage__loading" role="alert">
+          Dashboard metrics are unavailable.
+        </p>
+      </main>
+    );
+  }
+
   return (
-    <main className="mainLayout__content dashboardPage">
+    <main className="mainLayout__content dashboardPage jobsPage">
       <PageHeader
         title="Dashboard"
         subtitle="AI Risk Intelligence Platform Overview"
@@ -980,16 +957,18 @@ export function DashboardPage() {
         </h2>
 
         <div className="dashboardPage__grid">
-          {METRICS.map((m) => {
-            const stroke = ACCENT_COLORS[m.accent];
-            const Icon = m.Icon;
+          {METRIC_DEFS.map((def) => {
+            const m = data.metrics[def.key];
+            if (!m) return null;
+            const stroke = ACCENT_COLORS[def.accent];
+            const Icon = def.Icon;
             return (
               <article
-                key={m.key}
-                className={`dashCard dashCard--${m.accent}`}
+                key={def.key}
+                className={`dashCard dashCard--${def.accent}`}
               >
                 <div className="dashCard__top">
-                  <span className="dashCard__label">{m.title}</span>
+                  <span className="dashCard__label">{def.title}</span>
                   <span className="dashCard__iconWrap" aria-hidden>
                     <Icon size={18} strokeWidth={2} />
                   </span>
@@ -1037,8 +1016,8 @@ export function DashboardPage() {
           Risk analysis
         </h2>
         <div className="dashboardPage__insightsRow">
-          <RiskSeverityDistributionCard />
-          <AnalysisConfidenceCard />
+          <RiskSeverityDistributionCard severity={data.severity} />
+          <AnalysisConfidenceCard confidence={data.confidence} />
         </div>
       </section>
 
@@ -1046,28 +1025,28 @@ export function DashboardPage() {
         className="dashboardPage__section dashboardPage__section--taxonomy"
         aria-label="Risk database taxonomy"
       >
-        <RiskTaxonomyPanel />
+        <RiskTaxonomyPanel taxonomy={data.taxonomy} />
       </section>
 
       <section
         className="dashboardPage__section dashboardPage__section--riskCat"
         aria-label="Top risk categories"
       >
-        <TopRiskCategoriesPanel />
+        <TopRiskCategoriesPanel topCategories={data.topCategories} />
       </section>
 
       <section
         className="dashboardPage__section dashboardPage__section--sector"
         aria-label="Sector and industry breakdown"
       >
-        <SectorIndustryPanel />
+        <SectorIndustryPanel sector={data.sector} />
       </section>
 
       <section
         className="dashboardPage__section dashboardPage__section--weeklyHeatmap"
         aria-label="Weekly risk activity heatmap"
       >
-        <WeeklyRiskActivityHeatmap />
+        <WeeklyRiskActivityHeatmap heatmap={data.heatmap} />
       </section>
     </main>
   );

@@ -8,7 +8,7 @@
   border-top: 1px solid rgba(148, 163, 184, 0.22);
   font-size: 0.8125rem;
   color: var(--dt-pager-fg, #64748b);
-  background: var(--dt-pager-bg, transparent);
+  background: var(--dt-pager-bg, #fff);
 }
 
 .dtPagination--noRange {

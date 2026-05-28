@@ -28,10 +28,17 @@ export type RiskExtractionObject = {
   [key: string]: unknown;
 };
 
+export type PythonExtractMetrics = {
+  word_count: number;
+  tokens_generated: number;
+  duration_ms: number;
+};
+
 export type PythonExtractResult = {
   object: RiskExtractionObject;
   sourceFlag: string;
   model: string;
+  metrics: PythonExtractMetrics;
 };
 
 type ExtractResponse =
@@ -40,8 +47,15 @@ type ExtractResponse =
       object: RiskExtractionObject;
       source_flag: string;
       model: string;
+      metrics?: PythonExtractMetrics;
     }
-  | { ok: false; error: string; message: string; source_flag?: string };
+  | {
+      ok: false;
+      error: string;
+      message: string;
+      source_flag?: string;
+      metrics?: PythonExtractMetrics;
+    };
 
 function pythonUrl(): string {
   return (
@@ -68,10 +82,17 @@ function handleExtractResponse(parsed: ExtractResponse): PythonExtractResult {
     throw new Error(parsed.message || parsed.error);
   }
 
+  const metrics = parsed.metrics ?? {
+    word_count: 0,
+    tokens_generated: 0,
+    duration_ms: 1,
+  };
+
   return {
     object: parsed.object,
     sourceFlag: parsed.source_flag,
     model: parsed.model,
+    metrics,
   };
 }
 

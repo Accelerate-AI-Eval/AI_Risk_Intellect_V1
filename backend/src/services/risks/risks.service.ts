@@ -1,14 +1,21 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { articles } from "../../schema/articles/articles.js";
 import { risks } from "../../schema/risks/risks.js";
 import { HttpError } from "../../utils/httpError.js";
-import { parseRiskDisplaySequence } from "./riskDisplayId.js";
-import { mapRiskRowToDto, type RiskDto } from "./riskDto.js";
 import {
-  buildRiskDisplayIdMap,
-  sortRisksForDisplaySequence,
-} from "./riskSequence.js";
+  findCatalogRiskMatches,
+  isDomainMappedToCatalog,
+  mergeCatalogMatchesIntoExtraction,
+  parseCatalogMatchesFromExtraction,
+} from "./riskCatalogMatch.service.js";
+import {
+  mapRiskRowToDto,
+  type ReviewQueueItemDto,
+  type RiskDto,
+} from "./riskDto.js";
+import { resolveRiskUuid } from "./riskResolve.js";
+import { buildRiskDisplayIdMap } from "./riskSequence.js";
 
 export type RiskListMetrics = {
   total: number;
@@ -83,22 +90,6 @@ export async function listRisks(): Promise<{
   };
 }
 
-async function resolveRiskUuid(idOrDisplayId: string): Promise<string | null> {
-  const trimmed = idOrDisplayId.trim();
-  if (/^[0-9a-f-]{36}$/i.test(trimmed)) return trimmed;
-
-  const sequence = parseRiskDisplaySequence(trimmed);
-  if (sequence == null) return null;
-
-  const orderRows = await db
-    .select({ id: risks.id, createdAt: risks.createdAt })
-    .from(risks)
-    .orderBy(asc(risks.createdAt), asc(risks.id));
-
-  if (sequence < 1 || sequence > orderRows.length) return null;
-  return sortRisksForDisplaySequence(orderRows)[sequence - 1]!.id;
-}
-
 export async function getRiskById(riskId: string): Promise<RiskDto> {
   const uuid = await resolveRiskUuid(riskId);
   if (!uuid) {
@@ -139,5 +130,122 @@ export async function getRiskById(riskId: string): Promise<RiskDto> {
   const displayId =
     buildRiskDisplayIdMap(orderRows).get(row.id) ?? "R-?";
 
-  return mapRiskRowToDto(row, displayId);
+  let extractionJson = row.extractionJson;
+  let stored = parseCatalogMatchesFromExtraction(extractionJson);
+
+  if (!stored) {
+    const ext = (extractionJson ?? {}) as { risk?: Record<string, unknown> };
+    const extractedRisk = ext.risk ?? {};
+    const description = String(
+      extractedRisk.description ?? row.riskTitle ?? "",
+    ).trim();
+
+    stored = await findCatalogRiskMatches({
+      domain: row.domains ?? String(extractedRisk.domains ?? ""),
+      title: row.riskTitle,
+      description: description || row.riskTitle,
+      primaryRisk: row.primaryRisk ?? undefined,
+      secondaryRisk: row.secondaryRisk ?? undefined,
+      limit: 5,
+    });
+
+    extractionJson = mergeCatalogMatchesIntoExtraction(
+      (extractionJson ?? {}) as Record<string, unknown>,
+      stored,
+    );
+
+    await db
+      .update(risks)
+      .set({ extractionJson, updatedAt: new Date() })
+      .where(eq(risks.id, uuid));
+  }
+
+  return mapRiskRowToDto(
+    { ...row, extractionJson },
+    displayId,
+  );
+}
+
+function reviewPriorityFromScore(score: number | null): ReviewQueueItemDto["priority"] {
+  if (score == null) return "High";
+  if (score < 50) return "High";
+  if (score < 75) return "Medium";
+  return "Low";
+}
+
+function formatScoreLabel(score: number | null): string {
+  if (score == null) return "—/100";
+  return `${Math.round(score)}/100`;
+}
+
+export async function listReviewQueueRisks(): Promise<{
+  items: ReviewQueueItemDto[];
+  total: number;
+}> {
+  const rows = await db
+    .select({
+      id: risks.id,
+      articleId: risks.articleId,
+      riskTitle: risks.riskTitle,
+      domains: risks.domains,
+      primaryRisk: risks.primaryRisk,
+      secondaryRisk: risks.secondaryRisk,
+      qualityScore: risks.qualityScore,
+      extractionJson: risks.extractionJson,
+      createdAt: risks.createdAt,
+      articleUrl: articles.url,
+    })
+    .from(risks)
+    .innerJoin(articles, eq(risks.articleId, articles.id))
+    .orderBy(desc(risks.createdAt));
+
+  const displayIdByRiskId = buildRiskDisplayIdMap(
+    rows.map((row) => ({ id: row.id, createdAt: row.createdAt })),
+  );
+
+  const items: ReviewQueueItemDto[] = [];
+
+  for (const row of rows) {
+    const ext = (row.extractionJson ?? {}) as {
+      risk?: Record<string, unknown>;
+      review_status?: string;
+    };
+    const reviewStatus = String(ext.review_status ?? "")
+      .trim()
+      .toLowerCase();
+    if (reviewStatus === "approved" || reviewStatus === "rejected") {
+      continue;
+    }
+
+    const extractedRisk = ext.risk ?? {};
+    const domain = String(row.domains ?? extractedRisk.domains ?? "").trim();
+
+    const mapped = await isDomainMappedToCatalog(domain);
+    if (mapped) continue;
+
+    const score =
+      row.qualityScore ??
+      (typeof extractedRisk.quality_score === "number"
+        ? extractedRisk.quality_score
+        : null);
+
+    items.push({
+      id: row.id,
+      displayId: displayIdByRiskId.get(row.id) ?? "R-?",
+      title: row.riskTitle,
+      domain: domain || "—",
+      primaryRisk: row.primaryRisk ?? "—",
+      secondaryRisk: row.secondaryRisk ?? "—",
+      qualityScore: score,
+      scoreLabel: formatScoreLabel(score),
+      priority: reviewPriorityFromScore(score),
+      category: [row.primaryRisk, domain].filter(Boolean).join(" · ") || "—",
+      reviewReason:
+        "Domain could not be mapped to the risk_mappings catalog in the database.",
+      articleUrl: row.articleUrl,
+      ingestedAt: row.createdAt.toISOString(),
+    });
+  }
+
+  return { items, total: items.length };
 }

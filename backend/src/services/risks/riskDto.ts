@@ -1,9 +1,39 @@
+import { normalizeNarrativeText } from "../../utils/normalizeNarrativeText.js";
+import { parseCatalogMatchesFromExtraction } from "./riskCatalogMatch.service.js";
+
 export type EvidenceBreakdownItem = {
   field: string;
   strength: string;
   sourceText: string;
   specificity?: string;
   taxonomyAlignment?: string;
+};
+
+export type ReviewQueueItemDto = {
+  id: string;
+  displayId: string;
+  title: string;
+  domain: string;
+  primaryRisk: string;
+  secondaryRisk: string;
+  qualityScore: number | null;
+  scoreLabel: string;
+  priority: "Low" | "Medium" | "High";
+  category: string;
+  reviewReason: string;
+  articleUrl: string;
+  ingestedAt: string;
+};
+
+export type CatalogRiskMatchDto = {
+  riskId: string;
+  title: string;
+  description: string;
+  domain: string;
+  accuracyPercent: number;
+  domainMatchPercent: number;
+  descriptionMatchPercent: number;
+  matchSummary: string;
 };
 
 export type RiskDto = {
@@ -25,6 +55,7 @@ export type RiskDto = {
   attackVector: string;
   observableIndicators: string;
   timing: string;
+  articleId: number;
   articleTitle: string;
   articleUrl: string;
   ingestedAt: string;
@@ -33,6 +64,8 @@ export type RiskDto = {
     risk_identified: string;
     article_context: string;
     alignment_reasoning: string;
+    /** Top catalog matches from `risk_mappings` (detail view only). */
+    catalogMatches: CatalogRiskMatchDto[];
   };
   modelSelfEvaluation: {
     decision_rationale: string;
@@ -70,10 +103,13 @@ type ExtractionJson = {
     evidence_breakdown?: Array<Record<string, unknown>>;
   };
   controls?: Array<Record<string, unknown>>;
+  /** Catalog `risk_mappings` IDs matched at extraction time. */
+  catalog_matches?: unknown[];
 };
 
 type RiskRowInput = {
   id: string;
+  articleId: number;
   riskTitle: string;
   domains: string | null;
   primaryRisk: string | null;
@@ -92,6 +128,13 @@ type RiskRowInput = {
 function str(v: unknown, fallback = ""): string {
   if (v == null) return fallback;
   return String(v).trim();
+}
+
+/** Full narrative text for UI — never word-capped; strips only a trailing fragment. */
+function narrative(v: unknown, fallback = ""): string {
+  const raw = str(v, fallback);
+  if (!raw) return raw;
+  return normalizeNarrativeText(raw);
 }
 
 function primaryKeyFromLabel(primary: string): string {
@@ -136,7 +179,7 @@ function mapEvidenceBreakdown(
     .map((item) => ({
       field: str(item.field, "Evidence"),
       strength: str(item.strength),
-      sourceText: str(item.source_text),
+      sourceText: narrative(item.source_text),
       specificity: str(item.specificity) || undefined,
       taxonomyAlignment: str(item.taxonomy_alignment) || undefined,
     }))
@@ -148,6 +191,13 @@ export function mapRiskRowToDto(
   displayId: string,
 ): RiskDto {
   const ext = (row.extractionJson ?? {}) as ExtractionJson;
+  const catalogMatches = (parseCatalogMatchesFromExtraction(ext) ?? []).map(
+    (match) => ({
+      ...match,
+      description: narrative(match.description, "No description available."),
+      matchSummary: narrative(match.matchSummary),
+    }),
+  );
   const risk = ext.risk ?? {};
   const analysis = ext.analysis ?? {};
   const justification = ext.justification ?? {};
@@ -158,30 +208,32 @@ export function mapRiskRowToDto(
   const secondaryRisk = str(row.secondaryRisk ?? risk.secondary_risks, "—");
   const quality = row.qualityScore ?? Number(self.total_score) ?? null;
 
+  const description = narrative(risk.description);
+
   const scoreMetrics: RiskDto["scores"]["metrics"] = [
     {
       label: "Context Clarity",
       value: Number(self.context_clarity_score ?? 0),
       max: 45,
-      reasoning: str(self.context_clarity_reasoning),
+      reasoning: narrative(self.context_clarity_reasoning),
     },
     {
       label: "Keyword Matching",
       value: Number(self.keyword_score ?? 0),
       max: 20,
-      reasoning: str(self.keyword_reasoning),
+      reasoning: narrative(self.keyword_reasoning),
     },
     {
       label: "Tagging Accuracy",
       value: Number(self.tagging_accuracy_score ?? 0),
       max: 20,
-      reasoning: str(self.tagging_reasoning),
+      reasoning: narrative(self.tagging_reasoning),
     },
     {
       label: "Evidence Strength",
       value: Number(self.evidence_strength_score ?? 0),
       max: 15,
-      reasoning: str(self.evidence_reasoning),
+      reasoning: narrative(self.evidence_reasoning),
     },
   ];
 
@@ -190,7 +242,9 @@ export function mapRiskRowToDto(
   );
   const firstEvidence = evidenceBreakdown[0];
 
-  const description = str(risk.description);
+  const decisionRationale = narrative(
+    self.decision_rationale ?? justification.decision_rationale,
+  );
 
   return {
     id: row.id,
@@ -212,22 +266,22 @@ export function mapRiskRowToDto(
       str(self.confidence_level),
     ),
     description,
-    attackVector: str(risk.attack_vector),
-    observableIndicators: str(risk.observable_indicators),
-    timing: str(risk.timing),
+    attackVector: narrative(risk.attack_vector),
+    observableIndicators: narrative(risk.observable_indicators),
+    timing: narrative(risk.timing),
+    articleId: row.articleId,
     articleTitle: str(row.articleTitle, row.articleUrl),
     articleUrl: row.articleUrl,
     ingestedAt: row.createdAt.toISOString(),
     modelName: row.modelName,
     riskAnalysis: {
-      risk_identified: str(analysis.risk_identified),
-      article_context: str(analysis.article_context),
-      alignment_reasoning: str(analysis.alignment_reasoning),
+      risk_identified: narrative(analysis.risk_identified),
+      article_context: narrative(analysis.article_context),
+      alignment_reasoning: narrative(analysis.alignment_reasoning),
+      catalogMatches,
     },
     modelSelfEvaluation: {
-      decision_rationale: str(
-        justification.decision_rationale ?? self.decision_rationale,
-      ),
+      decision_rationale: decisionRationale,
     },
     scores: {
       overall: {
@@ -236,21 +290,17 @@ export function mapRiskRowToDto(
       },
       metrics: scoreMetrics,
       justification: {
-        decision_rationale: str(
-          self.decision_rationale ?? justification.decision_rationale,
-        ),
-        context_clarity_reasoning: str(self.context_clarity_reasoning),
-        keyword_reasoning: str(self.keyword_reasoning),
-        tagging_reasoning: str(self.tagging_reasoning),
-        evidence_reasoning: str(self.evidence_reasoning),
+        decision_rationale: decisionRationale,
+        context_clarity_reasoning: narrative(self.context_clarity_reasoning),
+        keyword_reasoning: narrative(self.keyword_reasoning),
+        tagging_reasoning: narrative(self.tagging_reasoning),
+        evidence_reasoning: narrative(self.evidence_reasoning),
       },
     },
     evidence: {
-      snippet: str(
-        firstEvidence?.sourceText ?? description,
-      ).slice(0, 2000),
-      sources: str(risk.evidence_sources),
-      dataToIdentifyRisk: str(risk.data_to_identify_risk),
+      snippet: narrative(firstEvidence?.sourceText ?? description),
+      sources: narrative(risk.evidence_sources),
+      dataToIdentifyRisk: narrative(risk.data_to_identify_risk),
       breakdown: evidenceBreakdown,
     },
   };

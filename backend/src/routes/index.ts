@@ -5,6 +5,8 @@ import { adminRouter } from "./admin.routes.js";
 import { articlesRouter } from "./articles.routes.js";
 import { jobsRouter } from "./jobs.routes.js";
 import { risksRouter } from "./risks.routes.js";
+import { dashboardRouter } from "./dashboard.routes.js";
+import { observabilityRouter } from "./observability.routes.js";
 
 export const apiRouter: Router = Router();
 
@@ -18,3 +20,5 @@ apiRouter.use("/admin", adminRouter);
 apiRouter.use("/articles", articlesRouter);
 apiRouter.use("/jobs", jobsRouter);
 apiRouter.use("/risks", risksRouter);
+apiRouter.use("/dashboard", dashboardRouter);
+apiRouter.use("/observability", observabilityRouter);

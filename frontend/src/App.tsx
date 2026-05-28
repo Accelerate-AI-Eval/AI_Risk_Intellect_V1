@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 import 'react-toastify/dist/ReactToastify.css'
 import './styles/toastify-overrides.css'
+import './Components/common/dataTableTheme.css'
 import { ThemeToastContainer } from './Components/ThemeToastContainer'
 import Signin from './Components/Authentication/Signin/Signin'
 import ForgotPassword from './Components/Authentication/ForgotPassword/ForgotPassword'
@@ -18,6 +19,7 @@ import { AdminPage } from './Components/pages/Admin/AdminPage'
 import { ReviewPage } from './Components/pages/Review/ReviewPage'
 import { SettingsPage } from './Components/pages/Settings/SettingsPage'
 import { AccountPage } from './Components/pages/Account/AccountPage'
+import { ObservabilityPage } from './Components/pages/Observability/ObservabilityPage'
 import { RequireAuth } from './Components/RequireAuth'
 
 function App() {
@@ -39,6 +41,7 @@ function App() {
             <Route path="/risk/:riskId" element={<RiskDetailPage />} />
             <Route path="/articles" element={<ArticlesPage />} />
             <Route path="/controls" element={<AdminPage />} />
+            <Route path="/observability" element={<ObservabilityPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/users" element={<UsersPage />} />
             {/* Settings content lives on Controls; redirect legacy URL */}

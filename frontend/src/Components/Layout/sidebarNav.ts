@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   AlertTriangle,
   Briefcase,
   ClipboardCheck,
@@ -25,6 +26,7 @@ export const SIDEBAR_NAV: readonly SidebarNavItem[] = [
   { to: "/review", label: "Review", icon: ClipboardCheck },
   // { to: "/admin", label: "Admin", icon: Shield },
   { to: "/controls", label: "Controls", icon: Settings2 },
+  { to: "/observability", label: "Observability", icon: Activity },
   // { to: "/settings", label: "Settings", icon: Settings },
   { to: "/users", label: "Users", icon: Users },
 ];

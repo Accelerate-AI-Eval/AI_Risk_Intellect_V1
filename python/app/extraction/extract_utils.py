@@ -7,13 +7,21 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
 from jsonschema import ValidationError, validate
 
 from app.extraction.chunking import tokenize_and_chunk
+from app.extraction.metrics import (
+    begin_extraction,
+    clear_extraction_metrics,
+    get_extraction_metrics,
+    record_generated_object,
+)
 from app.llm.repair import repair_extraction_obj
+from app.risk_processing.description_utils import word_count
 from app.risk_processing.merge import merge_extractions
 
 logger = logging.getLogger("airisk")
@@ -61,7 +69,14 @@ def load_risk_schema() -> dict[str, Any]:
 
 def get_current_model_name() -> str:
     if USE_BEDROCK:
-        return os.getenv("BEDROCK_MODEL", "claude-haiku-4-5")
+        from app.llm.model_config import _bedrock_model_id
+
+        raw = (
+            os.getenv("BEDROCK_MODEL", "").strip()
+            or os.getenv("BEDROCK_MODEL_ID", "").strip()
+            or "claude-haiku-4-5"
+        )
+        return _bedrock_model_id(raw)
     if USE_SAGEMAKER:
         return os.getenv("SAGEMAKER_MODEL_NAME", "foundation-sec-8b")
     if USE_OPENAI:
@@ -197,13 +212,32 @@ def extract_with_auto_chunking(
     title: str = "",
     source_url: str = "",
     system_prompt_override: Optional[str] = None,
-) -> Tuple[dict, str]:
+) -> Tuple[dict, str, dict[str, int]]:
     """
-    Returns (obj, source_flag). Uses chunking for long texts and merges results.
+    Returns (obj, source_flag, metrics). Uses chunking for long texts and merges results.
 
     Short documents (< CHUNK_THRESHOLD_CHARS): single-pass extraction.
     Long documents (>= threshold): overlapping token chunks + merge.
     """
+    started = time.perf_counter()
+    begin_extraction(word_count=word_count(text))
+
+    def finish(obj: dict, source_flag: str) -> Tuple[dict, str, dict[str, int]]:
+        duration_ms = max(1, int((time.perf_counter() - started) * 1000))
+        metrics = get_extraction_metrics()
+        tokens_generated = metrics.tokens_generated if metrics else 0
+        if tokens_generated <= 0:
+            record_generated_object(obj)
+            refreshed = get_extraction_metrics()
+            tokens_generated = refreshed.tokens_generated if refreshed else 0
+        payload = {
+            "word_count": metrics.word_count if metrics else word_count(text),
+            "tokens_generated": tokens_generated,
+            "duration_ms": duration_ms,
+        }
+        clear_extraction_metrics()
+        return obj, source_flag, payload
+
     use_chunking = os.getenv("USE_CHUNKING", "true").lower() in ("1", "true", "yes")
     threshold = int(os.getenv("CHUNK_THRESHOLD_CHARS", "6000"))
     mid = model_id or os.getenv("LOCAL_MODEL_ID", MODEL_ID)
@@ -232,24 +266,24 @@ def extract_with_auto_chunking(
             )
             if _is_stub_object(obj):
                 logger.warning("EXTRACT: LLM returned stub (single-pass)")
-                return obj, "stub"
+                return finish(obj, "stub")
             obj = repair_extraction_obj(obj, text, schema)
             validate(obj, schema)
             obj.setdefault("_meta", {})["chunked"] = {"used": False}
             logger.info("EXTRACT: single-pass SUCCESS")
-            return obj, "local-llm"
+            return finish(obj, "local-llm")
         except ValidationError as ve:
             logger.warning("EXTRACT: validation failed, repairing: %s", str(ve)[:200])
             repaired = repair_extraction_obj(obj, text, schema)
             validate(repaired, schema)
             repaired.setdefault("_meta", {})["chunked"] = {"used": False, "repaired": True}
-            return repaired, "local-llm-repaired"
+            return finish(repaired, "local-llm-repaired")
         except Exception as exc:
             logger.error("EXTRACT: single-pass FAILED: %s", str(exc)[:200])
             stub = _stub(text)
             validate(stub, schema)
             stub.setdefault("_meta", {})["chunked"] = {"used": False, "stub": True}
-            return stub, "stub"
+            return finish(stub, "stub")
 
     logger.info("EXTRACT: chunked path (> %d chars)", threshold)
     try:
@@ -314,7 +348,7 @@ def extract_with_auto_chunking(
         stub_chunks = sum(1 for o in objs if _is_stub_object(o))
         if objs and stub_chunks == len(objs):
             logger.warning("EXTRACT: all %d chunks returned stub", len(objs))
-            return objs[0], "stub"
+            return finish(objs[0], "stub")
         if stub_chunks:
             logger.warning(
                 "EXTRACT: %d/%d chunks were stubs (merging survivors)",
@@ -334,13 +368,13 @@ def extract_with_auto_chunking(
         }
         if _is_stub_object(final):
             logger.warning("EXTRACT: merged output is stub")
-            return final, "stub"
+            return finish(final, "stub")
         logger.info("EXTRACT: chunked SUCCESS")
-        return final, "chunked"
+        return finish(final, "chunked")
 
     except Exception as exc:
         logger.error("EXTRACT: chunked FAILED: %s", str(exc)[:200])
         stub = _stub(text)
         validate(stub, schema)
         stub.setdefault("_meta", {})["chunked"] = {"used": True, "failed": True}
-        return stub, "stub"
+        return finish(stub, "stub")

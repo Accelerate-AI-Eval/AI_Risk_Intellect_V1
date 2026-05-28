@@ -5,6 +5,13 @@
   --dash-label: #94a3b8;
 }
 
+.dashboardPage.jobsPage {
+  --page-header-title-color: var(--jobs-text);
+  --page-header-subtitle-color: var(--jobs-muted);
+  --dash-card-bg: var(--jobs-card);
+  --dash-border-subtle: var(--jobs-border);
+}
+
 .dashboardPage__section {
   margin-top: 0.5rem;
 }
@@ -54,8 +61,8 @@
   position: relative;
   padding: 1rem 1rem 0.85rem;
   border-radius: 10px;
-  background: var(--dash-card-bg);
-  border: 1px solid var(--dash-border-subtle);
+  background: var(--jobs-card, var(--dash-card-bg));
+  border: 1px solid var(--jobs-border, var(--dash-border-subtle));
   box-sizing: border-box;
   min-height: 9.5rem;
 }
@@ -148,7 +155,7 @@
 .dashCard__value {
   font-size: 1.65rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--jobs-text, #f8fafc);
   line-height: 1.1;
   letter-spacing: -0.02em;
 }
@@ -200,12 +207,22 @@
   line-height: 1.35;
 }
 
+html:not(.app-theme-dark) .dashboardPage.jobsPage .dashCard {
+  background: var(--jobs-card, #f8f8fc);
+  border-color: var(--jobs-border, #e2e8f0);
+}
+
 /* Light theme: readable cards on grey content background */
 html:not(.app-theme-dark) .dashboardPage {
   --dash-bg: transparent;
-  --dash-card-bg: #ffffff;
-  --dash-border-subtle: #e2e8f0;
+  --dash-card-bg: #f8f8fc;
+  --dash-border-subtle: rgba(15, 23, 42, 0.08);
   --dash-label: #64748b;
+}
+
+html:not(.app-theme-dark) .dashboardPage.jobsPage {
+  --dash-card-bg: var(--jobs-card);
+  --dash-border-subtle: var(--jobs-border);
 }
 
 html:not(.app-theme-dark) .dashboardPage__sectionTitle {
@@ -213,7 +230,7 @@ html:not(.app-theme-dark) .dashboardPage__sectionTitle {
 }
 
 html:not(.app-theme-dark) .dashCard__value {
-  color: var(--main-text-color, #0f172a);
+  color: var(--jobs-text, var(--main-text-color, #0f172a));
 }
 
 html:not(.app-theme-dark) .dashCard--blue {
@@ -1679,6 +1696,11 @@ html:not(.app-theme-dark) .dashRiskCat__foot {
   border: 1px dashed rgba(148, 163, 184, 0.22);
   background: rgba(15, 23, 42, 0.25);
   display: flex;
+  align-items: flex-start;
+  justify-content: stretch;
+}
+
+.dashSectorList__body:has(.dashSectorList__empty) {
   align-items: center;
   justify-content: center;
 }
@@ -1688,6 +1710,38 @@ html:not(.app-theme-dark) .dashRiskCat__foot {
   font-size: 0.8rem;
   color: var(--dash-label);
   text-align: center;
+}
+
+.dashSectorList__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.dashSectorList__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--dash-value);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.dashSectorList__item:last-child {
+  border-bottom: none;
+}
+
+.dashSectorList__itemCount {
+  font-variant-numeric: tabular-nums;
+  color: var(--dash-label);
+}
+
+.dashboardPage__loading {
+  margin: 2rem 0;
+  font-size: 0.95rem;
+  color: var(--dash-label);
 }
 
 .dashSector__foot {

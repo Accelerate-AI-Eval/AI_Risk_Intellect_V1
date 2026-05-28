@@ -214,6 +214,14 @@
   line-height: 1.4;
 }
 
+.reviewPage__cardReason {
+  margin: 0.35rem 0 0;
+  font-size: var(--rev-font-meta);
+  font-weight: 500;
+  color: #fbbf24;
+  line-height: 1.4;
+}
+
 .reviewPage__actions {
   display: flex;
   flex-wrap: wrap;
@@ -247,6 +255,12 @@
 .reviewPage__actionBtn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.25);
+}
+
+.reviewPage__actionBtn--view {
+  background: rgba(28, 176, 212, 0.14);
+  color: var(--rev-teal);
+  border-color: rgba(28, 176, 212, 0.35);
 }
 
 .reviewPage__actionBtn--approve {
@@ -295,7 +309,7 @@
 }
 
 html:not(.app-theme-dark) .reviewPage {
-  --rev-surface: #f8f8f8;
+  --rev-surface: #fff;
   --rev-card: #fff;
   --rev-border: rgba(15, 23, 42, 0.08);
   --rev-text: #0f172a;

@@ -6,6 +6,11 @@ import re
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 
+from app.risk_processing.description_utils import (
+    normalize_narrative_text,
+    snippet_as_description,
+)
+
 
 SENTENCE_END = (".", "!", "?")
 
@@ -116,8 +121,11 @@ def _repair_against_schema(obj: dict, source_text: str) -> dict:
     if not risk.get("risk_title") or len(risk.get("risk_title", "")) < 5:
         risk["risk_title"] = source_text[:100].strip() or "AI Risk Detected"
     
-    if not risk.get("description") or len(risk.get("description", "")) < 10:
-        risk["description"] = source_text[:500].strip() or "Risk description extracted from source"
+    desc = str(risk.get("description") or "").strip()
+    if len(desc) < 10:
+        risk["description"] = snippet_as_description(source_text)
+    else:
+        risk["description"] = normalize_narrative_text(desc)
     
     if not risk.get("attack_vector"):
         risk["attack_vector"] = "Attack vector to be determined"

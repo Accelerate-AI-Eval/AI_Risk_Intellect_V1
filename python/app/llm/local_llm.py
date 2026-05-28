@@ -275,6 +275,12 @@ def generate_json(
     # remove prompt prefix
     input_len = inputs["input_ids"].shape[1]
     gen_only = out_ids[0][input_len:]
+    try:
+        from app.extraction.metrics import add_generated_tokens
+
+        add_generated_tokens(int(gen_only.numel()))
+    except Exception:
+        pass
     decoded = _tokenizer.decode(gen_only, skip_special_tokens=True)
 
     try:

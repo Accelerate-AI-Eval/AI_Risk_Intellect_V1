@@ -4,13 +4,18 @@ import { validate } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { enqueueUrlHandler } from "../controllers/admin/admin.controller.js";
 import {
+  getLlmModelHandler,
   getServicesStatusHandler,
+  setLlmModelHandler,
   startDiscoveryHandler,
   startWorkerHandler,
   stopDiscoveryHandler,
   stopWorkerHandler,
 } from "../controllers/admin/services.controller.js";
-import { enqueueUrlSchema } from "../validators/admin.validators.js";
+import {
+  enqueueUrlSchema,
+  setLlmModelSchema,
+} from "../validators/admin.validators.js";
 
 export const adminRouter: Router = Router();
 
@@ -42,6 +47,19 @@ adminRouter.post(
   "/services/worker/stop",
   requireAuth,
   asyncHandler(stopWorkerHandler),
+);
+
+adminRouter.get(
+  "/services/llm-model",
+  requireAuth,
+  asyncHandler(getLlmModelHandler),
+);
+
+adminRouter.put(
+  "/services/llm-model",
+  requireAuth,
+  validate(setLlmModelSchema),
+  asyncHandler(setLlmModelHandler),
 );
 
 adminRouter.post(

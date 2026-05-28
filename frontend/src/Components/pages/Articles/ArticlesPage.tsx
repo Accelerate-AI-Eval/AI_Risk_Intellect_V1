@@ -15,6 +15,7 @@ import { usePagination } from "../../../utils/usePagination";
 import { PageHeader } from "../../Layout/PageHeader";
 import { DataTablePagination } from "../../common/DataTablePagination";
 import "../Users/usersPage.css";
+import "../Jobs/jobsPage.css";
 import "./articlesPage.css";
 
 type ArticleRow = {
@@ -68,7 +69,8 @@ function normalizeArticlesFromApi(raw: unknown): {
 
 export function ArticlesPage() {
   const baseId = useId();
-  const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [risksFilter, setRisksFilter] = useState<"all" | "with" | "none">("all");
   const [order, setOrder] = useState<"newest" | "oldest">("newest");
   const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState<ArticleRow[]>([]);
@@ -83,7 +85,8 @@ export function ArticlesPage() {
   const [articlePageSize, setArticlePageSize] = useState(10);
 
   const clearFilters = useCallback(() => {
-    setSearch("");
+    setSearchQuery("");
+    setRisksFilter("all");
     setOrder("newest");
   }, []);
 
@@ -129,10 +132,17 @@ export function ArticlesPage() {
   }, [loadArticles]);
 
   const visibleRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     let filtered = rows;
+
+    if (risksFilter === "with") {
+      filtered = filtered.filter((a) => a.risks > 0);
+    } else if (risksFilter === "none") {
+      filtered = filtered.filter((a) => a.risks === 0);
+    }
+
     if (q) {
-      filtered = rows.filter((a) => {
+      filtered = filtered.filter((a) => {
         const hay = [
           String(a.id),
           a.title,
@@ -145,6 +155,7 @@ export function ArticlesPage() {
         return hay.includes(q);
       });
     }
+
     const copy = [...filtered];
     copy.sort((a, b) => {
       const aTime = new Date(a.createdAt).getTime();
@@ -152,12 +163,12 @@ export function ArticlesPage() {
       return order === "newest" ? bTime - aTime : aTime - bTime;
     });
     return copy;
-  }, [rows, search, order]);
+  }, [rows, searchQuery, risksFilter, order]);
 
   const articlePager = usePagination({
     items: visibleRows,
     pageSize: articlePageSize,
-    resetKey: `${search}|${order}`,
+    resetKey: `${searchQuery}|${risksFilter}|${order}`,
   });
 
   const handleRefresh = useCallback(async () => {
@@ -167,10 +178,10 @@ export function ArticlesPage() {
     toast.success("Articles list refreshed.", { autoClose: 2000 });
   }, [loadArticles]);
 
-  const fieldId = (name: string) => `${baseId}-${name}`;
+  const filterId = (name: string) => `${baseId}-${name}`;
 
   return (
-    <main className="mainLayout__content articlesPage">
+    <main className="mainLayout__content articlesPage jobsPage">
       <PageHeader
         title="Articles"
         subtitle="Source articles and documents."
@@ -235,47 +246,62 @@ export function ArticlesPage() {
         </article>
       </div>
 
-      <section
-        className="articlesPage__toolbar"
-        aria-label="Article list controls"
-      >
-        <div className="articlesPage__toolbarLeft">
-          <div className="articlesPage__field">
-            <label htmlFor={fieldId("order")}>Order</label>
-            <select
-              id={fieldId("order")}
-              value={order}
-              onChange={(e) =>
-                setOrder(e.target.value === "oldest" ? "oldest" : "newest")
-              }
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            className="articlesPage__clearBtn"
-            onClick={clearFilters}
-            aria-label="Clear Filter"
-            data-tooltip="Clear Filter"
+      <section className="jobsPage__filters" aria-label="Filter articles">
+        <div className="jobsPage__filter">
+          <label htmlFor={filterId("risks")}>RISKS</label>
+          <select
+            id={filterId("risks")}
+            value={risksFilter}
+            onChange={(e) => {
+              const value = e.target.value;
+              setRisksFilter(
+                value === "with" || value === "none" ? value : "all",
+              );
+            }}
           >
-            <FilterX size={18} strokeWidth={2} aria-hidden />
-          </button>
+            <option value="all">All</option>
+            <option value="with">Has risks</option>
+            <option value="none">No risks</option>
+          </select>
         </div>
-        <div className="usersPage__searchWrap articlesPage__searchWrap">
+        <div className="jobsPage__filter">
+          <label htmlFor={filterId("order")}>ORDER</label>
+          <select
+            id={filterId("order")}
+            value={order}
+            onChange={(e) =>
+              setOrder(e.target.value === "oldest" ? "oldest" : "newest")
+            }
+          >
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          className="jobsPage__clearBtn"
+          onClick={clearFilters}
+          aria-label="Clear Filter"
+          data-tooltip="Clear Filter"
+        >
+          <FilterX size={18} strokeWidth={2} aria-hidden />
+        </button>
+        <div className="jobsPage__searchWrap">
           <Search
-            className="usersPage__searchIcon"
+            className="jobsPage__searchIcon"
             size={18}
             strokeWidth={2}
             aria-hidden
           />
           <input
+            id={filterId("search")}
             type="search"
-            className="usersPage__searchInput"
+            className="jobsPage__searchInput"
             placeholder="Search title, URL, ID…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoComplete="off"
+            enterKeyHint="search"
             aria-label="Search articles"
           />
         </div>
@@ -320,8 +346,8 @@ export function ArticlesPage() {
                 ) : visibleRows.length === 0 ? (
                   <tr>
                     <td className="articlesPage__td articlesPage__td--empty" colSpan={6}>
-                      {search.trim()
-                        ? "No articles match your search."
+                      {searchQuery.trim() || risksFilter !== "all"
+                        ? "No articles match your filters or search."
                         : loadState === "error"
                           ? "Could not load articles."
                           : "No articles to display."}

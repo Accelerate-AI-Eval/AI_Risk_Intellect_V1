@@ -105,7 +105,13 @@ Extract the AI risk information and return ONLY valid JSON matching the schema a
             usage = response.usage
             input_tokens = usage.prompt_tokens
             output_tokens = usage.completion_tokens
-            
+            try:
+                from app.extraction.metrics import add_generated_tokens
+
+                add_generated_tokens(int(output_tokens))
+            except Exception:
+                pass
+
             # Calculate cost (GPT-5-mini pricing)
             input_cost = (input_tokens / 1_000_000) * 0.15
             output_cost = (output_tokens / 1_000_000) * 0.60

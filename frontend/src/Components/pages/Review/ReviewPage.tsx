@@ -1,46 +1,20 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { Check, ChevronDown, Pencil, RotateCw, Search, X } from "lucide-react";
+import { Check, ChevronDown, Eye, Pencil, RotateCw, Search, X } from "lucide-react";
+import { authFetch } from "../../../utils/authFetch";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { PageHeader } from "../../Layout/PageHeader";
 import "../Users/usersPage.css";
+import {
+  normalizeReviewQueueFromApi,
+  type ReviewQueueItem,
+} from "./reviewData";
 import "./reviewPage.css";
 
 type ReviewTab = "queue" | "feedback" | "prompts";
 
 type FeedbackSampleView = "raw" | "structured";
-
-type QueueItem = {
-  id: string;
-  scoreLabel: string;
-  priority: "Low" | "Medium" | "High";
-  title: string;
-  category: string;
-};
-
-const MOCK_QUEUE: QueueItem[] = [
-  {
-    id: "#49",
-    scoreLabel: "0/100",
-    priority: "Medium",
-    title: "Failed Risk Extraction",
-    category: "Technical Risks 7. AI System Safety, Failures, & Limitations",
-  },
-  {
-    id: "#50",
-    scoreLabel: "42/100",
-    priority: "High",
-    title: "Ambiguous regulatory mention",
-    category: "Compliance Risks 3. Governance & Accountability",
-  },
-  {
-    id: "#51",
-    scoreLabel: "88/100",
-    priority: "Low",
-    title: "Minor wording variance",
-    category: "Operational Risks 5. Third-Party & Vendor Risk",
-  },
-];
 
 /** Placeholder until feedback samples are loaded from the API. */
 const MOCK_FEEDBACK_SAMPLES: { id: string }[] = [];
@@ -78,11 +52,17 @@ const FEEDBACK_VIEW_OPTIONS: { value: FeedbackSampleView; label: string }[] = [
 ];
 
 export function ReviewPage() {
+  const navigate = useNavigate();
   const baseId = useId();
   const [tab, setTab] = useState<ReviewTab>("queue");
   const [feedbackView, setFeedbackView] = useState<FeedbackSampleView>("raw");
   const [headerRefreshing, setHeaderRefreshing] = useState(false);
   const [reviewSearch, setReviewSearch] = useState("");
+  const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
+  const [queueLoadState, setQueueLoadState] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
     setDocumentPageTitle("Human Review");
@@ -94,45 +74,76 @@ export function ReviewPage() {
     toast.info(`${action} is not wired to the API yet.`, { autoClose: 2800 });
   }, []);
 
-  const handleHeaderRefresh = useCallback(() => {
+  const loadReviewQueue = useCallback(async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) {
+      setQueue([]);
+      setQueueLoadState("idle");
+      return;
+    }
+
+    setQueueLoadState("loading");
+    try {
+      const res = await authFetch("/risks/review-queue");
+      if (!res.ok) {
+        setQueueLoadState("error");
+        return;
+      }
+      const data = normalizeReviewQueueFromApi(await res.json());
+      setQueue(data.items);
+      setQueueLoadState("idle");
+    } catch {
+      setQueueLoadState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "queue") {
+      void loadReviewQueue();
+    }
+  }, [tab, loadReviewQueue]);
+
+  const handleHeaderRefresh = useCallback(async () => {
     setHeaderRefreshing(true);
-    window.setTimeout(() => {
+    if (tab === "queue") {
+      await loadReviewQueue();
       setHeaderRefreshing(false);
-      if (tab === "queue") {
-        toast.success("Review queue refreshed.", { autoClose: 2000 });
-        return;
-      }
-      if (tab === "feedback") {
-        stub("Refresh feedback samples");
-        return;
-      }
-      stub("Refresh prompt versions");
-    }, 650);
-  }, [stub, tab]);
+      toast.success("Review queue refreshed.", { autoClose: 2000 });
+      return;
+    }
+    setHeaderRefreshing(false);
+    if (tab === "feedback") {
+      stub("Refresh feedback samples");
+      return;
+    }
+    stub("Refresh prompt versions");
+  }, [loadReviewQueue, stub, tab]);
 
   const filteredQueue = useMemo(() => {
     const q = reviewSearch.trim().toLowerCase();
-    if (!q) return MOCK_QUEUE;
-    return MOCK_QUEUE.filter(
+    if (!q) return queue;
+    return queue.filter(
       (item) =>
         item.title.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
-        item.id.toLowerCase().includes(q),
+        item.domain.toLowerCase().includes(q) ||
+        item.displayId.toLowerCase().includes(q) ||
+        item.reviewReason.toLowerCase().includes(q),
     );
-  }, [reviewSearch]);
+  }, [queue, reviewSearch]);
 
   const tabCounts = useMemo(
     (): Record<ReviewTab, number> => ({
-      queue: MOCK_QUEUE.length,
+      queue: queue.length,
       feedback: MOCK_FEEDBACK_SAMPLES.length,
       prompts: MOCK_PROMPT_VERSIONS.length,
     }),
-    [],
+    [queue.length],
   );
 
   const searchPlaceholder =
     tab === "queue"
-      ? "Search queue by title, category, ID…"
+      ? "Search queue by title, domain, ID…"
       : tab === "feedback"
         ? "Search feedback samples…"
         : "Search prompt versions…";
@@ -144,16 +155,63 @@ export function ReviewPage() {
         ? "Search feedback samples"
         : "Search prompt versions";
 
+  const openRisk = useCallback(
+    (item: ReviewQueueItem) => {
+      const id = item.displayId || item.id;
+      navigate(`/risk/${encodeURIComponent(id)}?tab=analysis`);
+    },
+    [navigate],
+  );
+
+  const handleApprove = useCallback(
+    async (item: ReviewQueueItem) => {
+      if (approvingId) return;
+
+      setApprovingId(item.id);
+      try {
+        const res = await authFetch(
+          `/risks/${encodeURIComponent(item.id)}/review/approve`,
+          { method: "POST" },
+        );
+        const body = (await res.json().catch(() => ({}))) as {
+          catalogRiskId?: string;
+          message?: string;
+        };
+
+        if (!res.ok) {
+          toast.error(
+            body.message ?? "Could not approve this risk. Try again.",
+            { autoClose: 4000 },
+          );
+          return;
+        }
+
+        setQueue((prev) => prev.filter((row) => row.id !== item.id));
+        toast.success(
+          `Added to catalog as ${body.catalogRiskId ?? "new mapping"}.`,
+          { autoClose: 3000 },
+        );
+      } catch {
+        toast.error("Could not reach the server. Try again.", {
+          autoClose: 4000,
+        });
+      } finally {
+        setApprovingId(null);
+      }
+    },
+    [approvingId],
+  );
+
   return (
     <main className="mainLayout__content reviewPage usersPage">
       <PageHeader
         title="Human Review"
-        subtitle="Verify LLM extractions, curate feedback samples, and manage prompt versions."
+        subtitle="Risks with domains that do not map to the risk_mappings catalog appear here for manual review."
         actions={
           <button
             type="button"
             className="usersPage__inviteBtn"
-            onClick={handleHeaderRefresh}
+            onClick={() => void handleHeaderRefresh()}
             disabled={headerRefreshing}
             aria-busy={headerRefreshing}
             aria-label={
@@ -224,59 +282,80 @@ export function ReviewPage() {
           id={fid("panel-queue")}
           aria-labelledby={fid("tab-queue")}
         >
-          {filteredQueue.length === 0 ? (
-            <p className="reviewPage__panelHint">No queue items match your search.</p>
+          {queueLoadState === "loading" ? (
+            <p className="reviewPage__panelHint">Loading review queue…</p>
+          ) : queueLoadState === "error" ? (
+            <p className="reviewPage__panelHint">
+              Could not load the review queue. Try refreshing.
+            </p>
+          ) : filteredQueue.length === 0 ? (
+            <p className="reviewPage__panelHint">
+              {queue.length === 0
+                ? "No risks need domain review — all extracted domains map to the catalog."
+                : "No queue items match your search."}
+            </p>
           ) : (
             filteredQueue.map((item) => (
-            <article key={item.id} className="reviewPage__card">
-              <div className="reviewPage__cardMain">
-                <div className="reviewPage__cardMeta">
-                  <span className="reviewPage__id">{item.id}</span>
-                  <span className="reviewPage__pill reviewPage__pill--score">
-                    {item.scoreLabel}
-                  </span>
-                  <span className="reviewPage__pill reviewPage__pill--priority">
-                    {item.priority}
-                  </span>
+              <article key={item.id} className="reviewPage__card">
+                <div className="reviewPage__cardMain">
+                  <div className="reviewPage__cardMeta">
+                    <span className="reviewPage__id">{item.displayId}</span>
+                    <span className="reviewPage__pill reviewPage__pill--score">
+                      {item.scoreLabel}
+                    </span>
+                    <span className="reviewPage__pill reviewPage__pill--priority">
+                      {item.priority}
+                    </span>
+                  </div>
+                  <h2 className="reviewPage__cardTitle">{item.title}</h2>
+                  <p className="reviewPage__cardCategory">{item.category}</p>
+                  <p className="reviewPage__cardReason">{item.reviewReason}</p>
                 </div>
-                <h2 className="reviewPage__cardTitle">{item.title}</h2>
-                <p className="reviewPage__cardCategory">{item.category}</p>
-              </div>
-              <div className="reviewPage__actions">
-                <button
-                  type="button"
-                  className="reviewPage__actionBtn reviewPage__actionBtn--approve"
-                  onClick={() => stub(`Approve ${item.id}`)}
-                >
-                  <Check size={14} strokeWidth={2.5} aria-hidden />
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  className="reviewPage__actionBtn reviewPage__actionBtn--correct"
-                  onClick={() => stub(`Correct ${item.id}`)}
-                >
-                  <Pencil size={14} strokeWidth={2} aria-hidden />
-                  Correct
-                </button>
-                <button
-                  type="button"
-                  className="reviewPage__actionBtn reviewPage__actionBtn--reject"
-                  onClick={() => stub(`Reject ${item.id}`)}
-                >
-                  <X size={14} strokeWidth={2.5} aria-hidden />
-                  Reject
-                </button>
-                <button
-                  type="button"
-                  className="reviewPage__moreBtn"
-                  aria-label={`More actions for ${item.id}`}
-                  onClick={() => stub(`More options ${item.id}`)}
-                >
-                  <ChevronDown size={18} strokeWidth={2} aria-hidden />
-                </button>
-              </div>
-            </article>
+                <div className="reviewPage__actions">
+                  <button
+                    type="button"
+                    className="reviewPage__actionBtn reviewPage__actionBtn--view"
+                    onClick={() => openRisk(item)}
+                  >
+                    <Eye size={14} strokeWidth={2} aria-hidden />
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    className="reviewPage__actionBtn reviewPage__actionBtn--approve"
+                    disabled={approvingId === item.id}
+                    aria-busy={approvingId === item.id}
+                    onClick={() => void handleApprove(item)}
+                  >
+                    <Check size={14} strokeWidth={2.5} aria-hidden />
+                    {approvingId === item.id ? "Approving…" : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    className="reviewPage__actionBtn reviewPage__actionBtn--correct"
+                    onClick={() => openRisk(item)}
+                  >
+                    <Pencil size={14} strokeWidth={2} aria-hidden />
+                    Correct
+                  </button>
+                  <button
+                    type="button"
+                    className="reviewPage__actionBtn reviewPage__actionBtn--reject"
+                    onClick={() => stub(`Reject ${item.displayId}`)}
+                  >
+                    <X size={14} strokeWidth={2.5} aria-hidden />
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    className="reviewPage__moreBtn"
+                    aria-label={`More actions for ${item.displayId}`}
+                    onClick={() => stub(`More options ${item.displayId}`)}
+                  >
+                    <ChevronDown size={18} strokeWidth={2} aria-hidden />
+                  </button>
+                </div>
+              </article>
             ))
           )}
         </section>

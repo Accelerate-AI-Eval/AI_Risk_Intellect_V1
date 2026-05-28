@@ -18,6 +18,7 @@ from app.extraction.extract_utils import (
     get_current_model_name,
     load_risk_schema,
 )
+from app.llm.model_config import get_model_config, set_model
 from app.ingestion.errors import SkipIngest
 from app.ingestion.pipeline import (
     prepare_html_ingest,
@@ -52,6 +53,10 @@ class ExtractRiskBody(BaseModel):
     url: str = ""
     title: str = ""
     text: str = ""
+
+
+class SetLlmModelBody(BaseModel):
+    modelId: str = Field(min_length=1)
 
 
 def _error_payload(error: str, message: str) -> dict[str, object]:
@@ -111,6 +116,20 @@ def ingest_pdf(body: PdfIngestBody) -> dict[str, object]:
         return _error_payload(type(exc).__name__, str(exc))
 
 
+@app.get("/config/llm-model")
+def get_llm_model_config() -> dict[str, object]:
+    return {"ok": True, **get_model_config()}
+
+
+@app.put("/config/llm-model")
+def put_llm_model_config(body: SetLlmModelBody) -> dict[str, object]:
+    try:
+        config = set_model(body.modelId)
+        return {"ok": True, **config}
+    except ValueError as exc:
+        return _error_payload("InvalidModel", str(exc))
+
+
 @app.post("/extract/risk")
 def extract_risk(body: ExtractRiskBody) -> dict[str, object]:
     if not (body.text or "").strip():
@@ -118,7 +137,7 @@ def extract_risk(body: ExtractRiskBody) -> dict[str, object]:
 
     try:
         schema = load_risk_schema()
-        obj, source_flag = extract_with_auto_chunking(
+        obj, source_flag, metrics = extract_with_auto_chunking(
             body.text,
             schema,
             title=body.title,
@@ -131,6 +150,7 @@ def extract_risk(body: ExtractRiskBody) -> dict[str, object]:
                 "message": "LLM returned stub/fallback extraction",
                 "source_flag": "stub",
                 "object": obj,
+                "metrics": metrics,
             }
 
         return {
@@ -138,6 +158,7 @@ def extract_risk(body: ExtractRiskBody) -> dict[str, object]:
             "object": obj,
             "source_flag": source_flag,
             "model": get_current_model_name(),
+            "metrics": metrics,
         }
     except Exception as exc:
         return _error_payload(type(exc).__name__, str(exc))

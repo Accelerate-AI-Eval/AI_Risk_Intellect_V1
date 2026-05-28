@@ -1,11 +1,14 @@
 .mainLayout {
+  /* Article / job / risk table id color */
+  --entity-id-color: #22d3ee;
+
   display: flex;
   width: 100%;
   min-height: 100vh;
   height: 100vh;
   max-height: 100vh;
   overflow: hidden;
-  background: #f8f8f8;
+  background: #fff;
 }
 
 .mainLayout__sidebar {
@@ -118,7 +121,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #f8f8f8;
+  background-color: #fff;
 }
 
 /* Scrolls page content only; sidebar + top bar stay fixed */
@@ -128,12 +131,12 @@
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background-color: #f8f8f8;
+  background-color: #fff;
 }
 
 .mainLayout__topBar {
   flex-shrink: 0;
-  background: #fff;
+  background: #f8f8f8;
   /* border-bottom: 1px solid #e2e8f0; */
   padding: 0 1.25rem 0 1.5rem;
   box-sizing: border-box;
@@ -307,7 +310,7 @@
   flex: 1;
   padding: 1.75rem 2rem;
   box-sizing: border-box;
-  background-color: #f8f8f8;
+  background-color: #fff;
 }
 
 .mainLayout__pageTitle {

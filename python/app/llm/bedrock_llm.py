@@ -22,6 +22,8 @@ try:
 except ImportError:  # pragma: no cover - soft dep, fallback keeps old behavior
     _TENACITY_AVAILABLE = False
 
+from app.llm.bedrock_model_id import with_us_model_prefix
+
 logger = logging.getLogger("airisk")
 
 
@@ -100,11 +102,9 @@ class BedrockLLM:
         self.model_name = model_name
         if model_name in self.MODELS:
             self.model_id = self.MODELS[model_name]
-        elif model_name and (
-            ":" in model_name or model_name.startswith("anthropic.")
-        ):
-            # Full Bedrock model id from BEDROCK_MODEL_ID env
-            self.model_id = model_name
+        elif model_name and (":" in model_name or "." in model_name):
+            # Full Bedrock model id from BEDROCK_MODEL / BEDROCK_MODEL_ID env
+            self.model_id = with_us_model_prefix(model_name)
         else:
             self.model_id = self.MODELS["claude-haiku-4-5"]
         self.fallback_model_id = self.MODELS[self.FALLBACK_MODEL_KEY]

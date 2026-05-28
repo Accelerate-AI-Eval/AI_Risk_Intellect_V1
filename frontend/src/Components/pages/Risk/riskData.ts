@@ -1,3 +1,14 @@
+export type CatalogRiskMatch = {
+  riskId: string;
+  title: string;
+  description: string;
+  domain: string;
+  accuracyPercent: number;
+  domainMatchPercent: number;
+  descriptionMatchPercent: number;
+  matchSummary: string;
+};
+
 export type RiskDetail = {
   id: string;
   /** Sequential display id from API (R-1, R-01, R-10, …). */
@@ -17,6 +28,7 @@ export type RiskDetail = {
   attackVector: string;
   observableIndicators: string;
   timing: string;
+  articleId?: number;
   articleTitle: string;
   articleUrl: string;
   ingestedAt: string;
@@ -26,6 +38,7 @@ export type RiskDetail = {
     risk_identified: string;
     article_context: string;
     alignment_reasoning: string;
+    catalogMatches?: CatalogRiskMatch[];
   };
   modelSelfEvaluation: {
     decision_rationale: string;
@@ -58,6 +71,48 @@ export type EvidenceBreakdownItem = {
   taxonomyAlignment?: string;
 };
 
+export const EVIDENCE_BREAKDOWN_HEADING_LABELS = [
+  "Attack Vector",
+  "Description",
+  "Observable Indicators",
+] as const;
+
+/** Map API `field` (or list index) to Attack Vector / Description / Observable Indicators slot. */
+export function resolveEvidenceBreakdownSlot(
+  field: string,
+  fallbackIndex: number,
+): number {
+  const normalized = field.trim().toLowerCase().replace(/[_-]+/g, " ");
+  const byField: Record<string, number> = {
+    "attack vector": 0,
+    attack: 0,
+    description: 1,
+    "risk description": 1,
+    "observable indicators": 2,
+    "observable indicator": 2,
+    indicators: 2,
+  };
+  if (normalized in byField) return byField[normalized]!;
+  return Math.min(Math.max(fallbackIndex, 0), EVIDENCE_BREAKDOWN_HEADING_LABELS.length - 1);
+}
+
+export function orderEvidenceBreakdown(
+  items: EvidenceBreakdownItem[],
+): Array<{ item: EvidenceBreakdownItem; headingIndex: number }> {
+  const slots: Array<{ item: EvidenceBreakdownItem; headingIndex: number } | null> = [
+    null,
+    null,
+    null,
+  ];
+  items.forEach((item, index) => {
+    const headingIndex = resolveEvidenceBreakdownSlot(item.field, index);
+    if (!slots[headingIndex]) {
+      slots[headingIndex] = { item, headingIndex };
+    }
+  });
+  return slots.filter((entry): entry is NonNullable<typeof entry> => entry != null);
+}
+
 /** R-1 … R-9 when total < 10; zero-pad to 2 digits when total >= 10. */
 export function formatRiskDisplayNumber(
   sequence: number,
@@ -87,9 +142,53 @@ export function formatRiskId(input: RiskIdInput): string {
   return trimmed;
 }
 
-/** Domain labels: numbered prefix + uppercase (e.g. 7. AI SYSTEM SAFETY…). */
+/** Title for risk detail back nav — strips a leading display id if present in `title`. */
+export function riskBackNavTitle(
+  risk: Pick<RiskDetail, "title" | "id" | "displayId">,
+): string {
+  const title = risk.title.trim();
+  if (!title) return "Untitled risk";
+
+  const id = formatRiskId(risk);
+  const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withoutId = title
+    .replace(new RegExp(`^\\s*${escaped}\\s*(?:[:\\-|–—]\\s*)?`, "i"), "")
+    .trim();
+
+  return withoutId || title;
+}
+
+/** Article id for display (matches articles list: #123). */
+export function formatArticleId(articleId: number | undefined | null): string {
+  if (articleId == null || Number.isNaN(Number(articleId))) return "—";
+  return `#${articleId}`;
+}
+
+/** Evidence strength label (e.g. "strong" → "Strong", "high" → "High"). */
+export function formatEvidenceStrength(strength: string): string {
+  const trimmed = strength.trim();
+  if (!trimmed) return "";
+  return trimmed
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+/** Specificity / taxonomy fact values (e.g. "high" → "High"); phrases unchanged. */
+export function formatEvidenceFactValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (!/\s/.test(trimmed)) {
+    return formatEvidenceStrength(trimmed);
+  }
+  return trimmed;
+}
+
+/** Domain label without catalog numbering (e.g. "7. AI SYSTEM SAFETY" → "AI SYSTEM SAFETY"). */
 export function formatRiskDomain(domain: string): string {
-  return domain.trim().toUpperCase();
+  const trimmed = domain.trim();
+  if (!trimmed) return "—";
+  const name = trimmed.replace(/^\d+\.\s*/, "").trim();
+  return (name || trimmed).toUpperCase();
 }
 
 export const MOCK_RISK_ROWS: RiskDetail[] = [
@@ -111,6 +210,7 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
       "https://www.technologyreview.com/2026/04/16/1135216/making-ai-operational-in-constrained-public-sector-environments/",
     articleUrl:
       "https://www.technologyreview.com/2026/04/16/1135216/making-ai-operational-in-constrained-public-sector-environments/",
+    articleId: 1135216,
     ingestedAt: "4/16/2026, 1:50:20 PM",
     description:
       "Small language models (SLMs) deployed in public sector environments may generate hallucinations and fabricated information when processing sensitive government data. These accuracy failures can lead to incorrect policy recommendations, misclassified citizen requests, and erosion of trust in AI-assisted government services. The risk is heightened when SLMs operate with limited context windows and insufficient grounding in authoritative government sources.",
@@ -135,14 +235,38 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
     scores: {
       overall: { value: 93, max: 100 },
       metrics: [
-        { label: "Context Clarity", value: 42, max: 45 },
-        { label: "Keyword Matching", value: 18, max: 20 },
-        { label: "Tagging Accuracy", value: 19, max: 20 },
-        { label: "Evidence Strength", value: 14, max: 15 },
+        {
+          label: "Context Clarity",
+          value: 42,
+          max: 45,
+          reasoning:
+            "Context Clarity scored well because the source explicitly discusses SLM limitations in government settings.",
+        },
+        {
+          label: "Keyword Matching",
+          value: 18,
+          max: 20,
+          reasoning:
+            "Minor deductions on Keyword Matching reflect some generic phrasing in the extraction.",
+        },
+        {
+          label: "Tagging Accuracy",
+          value: 19,
+          max: 20,
+          reasoning:
+            "Tagging aligns with the AI System Safety domain and technical risk labels from the article themes.",
+        },
+        {
+          label: "Evidence Strength",
+          value: 14,
+          max: 15,
+          reasoning:
+            "Evidence Strength scored well because the article provides direct quotes on model limitations and hallucination risk.",
+        },
       ],
       justification: {
         decision_rationale:
-          "The high overall score reflects strong alignment between extracted risk themes and article content. Context Clarity and Evidence Strength scored well because the source explicitly discusses SLM limitations in government settings. Minor deductions on Keyword Matching reflect some generic phrasing in the extraction.",
+          "The high overall score reflects strong alignment between extracted risk themes and article content.",
       },
     },
     evidence: {
@@ -154,7 +278,7 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
         "Audit logs of SLM query outputs and source citations; comparison datasets of SLM-generated responses against verified government records; performance metrics on hallucination rates by topic area; user-reported incidents of incorrect policy guidance; and red-team evaluation results for factual accuracy in government-domain queries.",
       breakdown: [
         {
-          field: "Operational constraint",
+          field: "Attack Vector",
           strength: "Strong",
           sourceText:
             "Purpose-built small language models provide a practical solution for agencies that cannot deploy frontier-scale models due to distinct constraints around security, governance, and operations.",
@@ -162,7 +286,7 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
           taxonomyAlignment: "AI System Safety, Failures, & Limitations",
         },
         {
-          field: "Hallucination risk",
+          field: "Description",
           strength: "Strong",
           sourceText:
             "Large language models generate text based on what they were trained on, so there is a cut-off date when they were trained; without retrieval from verified sources, models may hallucinate facts.",
@@ -186,6 +310,7 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
     confidence: "MEDIUM",
     articleTitle: "AI hiring tools show disparate impact in pilot study",
     articleUrl: "https://example.com/articles/ai-hiring-bias",
+    articleId: 10042,
     ingestedAt: "4/10/2026, 9:15:00 AM",
     description:
       "Automated screening models may systematically disadvantage certain applicant groups when trained on historical hiring data that reflects past biases.",
@@ -210,10 +335,34 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
     scores: {
       overall: { value: 87, max: 100 },
       metrics: [
-        { label: "Context Clarity", value: 38, max: 45 },
-        { label: "Keyword Matching", value: 17, max: 20 },
-        { label: "Tagging Accuracy", value: 18, max: 20 },
-        { label: "Evidence Strength", value: 14, max: 15 },
+        {
+          label: "Context Clarity",
+          value: 38,
+          max: 45,
+          reasoning:
+            "Solid article alignment with documented disparate impact findings in the pilot study.",
+        },
+        {
+          label: "Keyword Matching",
+          value: 17,
+          max: 20,
+          reasoning:
+            "Keywords match hiring bias and screening terminology used throughout the source.",
+        },
+        {
+          label: "Tagging Accuracy",
+          value: 18,
+          max: 20,
+          reasoning:
+            "Tags reflect Discrimination & Toxicity with Technical primary and Fairness secondary risks.",
+        },
+        {
+          label: "Evidence Strength",
+          value: 14,
+          max: 15,
+          reasoning:
+            "Strong direct quotes on disparate pass rates and vendor acknowledgment of training-data bias.",
+        },
       ],
       justification: {
         decision_rationale:
@@ -229,7 +378,7 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
         "Disparate impact ratios by protected class; model feature importance logs; historical hire/ reject labels used in training; vendor fairness audit reports; and complaint records from applicants flagged by automated screening.",
       breakdown: [
         {
-          field: "Disparate impact",
+          field: "Attack Vector",
           strength: "Strong",
           sourceText:
             "Automated screening tools produced statistically significant differences in pass rates across demographic groups when evaluated on identical qualification profiles.",
@@ -237,7 +386,7 @@ export const MOCK_RISK_ROWS: RiskDetail[] = [
           taxonomyAlignment: "Discrimination & Toxicity",
         },
         {
-          field: "Training data bias",
+          field: "Observable Indicators",
           strength: "Medium",
           sourceText:
             "Vendor documentation acknowledges that models trained on historical hiring data may encode prior hiring patterns.",
@@ -294,14 +443,18 @@ export function normalizeRisksFromApi(raw: unknown): {
     attackVector: r.attackVector ?? "",
     observableIndicators: r.observableIndicators ?? "",
     timing: r.timing ?? "",
+    articleId: r.articleId ?? undefined,
     articleTitle: r.articleTitle ?? "",
     articleUrl: r.articleUrl ?? "",
     ingestedAt: r.ingestedAt ?? "",
     createdAt: r.createdAt ?? r.ingestedAt ?? "",
-    riskAnalysis: r.riskAnalysis ?? {
-      risk_identified: "",
-      article_context: "",
-      alignment_reasoning: "",
+    riskAnalysis: {
+      ...(r.riskAnalysis ?? {
+        risk_identified: "",
+        article_context: "",
+        alignment_reasoning: "",
+      }),
+      catalogMatches: r.riskAnalysis?.catalogMatches ?? [],
     },
     modelSelfEvaluation: r.modelSelfEvaluation ?? { decision_rationale: "" },
     scores: r.scores ?? {
