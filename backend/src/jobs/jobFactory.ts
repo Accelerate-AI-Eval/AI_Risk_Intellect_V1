@@ -23,6 +23,8 @@ export type CreateJobInput = {
   jobType?: JobType;
   source?: JobSource;
   allowDuplicates?: boolean;
+  ingestLinkId?: number | null;
+  ingestLinkItemId?: number | null;
 };
 
 export type CreateJobResult = {
@@ -98,6 +100,12 @@ export async function createJob(
       status: "pending",
       jobType,
       source,
+      ...(input.ingestLinkId != null
+        ? { ingestLinkId: input.ingestLinkId }
+        : {}),
+      ...(input.ingestLinkItemId != null
+        ? { ingestLinkItemId: input.ingestLinkItemId }
+        : {}),
     })
     .returning();
 
@@ -167,6 +175,8 @@ export async function createArticleWithIngestJob(
     source: JobSource;
     title?: string | null;
     allowDuplicates?: boolean;
+    ingestLinkId?: number | null;
+    ingestLinkItemId?: number | null;
   },
 ): Promise<{
   article: { id: number; url: string; createdAt: Date };
@@ -185,6 +195,8 @@ export async function createArticleWithIngestJob(
     jobType: "ingest",
     source: input.source,
     allowDuplicates: input.allowDuplicates,
+    ingestLinkId: input.ingestLinkId,
+    ingestLinkItemId: input.ingestLinkItemId,
   });
 
   return {

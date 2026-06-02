@@ -5,8 +5,14 @@ import {
   type SourcesConfig,
 } from "../config/sourcesConfig.js";
 import {
+  getExtractedItemRefsByIngestLinkIds,
+  resolveExtractedItemRefsByIds,
+  resolveActiveIngestLinksByIds,
+} from "../services/admin/ingestLinks.service.js";
+import {
   enqueueDiscoveryBatch,
   getActiveJobUrls,
+  type DiscoveryEnqueueItem,
 } from "../services/admin/discoveryEnqueue.service.js";
 import { normalizeUrl } from "../utils/fetchUtils.js";
 
@@ -171,7 +177,139 @@ function balancedSelection(
   return selected;
 }
 
+function parseDiscoveryIngestLinkIds(): number[] | null {
+  const raw = process.env.DISCOVERY_INGEST_LINK_IDS?.trim();
+  if (!raw) return null;
+
+  const ids = raw
+    .split(",")
+    .map((part) => Number.parseInt(part.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  return ids.length > 0 ? ids : null;
+}
+
+function parseDiscoveryIngestLinkItemIds(): number[] | null {
+  const raw = process.env.DISCOVERY_INGEST_LINK_ITEM_IDS?.trim();
+  if (!raw) return null;
+
+  const ids = raw
+    .split(",")
+    .map((part) => Number.parseInt(part.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  return ids.length > 0 ? ids : null;
+}
+
+/**
+ * Enqueue ingest jobs for extracted item URLs on selected feeds (ingest_link_items).
+ * Uses the same article + pending ingest job flow as RSS discovery enqueue.
+ */
+async function runExtractedUrlDiscoveryCycle(
+  ingestLinkIds: number[],
+): Promise<void> {
+  const links = await resolveActiveIngestLinksByIds(ingestLinkIds);
+  const itemRefs = await getExtractedItemRefsByIngestLinkIds(ingestLinkIds);
+  const activeJobs = await getActiveJobUrls();
+
+  const byFeed = new Map<number, typeof itemRefs>();
+  for (const link of links) {
+    byFeed.set(link.id, []);
+  }
+  for (const item of itemRefs) {
+    byFeed.get(item.ingestLinkId)?.push(item);
+  }
+
+  const toEnqueue: DiscoveryEnqueueItem[] = [];
+
+  for (const link of links) {
+    const items = byFeed.get(link.id) ?? [];
+    let eligible = 0;
+    for (const item of items) {
+      if (item.url && !activeJobs.has(item.url)) {
+        toEnqueue.push({
+          url: item.url,
+          ingestLinkId: item.ingestLinkId,
+          ingestLinkItemId: item.id,
+        });
+        eligible += 1;
+      }
+    }
+    log.info(
+      "[rss-discovery] feed #%d (%s): %d extracted, %d eligible to enqueue",
+      link.id,
+      link.url,
+      items.length,
+      eligible,
+    );
+  }
+
+  if (itemRefs.length === 0) {
+    log.warn(
+      "[rss-discovery] no extracted item links for selected feeds — run Extract on each feed first",
+    );
+    return;
+  }
+
+  if (toEnqueue.length === 0) {
+    log.info(
+      "[rss-discovery] all extracted URLs already have active ingest jobs",
+    );
+    return;
+  }
+
+  const n = await enqueueDiscoveryBatch(toEnqueue);
+  log.info(
+    "[rss-discovery] enqueued %d ingest job(s) from %d extracted URL(s) across %d feed(s)",
+    n,
+    toEnqueue.length,
+    links.length,
+  );
+}
+
+/** Enqueue only the selected extracted item URLs. */
+async function runSelectedExtractedItemsCycle(
+  ingestLinkItemIds: number[],
+): Promise<void> {
+  const itemRefs = await resolveExtractedItemRefsByIds(ingestLinkItemIds);
+  const activeJobs = await getActiveJobUrls();
+
+  const toEnqueue = itemRefs
+    .filter((item) => item.url && !activeJobs.has(item.url))
+    .map((item) => ({
+      url: item.url,
+      ingestLinkId: item.ingestLinkId,
+      ingestLinkItemId: item.id,
+    }));
+
+  if (toEnqueue.length === 0) {
+    log.info(
+      "[rss-discovery] selected extracted URLs already have active ingest jobs",
+    );
+    return;
+  }
+
+  const n = await enqueueDiscoveryBatch(toEnqueue);
+  log.info(
+    "[rss-discovery] enqueued %d ingest job(s) from %d selected extracted URL(s)",
+    n,
+    toEnqueue.length,
+  );
+}
+
 async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
+  const ingestLinkItemIds = parseDiscoveryIngestLinkItemIds();
+  if (ingestLinkItemIds) {
+    await runSelectedExtractedItemsCycle(ingestLinkItemIds);
+    return;
+  }
+
+  const ingestLinkIds = parseDiscoveryIngestLinkIds();
+  if (ingestLinkIds) {
+    await runExtractedUrlDiscoveryCycle(ingestLinkIds);
+    return;
+  }
+
   const cap = cycleCap();
   const feedUrls = gatherRssFeedUrls(config);
 
@@ -198,7 +336,9 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
     return;
   }
 
-  const n = await enqueueDiscoveryBatch(selected);
+  const n = await enqueueDiscoveryBatch(
+    selected.map((url) => ({ url })),
+  );
   log.info(
     "[rss-discovery] queued %d new articles (balanced across %d sources)",
     n,

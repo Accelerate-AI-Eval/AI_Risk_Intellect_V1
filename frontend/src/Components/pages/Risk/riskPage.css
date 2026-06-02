@@ -292,7 +292,8 @@ html:not(.app-theme-dark) .riskPage__clearBtn[data-tooltip]::after {
 
 .riskPage__tableScroll {
   width: 100%;
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(34rem, 62vh);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -338,8 +339,27 @@ html:not(.app-theme-dark) .riskPage__clearBtn[data-tooltip]::after {
 }
 
 .riskPage__th--sticky {
-  z-index: 3;
+  z-index: 4;
   background: var(--risk-th-bg);
+}
+
+/* Keep ID + Title header locked on horizontal scroll */
+.riskPage__table thead .riskPage__th--stickyId {
+  left: 0;
+  z-index: 7;
+}
+
+.riskPage__table thead .riskPage__th--stickyTitle {
+  left: var(--risk-sticky-id-width);
+  z-index: 7;
+}
+
+.riskPage__table tbody .riskPage__td--stickyId {
+  left: 0;
+}
+
+.riskPage__table tbody .riskPage__td--stickyTitle {
+  left: var(--risk-sticky-id-width);
 }
 
 .riskPage__th--stickyId,
@@ -374,6 +394,9 @@ html:not(.app-theme-dark) .riskPage__td--stickyTitle {
   background: var(--risk-th-bg);
   border-bottom: 1px solid var(--risk-border);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .riskPage__th--left {

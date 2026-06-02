@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { CircleX, Link2, Play, X } from "lucide-react";
-import { authFetch } from "../../utils/authFetch";
+import { CircleX, Link2, Play, Tag, X } from "lucide-react";
+import { enqueueIngestUrl } from "../../utils/ingestLinksApi";
 import "../pages/Users/usersPage.css";
 
 export type UrlIngestionDialogProps = {
@@ -19,11 +19,13 @@ export function UrlIngestionDialog({
   const baseId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const [ingestUrl, setIngestUrl] = useState("");
+  const [suggestedName, setSuggestedName] = useState("");
   const [enqueueing, setEnqueueing] = useState(false);
 
   const close = useCallback(() => {
     if (enqueueing) return;
     setIngestUrl("");
+    setSuggestedName("");
     onClose();
   }, [enqueueing, onClose]);
 
@@ -41,50 +43,38 @@ export function UrlIngestionDialog({
 
     setEnqueueing(true);
     try {
-      const res = await authFetch("/admin/enqueue", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
+      const result = await enqueueIngestUrl(url, suggestedName);
 
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: { message?: string };
-        message?: string;
-      };
-
-      if (res.status === 201) {
-        toast.success(data.message ?? "URL enqueued for risk extraction.", {
-          autoClose: 3000,
-        });
+      if (result.status === "created") {
+        toast.success(result.message, { autoClose: 3000 });
         setIngestUrl("");
+        setSuggestedName("");
         onEnqueued?.();
         onClose();
         return;
       }
 
-      if (res.status === 409) {
-        toast.warning(
-          data.error?.message ?? "This URL is already present.",
-          { autoClose: 3500 },
-        );
+      if (result.status === "conflict") {
+        toast.warning(result.message, { autoClose: 3500 });
         return;
       }
 
-      toast.error(
-        data.error?.message ?? "Could not add this URL. Please try again.",
-        { autoClose: 4000 },
-      );
-    } catch {
-      toast.error("Network error while enqueueing URL.", { autoClose: 3000 });
+      if (result.status === "network") {
+        toast.error("Network error while enqueueing URL.", { autoClose: 3000 });
+        return;
+      }
+
+      toast.error(result.message, { autoClose: 4000 });
     } finally {
       setEnqueueing(false);
     }
-  }, [ingestUrl, onClose, onEnqueued]);
+  }, [ingestUrl, suggestedName, onClose, onEnqueued]);
 
   if (!open) return null;
 
   const titleId = `${baseId}-ingest-title`;
   const urlId = `${baseId}-ingest-url`;
+  const suggestedNameId = `${baseId}-suggested-name`;
 
   return (
     <div
@@ -116,9 +106,30 @@ export function UrlIngestionDialog({
           </button>
         </div>
         <div className="usersPage__dialogBody">
-          <p className="mainLayout__pageHint" style={{ margin: 0 }}>
-            Manually queue a URL for risk extraction.
-          </p>
+          <label
+            className="usersPage__label usersPage__label--withIcon"
+            htmlFor={suggestedNameId}
+          >
+            <Tag className="usersPage__labelIcon" size={16} strokeWidth={2} aria-hidden />
+            <span>Suggested name</span>
+          </label>
+          <input
+            id={suggestedNameId}
+            type="text"
+            className="usersPage__input"
+            placeholder="e.g. Official Gov Feed"
+            value={suggestedName}
+            onChange={(e) => setSuggestedName(e.target.value)}
+            autoComplete="off"
+            maxLength={256}
+            disabled={enqueueing}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void handleEnqueue();
+              }
+            }}
+          />
           <label className="usersPage__label usersPage__label--withIcon" htmlFor={urlId}>
             <Link2 className="usersPage__labelIcon" size={16} strokeWidth={2} aria-hidden />
             <span>URL</span>
@@ -156,7 +167,7 @@ export function UrlIngestionDialog({
               disabled={enqueueing}
             >
               <Play size={16} strokeWidth={2} aria-hidden />
-              {enqueueing ? "Enqueueing…" : "Enqueue"}
+              {enqueueing ? "Saving…" : "Save"}
             </button>
           </div>
         </div>

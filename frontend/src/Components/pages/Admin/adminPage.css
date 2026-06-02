@@ -27,6 +27,367 @@
   gap: 1.25rem;
 }
 
+.adminPage__tabs {
+  display: inline-flex;
+  align-items: stretch;
+  align-self: flex-start;
+  gap: 0.25rem;
+  max-width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 3px;
+  border-radius: 8px;
+  background: rgba(28, 176, 212, 0.08);
+  border: 1px solid var(--adm-border);
+}
+
+.adminPage__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  padding: 0 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--adm-muted);
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.adminPage__tab:hover {
+  color: var(--adm-text);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.adminPage__tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
+}
+
+.adminPage__tab--selected {
+  color: var(--adm-text);
+  background: var(--adm-input-bg);
+  border-color: var(--adm-input-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+@media (max-width: 640px) {
+  .adminPage > .adminPage__tabs {
+    width: 100%;
+    height: auto;
+    flex-wrap: wrap;
+  }
+
+  .adminPage > .adminPage__tabs .adminPage__tab {
+    flex: 1 1 calc(33.333% - 0.25rem);
+    min-height: 34px;
+    padding-inline: 0.55rem;
+    font-size: 0.75rem;
+  }
+}
+
+.adminPage__rssPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.adminPage__tabs--sub {
+  height: 36px;
+}
+
+.adminPage__tabs--sub .adminPage__tab {
+  padding-inline: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.adminPage__card--logs {
+  padding-bottom: 1rem;
+}
+
+.adminPage__cardHead--logs {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.adminPage__logsRefreshBtn {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding-inline: 0.75rem;
+}
+
+.adminPage__logsEmpty {
+  margin: 0;
+  padding: 1.25rem 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--adm-muted);
+  text-align: center;
+}
+
+.adminPage__logsScroll {
+  overflow-x: auto;
+  margin-top: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border);
+}
+
+.adminPage__logsTable {
+  width: 100%;
+  min-width: 36rem;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.adminPage__logsTable th,
+.adminPage__logsTable td {
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--adm-border);
+  vertical-align: top;
+}
+
+.adminPage__logsTable th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--adm-muted);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.adminPage__logsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.adminPage__logsTable tbody tr:hover {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.adminPage__logsUrl {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text);
+}
+
+.adminPage__logsNote {
+  max-width: 14rem;
+  color: var(--adm-muted);
+  font-size: 0.78rem;
+}
+
+.adminPage__logsStatus {
+  display: inline-block;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--adm-muted);
+}
+
+.adminPage__logsStatus--pending,
+.adminPage__logsStatus--running {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.adminPage__logsStatus--done {
+  color: var(--adm-status-ok);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.adminPage__logsStatus--error,
+.adminPage__logsStatus--skipped {
+  color: var(--adm-status-bad);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+@keyframes adminPage__spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.adminPage__logsRefreshBtn .pageHeader__refreshIcon--spin {
+  animation: adminPage__spin 0.8s linear infinite;
+}
+
+.adminPage__linksTableWrap {
+  margin-top: 1rem;
+}
+
+.adminPage__linksTable {
+  min-width: 34rem;
+}
+
+.adminPage__linksIdCell {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--adm-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.adminPage__linksCountCell {
+  white-space: nowrap;
+}
+
+.adminPage__itemsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border: none;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.adminPage__itemsToggle:hover:not(:disabled) {
+  background: rgba(28, 176, 212, 0.15);
+}
+
+.adminPage__itemsToggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.adminPage__linksItemsRow td {
+  padding: 0.5rem 0.75rem 0.85rem;
+  background: rgba(148, 163, 184, 0.04);
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.adminPage__linksItemsHint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--adm-muted);
+}
+
+.adminPage__linksItemsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.adminPage__linksItemsListItem {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.78rem;
+}
+
+.adminPage__linksItemsListId {
+  flex-shrink: 0;
+  color: var(--adm-muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.adminPage__linksItemsListItem .adminPage__linksUrl {
+  flex: 1;
+  min-width: 0;
+}
+
+.adminPage__linksUrlCell {
+  max-width: 22rem;
+}
+
+.adminPage__urlInput--table {
+  width: 100%;
+  min-width: 12rem;
+}
+
+.adminPage__linksUrl {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-primary);
+  text-decoration: none;
+}
+
+.adminPage__linksUrl:hover {
+  text-decoration: underline;
+}
+
+.adminPage__linksDateCell {
+  white-space: nowrap;
+  color: var(--adm-muted);
+  font-size: 0.78rem;
+}
+
+.adminPage__linksActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.adminPage__linkActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--adm-input-border);
+  background: transparent;
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.adminPage__linkActionBtn:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.adminPage__linkActionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.adminPage__linkActionBtn--primary {
+  border-color: rgba(28, 176, 212, 0.45);
+  color: var(--adm-primary);
+}
+
+.adminPage__linkActionBtn--danger {
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #f87171;
+}
+
 .adminPage__topRow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -67,7 +428,6 @@
   flex: none;
   background: transparent;
   padding: 0;
-  max-width: 36rem;
 }
 
 .adminPage__card {
@@ -665,6 +1025,46 @@
   border-color: rgba(248, 250, 252, 0.5);
 }
 
+.adminPage__urlRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.adminPage__urlInput {
+  /* flex: 1 1 14rem; */
+  min-width: 0;
+  height: 40px;
+  padding: 0 0.85rem;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--adm-input-border);
+  background: var(--adm-input-bg);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.adminPage__urlInput::placeholder {
+  color: var(--adm-muted);
+}
+
+.adminPage__urlInput:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.18);
+}
+
+.adminPage__urlInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.adminPage__urlAddBtn {
+  flex-shrink: 0;
+}
+
 .adminPage__dangerInput {
   width: 100%;
   height: 40px;
@@ -757,6 +1157,21 @@ html:not(.app-theme-dark) .adminPage__statusPill--pending {
 
 html:not(.app-theme-dark) .adminPage__statusPill--pending .adminPage__statusPillDot {
   background: #d97706;
+}
+
+html:not(.app-theme-dark) .adminPage__tabs {
+  background: rgba(28, 176, 212, 0.06);
+  border-color: rgba(28, 176, 212, 0.16);
+}
+
+html:not(.app-theme-dark) .adminPage__tab:hover {
+  background: rgba(255, 255, 255, 0.75);
+}
+
+html:not(.app-theme-dark) .adminPage__tab--selected {
+  background: #fff;
+  border-color: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 html:not(.app-theme-dark) .adminPage {

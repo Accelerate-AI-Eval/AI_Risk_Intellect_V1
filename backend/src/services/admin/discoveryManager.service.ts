@@ -26,12 +26,24 @@ export function getDiscoveryStatus(): {
   };
 }
 
-export function startDiscoveryProcess(): { pid: number } {
+export function startDiscoveryProcess(options: {
+  ingestLinkIds?: number[];
+  ingestLinkItemIds?: number[];
+}): { pid: number } {
   if (isRunning()) {
     return { pid: workerState.discoveryChild!.pid! };
   }
 
-  const child = spawnBackendScript("src/workers/discoveryService.ts");
+  const ingestLinkIds = options.ingestLinkIds ?? [];
+  const ingestLinkItemIds = options.ingestLinkItemIds ?? [];
+
+  const child = spawnBackendScript("src/workers/discoveryService.ts", {
+    env: {
+      DISCOVERY_INGEST_LINK_IDS: ingestLinkIds.join(","),
+      DISCOVERY_INGEST_LINK_ITEM_IDS: ingestLinkItemIds.join(","),
+      RUN_ONCE: "true",
+    },
+  });
 
   workerState.discoveryChild = child;
   workerState.discoveryEnabled = true;

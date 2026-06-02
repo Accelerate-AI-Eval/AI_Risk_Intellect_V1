@@ -55,8 +55,9 @@ function buildCache(): void {
   const byId = new Map<string, BedrockCatalogModel>();
   const options: LlmModelOption[] = [];
 
+  // Include LEGACY models in the picker (e.g. Claude 3 Sonnet). That is generally
+  // not recommended — AWS may block or retire those endpoints.
   for (const model of parsed.models) {
-    if (model.lifecycleStatus?.toUpperCase() === "LEGACY") continue;
     if (!isTextGenerationModel(model)) continue;
 
     const resolvedId = withUsModelPrefix(model.modelId);

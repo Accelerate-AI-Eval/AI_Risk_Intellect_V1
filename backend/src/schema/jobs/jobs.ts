@@ -9,6 +9,8 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { articles } from "../articles/articles.js";
+import { ingestLinkItems } from "../ingestLinks/ingestLinkItems.js";
+import { ingestLinks } from "../ingestLinks/ingestLinks.js";
 
 export const jobStatusEnum = pgEnum("job_status", [
   "pending",
@@ -41,6 +43,13 @@ export const jobs = pgTable(
     status: jobStatusEnum("status").notNull().default("pending"),
     jobType: jobTypeEnum("job_type").notNull().default("ingest"),
     source: jobSourceEnum("source").notNull().default("manual"),
+    ingestLinkId: integer("ingest_link_id").references(() => ingestLinks.id, {
+      onDelete: "set null",
+    }),
+    ingestLinkItemId: integer("ingest_link_item_id").references(
+      () => ingestLinkItems.id,
+      { onDelete: "set null" },
+    ),
     tries: integer("tries").notNull().default(0),
     errorMessage: text("error_message"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -55,6 +64,8 @@ export const jobs = pgTable(
     index("jobs_url_idx").on(table.url),
     index("jobs_status_idx").on(table.status),
     index("jobs_created_at_idx").on(table.createdAt),
+    index("jobs_ingest_link_id_idx").on(table.ingestLinkId),
+    index("jobs_ingest_link_item_id_idx").on(table.ingestLinkItemId),
   ],
 );
 

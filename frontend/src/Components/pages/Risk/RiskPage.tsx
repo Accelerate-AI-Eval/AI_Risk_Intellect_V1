@@ -20,6 +20,7 @@ import "../Users/usersPage.css";
 import { authFetch } from "../../../utils/authFetch";
 import { formatDisplayDate } from "../../../utils/formatDate";
 import {
+  formatArticleId,
   formatRiskDomain,
   formatRiskId,
   normalizeRisksFromApi,
@@ -88,6 +89,7 @@ function riskMatchesFilters(
   const hay = [
     row.id,
     row.displayId ?? "",
+    row.articleId ?? "",
     row.title,
     row.domain,
     row.primaryRisk,
@@ -364,6 +366,9 @@ export function RiskPage() {
                     DOMAIN
                   </th>
                   <th scope="col" className="riskPage__th riskPage__th--left">
+                    ARTICLE ID
+                  </th>
+                  <th scope="col" className="riskPage__th riskPage__th--left">
                     PRIMARY RISK
                   </th>
                   <th scope="col" className="riskPage__th riskPage__th--left">
@@ -389,13 +394,13 @@ export function RiskPage() {
               <tbody>
                 {loadState === "loading" ? (
                   <tr>
-                    <td className="riskPage__td riskPage__emptyCell" colSpan={10}>
+                    <td className="riskPage__td riskPage__emptyCell" colSpan={11}>
                       Loading risks…
                     </td>
                   </tr>
                 ) : pager.pageItems.length === 0 ? (
                   <tr>
-                    <td className="riskPage__td riskPage__emptyCell" colSpan={10}>
+                    <td className="riskPage__td riskPage__emptyCell" colSpan={11}>
                       {searchQuery.trim()
                         ? "No risks match your filters or search."
                         : loadState === "error"
@@ -414,6 +419,9 @@ export function RiskPage() {
                       </td>
                       <td className="riskPage__td riskPage__td--muted riskPage__td--domain">
                         <span className="riskPage__domain">{formatRiskDomain(row.domain)}</span>
+                      </td>
+                      <td className="riskPage__td riskPage__td--muted">
+                        {formatArticleId(row.articleId)}
                       </td>
                       <td className="riskPage__td">{row.primaryRisk}</td>
                       <td className="riskPage__td riskPage__td--muted">

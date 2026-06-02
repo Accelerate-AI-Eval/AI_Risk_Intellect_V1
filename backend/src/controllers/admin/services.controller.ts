@@ -5,6 +5,10 @@ import {
   stopDiscoveryProcess,
 } from "../../services/admin/discoveryManager.service.js";
 import {
+  resolveActiveIngestLinksByIds,
+  resolveExtractedItemRefsByIds,
+} from "../../services/admin/ingestLinks.service.js";
+import {
   getLlmModelConfig,
   setLlmModel,
 } from "../../services/admin/llmModelConfig.service.js";
@@ -12,7 +16,7 @@ import {
   startWorkerProcess,
   stopWorkerProcess,
 } from "../../services/admin/workerManager.service.js";
-import type { SetLlmModelInput } from "../../validators/admin.validators.js";
+import type { SetLlmModelInput, StartDiscoveryInput } from "../../validators/admin.validators.js";
 
 export async function getServicesStatusHandler(
   _req: Request,
@@ -22,14 +26,43 @@ export async function getServicesStatusHandler(
 }
 
 export async function startDiscoveryHandler(
-  _req: Request,
+  req: Request,
   res: Response,
 ): Promise<void> {
-  const { pid } = startDiscoveryProcess();
+  const {
+    ingestLinkIds: requestedLinkIds = [],
+    ingestLinkItemIds: requestedItemIds = [],
+  } = req.body as StartDiscoveryInput;
+
+  const links =
+    requestedLinkIds.length > 0
+      ? await resolveActiveIngestLinksByIds(requestedLinkIds)
+      : [];
+  const itemRefs =
+    requestedItemIds.length > 0
+      ? await resolveExtractedItemRefsByIds(requestedItemIds)
+      : [];
+
+  const resolvedLinkIds =
+    links.length > 0
+      ? links.map((l) => l.id)
+      : [...new Set(itemRefs.map((item) => item.ingestLinkId))];
+
+  const { pid } = startDiscoveryProcess({
+    ingestLinkIds: resolvedLinkIds,
+    ingestLinkItemIds: itemRefs.map((item) => item.id),
+  });
+
+  const selectedItemCount = itemRefs.length;
   res.status(200).json({
     ok: true,
-    message: "Discovery service started.",
+    message:
+      selectedItemCount > 0
+        ? `Discovery enqueued ${selectedItemCount} selected extracted URL${selectedItemCount === 1 ? "" : "s"} from ${resolvedLinkIds.length} feed${resolvedLinkIds.length === 1 ? "" : "s"}.`
+        : `Discovery enqueued extracted URLs for ${resolvedLinkIds.length} feed${resolvedLinkIds.length === 1 ? "" : "s"}.`,
     pid,
+    feedCount: resolvedLinkIds.length,
+    selectedItemCount,
     services: getServicesStatus(),
   });
 }

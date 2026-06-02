@@ -19,9 +19,10 @@ import {
   XCircle,
   Zap,
   CircleAlert,
+  MoreHorizontal,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
-import { formatRelativeDate } from "../../../utils/formatDate";
+import { formatDurationMs, formatJobExecutedAt } from "../../../utils/formatDate";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePagination } from "../../../utils/usePagination";
 import { usePolling } from "../../../utils/usePolling";
@@ -43,6 +44,8 @@ type Metric = {
   Icon: LucideIcon;
 };
 
+const TERMINAL_JOB_STATUSES = new Set(["done", "completed", "error", "skipped"]);
+
 type JobRow = {
   id: number;
   url: string;
@@ -50,10 +53,52 @@ type JobRow = {
   jobType: string;
   source: string;
   tries: string;
-  created: string;
+  executionTime: string;
+  executed: string;
   createdAt: string;
+  updatedAt: string;
+  riskFetchedAt: string;
   errorMessage: string;
 };
+
+function resolveJobCompletedAt(
+  row: Pick<JobRow, "status" | "updatedAt" | "riskFetchedAt">,
+): string {
+  const status = row.status.toLowerCase();
+  if (status === "done" || status === "completed") {
+    return row.riskFetchedAt || row.updatedAt;
+  }
+  if (status === "error" || status === "failed" || status === "skipped") {
+    return row.updatedAt;
+  }
+  return "";
+}
+
+function formatJobExecutedDisplay(
+  row: Pick<JobRow, "status" | "updatedAt" | "riskFetchedAt">,
+): string {
+  const status = row.status.toLowerCase();
+  const completedAt = resolveJobCompletedAt(row);
+  if (TERMINAL_JOB_STATUSES.has(status) && completedAt) {
+    return formatJobExecutedAt(completedAt);
+  }
+  if (status === "pending" || status === "running") {
+    return "—";
+  }
+  return "—";
+}
+
+function formatJobExecutionTimeDisplay(
+  row: Pick<JobRow, "status" | "createdAt" | "updatedAt" | "riskFetchedAt">,
+): string {
+  const status = row.status.toLowerCase();
+  if (!TERMINAL_JOB_STATUSES.has(status)) return "—";
+  const createdMs = new Date(row.createdAt).getTime();
+  const completedAt = resolveJobCompletedAt(row);
+  const completedMs = new Date(completedAt).getTime();
+  if (Number.isNaN(createdMs) || Number.isNaN(completedMs)) return "—";
+  return formatDurationMs(Math.max(0, completedMs - createdMs));
+}
 
 type JobMetrics = {
   total: number;
@@ -85,6 +130,12 @@ function normalizeJobStatus(status: string): string {
 function capitalize(value: string): string {
   if (!value) return value;
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatSourceLabel(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "rss") return "RSS";
+  return capitalize(value);
 }
 
 function statusBadgeClass(status: string): string {
@@ -346,21 +397,33 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       tries?: number;
       errorMessage?: string | null;
       createdAt?: string;
+      updatedAt?: string;
+      riskFetchedAt?: string | null;
     }>;
     metrics?: Partial<JobMetrics>;
   };
 
-  const jobs: JobRow[] = (data.jobs ?? []).map((j) => ({
-    id: j.id ?? 0,
-    url: j.url ?? "",
-    status: labelize(normalizeJobStatus(j.status ?? "")),
-    jobType: labelize(j.jobType ?? ""),
-    source: capitalize(j.source ?? ""),
-    tries: String(j.tries ?? 0),
-    created: j.createdAt ? formatRelativeDate(j.createdAt) : "—",
-    createdAt: j.createdAt ?? "",
-    errorMessage: (j.errorMessage ?? "").trim(),
-  }));
+  const jobs: JobRow[] = (data.jobs ?? []).map((j) => {
+    const status = labelize(normalizeJobStatus(j.status ?? ""));
+    const updatedAt = j.updatedAt ?? "";
+    const row: JobRow = {
+      id: j.id ?? 0,
+      url: j.url ?? "",
+      status,
+      jobType: labelize(j.jobType ?? ""),
+      source: formatSourceLabel(j.source ?? ""),
+      tries: String(j.tries ?? 0),
+      executionTime: "—",
+      createdAt: j.createdAt ?? "",
+      updatedAt,
+      riskFetchedAt: j.riskFetchedAt ?? "",
+      executed: "—",
+      errorMessage: (j.errorMessage ?? "").trim(),
+    };
+    row.executed = formatJobExecutedDisplay(row);
+    row.executionTime = formatJobExecutionTimeDisplay(row);
+    return row;
+  });
 
   return {
     jobs,
@@ -402,7 +465,9 @@ function jobMatchesFilters(
     row.jobType,
     row.source,
     row.tries,
-    row.created,
+    row.executionTime,
+    row.executed,
+    row.updatedAt,
     row.errorMessage,
   ]
     .join(" ")
@@ -421,6 +486,7 @@ export function JobsPage() {
   const [jobPageSize, setJobPageSize] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
   const [enqueueOpen, setEnqueueOpen] = useState(false);
+  const [rowMenuOpenId, setRowMenuOpenId] = useState<number | null>(null);
   const [rows, setRows] = useState<JobRow[]>([]);
   const [metrics, setMetrics] = useState<JobMetrics>(EMPTY_METRICS);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
@@ -485,6 +551,24 @@ export function JobsPage() {
     pollIntervalMs,
     tab === "regular",
   );
+
+  useEffect(() => {
+    if (rowMenuOpenId == null) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target?.closest("[data-jobs-row-menu]")) return;
+      setRowMenuOpenId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setRowMenuOpenId(null);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [rowMenuOpenId]);
 
   const displayMetrics = useMemo(() => buildMetrics(metrics), [metrics]);
 
@@ -766,9 +850,9 @@ export function JobsPage() {
                 >
                   INFO
                 </th>
-                <th scope="col" className="jobsPage__th jobsPage__th--left">
-                  CREATED
-                </th>
+                        <th scope="col" className="jobsPage__th jobsPage__th--left">
+                          EXECUTION TIME
+                        </th>
                 <th scope="col" className="jobsPage__th jobsPage__th--left">
                   ACTIONS
                 </th>
@@ -830,26 +914,60 @@ export function JobsPage() {
                           message={row.errorMessage}
                         />
                       </td>
-                      <td className="jobsPage__td jobsPage__td--muted">{row.created}</td>
+                      <td className="jobsPage__td jobsPage__td--muted">
+                        <div className="jobsPage__executionCell">
+                          <span className="jobsPage__executionDuration">
+                            {row.executionTime}
+                          </span>
+                          <span className="jobsPage__executionAt">{row.executed}</span>
+                        </div>
+                      </td>
                       <td className="jobsPage__td">
-                        <div className="jobsPage__actions">
+                        <div
+                          className="jobsPage__rowMenuWrap"
+                          data-jobs-row-menu={row.id}
+                        >
                           <button
                             type="button"
-                            className="jobsPage__actionBtn jobsPage__actionBtn--retry"
-                            aria-label="Retry"
-                            data-tooltip="Retry"
-                            onClick={() => void handleRetryJob(row.id)}
+                            className="jobsPage__kebabBtn"
+                            aria-haspopup="menu"
+                            aria-expanded={rowMenuOpenId === row.id}
+                            aria-label={`Actions for job #${row.id}`}
+                            onClick={() =>
+                              setRowMenuOpenId((prev) =>
+                                prev === row.id ? null : row.id,
+                              )
+                            }
                           >
-                            <RotateCw size={16} strokeWidth={2} aria-hidden />
+                            <MoreHorizontal size={18} strokeWidth={2} aria-hidden />
                           </button>
-                          <button
-                            type="button"
-                            className="jobsPage__actionBtn jobsPage__actionBtn--delete"
-                            aria-label="Delete"
-                            data-tooltip="Delete"
-                          >
-                            <Trash2 size={16} strokeWidth={2} aria-hidden />
-                          </button>
+                          {rowMenuOpenId === row.id ? (
+                            <div className="jobsPage__rowMenu" role="menu">
+                              <button
+                                type="button"
+                                className="jobsPage__rowMenuItem"
+                                role="menuitem"
+                                onClick={() => {
+                                  setRowMenuOpenId(null);
+                                  void handleRetryJob(row.id);
+                                }}
+                              >
+                                <RotateCw size={16} strokeWidth={2} aria-hidden />
+                                Retry
+                              </button>
+                              <button
+                                type="button"
+                                className="jobsPage__rowMenuItem jobsPage__rowMenuItem--danger"
+                                role="menuitem"
+                                onClick={() => {
+                                  setRowMenuOpenId(null);
+                                }}
+                              >
+                                <Trash2 size={16} strokeWidth={2} aria-hidden />
+                                Delete
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </td>
                     </tr>

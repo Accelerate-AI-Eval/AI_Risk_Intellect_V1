@@ -1,6 +1,7 @@
-import { desc, sql } from "drizzle-orm";
+import { desc, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { jobs } from "../../schema/jobs/jobs.js";
+import { risks } from "../../schema/risks/risks.js";
 
 export type JobListItem = {
   id: number;
@@ -13,6 +14,7 @@ export type JobListItem = {
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
+  riskFetchedAt: Date | null;
 };
 
 export type JobListMetrics = {
@@ -46,6 +48,30 @@ export async function listJobs(): Promise<{
     .from(jobs)
     .orderBy(desc(jobs.createdAt));
 
+  const articleIds = [...new Set(rows.map((row) => row.articleId).filter((id) => id > 0))];
+  let riskFetchedAtByArticleId = new Map<number, Date>();
+  if (articleIds.length > 0) {
+    const riskRows = await db
+      .select({
+        articleId: risks.articleId,
+        riskFetchedAt: sql<Date>`max(${risks.createdAt})`,
+      })
+      .from(risks)
+      .where(inArray(risks.articleId, articleIds))
+      .groupBy(risks.articleId);
+
+    riskFetchedAtByArticleId = new Map(
+      riskRows
+        .filter((row) => row.riskFetchedAt)
+        .map((row) => [row.articleId, row.riskFetchedAt]),
+    );
+  }
+
+  const rowsWithRiskFetchedAt: JobListItem[] = rows.map((row) => ({
+    ...row,
+    riskFetchedAt: riskFetchedAtByArticleId.get(row.articleId) ?? null,
+  }));
+
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const [counts] = await db
@@ -64,7 +90,7 @@ export async function listJobs(): Promise<{
   const done = counts?.done ?? 0;
 
   return {
-    jobs: rows,
+    jobs: rowsWithRiskFetchedAt,
     metrics: {
       total,
       successRate: total > 0 ? Math.round((done / total) * 100) : 0,

@@ -51,13 +51,13 @@ def _build_cache() -> None:
     by_id: dict[str, dict[str, Any]] = {}
     options: list[ModelOption] = []
 
+    # Include LEGACY models in the picker (e.g. Claude 3 Sonnet). That is generally
+    # not recommended — AWS may block or retire those endpoints.
     for model in payload.get("models") or []:
         if not isinstance(model, dict):
             continue
         model_id = str(model.get("modelId") or "").strip()
         if not model_id:
-            continue
-        if str(model.get("lifecycleStatus") or "").upper() == "LEGACY":
             continue
         if not _is_text_generation(model):
             continue

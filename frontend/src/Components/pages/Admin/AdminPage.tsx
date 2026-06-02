@@ -5,9 +5,7 @@ import {
   Cpu,
   Database,
   Download,
-  Play,
   RotateCw,
-  Square,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -21,94 +19,19 @@ import {
 } from "../Settings/SettingsSections";
 import "../Users/usersPage.css";
 import "../Settings/settingsPage.css";
+import { AdminRssFeedsSection } from "./AdminRssFeedsSection";
+import { AdminServiceRow } from "./AdminServiceRow";
+import {
+  DEFAULT_API_STATUS,
+  displayServiceStatus,
+  readServiceApiStatus,
+  waitForServiceApiState,
+  type ApiServiceState,
+  type PendingAction,
+  type ServiceKey,
+} from "./adminServices";
 import { LlmModelPicker } from "./LlmModelPicker";
 import "./adminPage.css";
-
-type ServiceKey = "worker" | "discovery";
-type ApiServiceState = "stopped" | "running";
-type ServiceState = ApiServiceState | "starting" | "stopping";
-type PendingAction = "starting" | "stopping";
-
-const DEFAULT_API_STATUS: Record<ServiceKey, ApiServiceState> = {
-  worker: "stopped",
-  discovery: "stopped",
-};
-
-function serviceStatusLabel(status: ServiceState): string {
-  switch (status) {
-    case "starting":
-      return "Starting...";
-    case "stopping":
-      return "Stopping...";
-    case "running":
-      return "Running";
-    default:
-      return "Stopped";
-  }
-}
-
-function serviceStatusPillClass(status: ServiceState): string {
-  switch (status) {
-    case "running":
-      return "adminPage__statusPill--running";
-    case "starting":
-    case "stopping":
-      return "adminPage__statusPill--pending";
-    default:
-      return "adminPage__statusPill--stopped";
-  }
-}
-
-function isServiceBusy(status: ServiceState): boolean {
-  return status === "starting" || status === "stopping";
-}
-
-function displayServiceStatus(
-  key: ServiceKey,
-  apiStatus: Record<ServiceKey, ApiServiceState>,
-  pending: Partial<Record<ServiceKey, PendingAction>>,
-): ServiceState {
-  return pending[key] ?? apiStatus[key];
-}
-
-async function readServiceApiStatus(): Promise<Record<
-  ServiceKey,
-  ApiServiceState
-> | null> {
-  const res = await authFetch("/admin/services/status");
-  if (!res.ok) return null;
-  const data = (await res.json()) as {
-    services?: Record<string, { running?: boolean }>;
-  };
-  return {
-    worker:
-      data.services?.worker?.running === true ? "running" : "stopped",
-    discovery:
-      data.services?.discovery?.running === true ? "running" : "stopped",
-  };
-}
-
-async function waitForServiceApiState(
-  key: ServiceKey,
-  expectRunning: boolean,
-  maxMs = 30_000,
-): Promise<boolean> {
-  const deadline = Date.now() + maxMs;
-  while (Date.now() < deadline) {
-    const status = await readServiceApiStatus();
-    if (status) {
-      const running = status[key] === "running";
-      if (running === expectRunning) return true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  return false;
-}
-
-const SERVICE_ROWS: { key: ServiceKey; label: string }[] = [
-  { key: "worker", label: "Worker Service" },
-  { key: "discovery", label: "Discovery Service" },
-];
 
 type LlmModelOption = {
   id: string;
@@ -125,8 +48,17 @@ type LlmModelConfig = {
   pythonSynced?: boolean;
 };
 
+type AdminTab = "controls" | "rss" | "etl";
+
+const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
+  controls: "Controls",
+  rss: "RSS Feeds",
+  etl: "ETL",
+};
+
 export function AdminPage() {
   const baseId = useId();
+  const [tab, setTab] = useState<AdminTab>("controls");
   const [apiStatus, setApiStatus] =
     useState<Record<ServiceKey, ApiServiceState>>(DEFAULT_API_STATUS);
   const [pendingAction, setPendingAction] = useState<
@@ -141,10 +73,9 @@ export function AdminPage() {
   const [selectedModelId, setSelectedModelId] = useState("");
   const [llmModelLoading, setLlmModelLoading] = useState(true);
   const [llmModelSaving, setLlmModelSaving] = useState(false);
-
   useEffect(() => {
-    setDocumentPageTitle("Controls");
-  }, []);
+    setDocumentPageTitle(ADMIN_TAB_LABELS[tab]);
+  }, [tab]);
 
   const loadServiceStatus = useCallback(async () => {
     const token = sessionStorage.getItem("accessToken");
@@ -207,7 +138,10 @@ export function AdminPage() {
     });
   }, []);
 
-  const handleStart = async (key: ServiceKey) => {
+  const handleStart = async (
+    key: ServiceKey,
+    options?: { ingestLinkIds?: number[]; ingestLinkItemIds?: number[] },
+  ) => {
     const path =
       key === "worker"
         ? "/admin/services/worker/start"
@@ -218,6 +152,17 @@ export function AdminPage() {
     try {
       const res = await authFetch(path, {
         method: "POST",
+        ...(key === "discovery" &&
+        ((options?.ingestLinkIds?.length ?? 0) > 0 ||
+          (options?.ingestLinkItemIds?.length ?? 0) > 0)
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ingestLinkIds: options.ingestLinkIds,
+                ingestLinkItemIds: options.ingestLinkItemIds,
+              }),
+            }
+          : {}),
       });
       const data = (await res.json().catch(() => ({}))) as {
         message?: string;
@@ -387,6 +332,23 @@ export function AdminPage() {
         subtitle="System controls, settings, and data management"
       />
 
+      <div className="adminPage__tabs" role="tablist" aria-label="Controls sections">
+        {(Object.keys(ADMIN_TAB_LABELS) as AdminTab[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={`adminPage__tab${tab === key ? " adminPage__tab--selected" : ""}`}
+            onClick={() => setTab(key)}
+          >
+            {ADMIN_TAB_LABELS[key]}
+          </button>
+        ))}
+      </div>
+
+      {tab === "controls" && (
+        <>
       <div className="adminPage__topRow">
         <section className="adminPage__card adminPage__topRowCell" aria-labelledby={fid("services-title")}>
         <div className="adminPage__cardHead">
@@ -398,54 +360,18 @@ export function AdminPage() {
               System services
             </h2>
             <p className="adminPage__cardHint">
-              Start and stop background services and choose the LLM for risk extraction.
+              Start and stop the worker service and choose the LLM for risk extraction.
             </p>
           </div>
         </div>
         <ul className="adminPage__serviceList">
-          {SERVICE_ROWS.map((row) => {
-            const status = displayServiceStatus(
-              row.key,
-              apiStatus,
-              pendingAction,
-            );
-            const busy = isServiceBusy(status);
-            const canStart = !busy && apiStatus[row.key] === "stopped";
-            const canStop = !busy && apiStatus[row.key] === "running";
-            return (
-              <li key={row.key} className="adminPage__serviceRow">
-                <span className="adminPage__serviceName">{row.label}</span>
-                <span
-                  role="status"
-                  className={`adminPage__statusPill ${serviceStatusPillClass(status)}`}
-                  aria-live="polite"
-                >
-                  <span className="adminPage__statusPillDot" aria-hidden />
-                  {serviceStatusLabel(status)}
-                </span>
-                <div className="adminPage__serviceActions">
-                  <button
-                    type="button"
-                    className="usersPage__btn usersPage__btn--primary usersPage__btn--inviteSend"
-                    onClick={() => void handleStart(row.key)}
-                    disabled={!canStart || busy}
-                  >
-                    <Play size={16} strokeWidth={2} aria-hidden />
-                    Start
-                  </button>
-                  <button
-                    type="button"
-                    className="usersPage__btn usersPage__btn--logoutTone"
-                    onClick={() => void handleStop(row.key)}
-                    disabled={!canStop || busy}
-                  >
-                    <Square size={14} strokeWidth={2} aria-hidden />
-                    Stop
-                  </button>
-                </div>
-              </li>
-            );
-          })}
+          <AdminServiceRow
+            label="Worker Service"
+            status={displayServiceStatus("worker", apiStatus, pendingAction)}
+            apiRunning={apiStatus.worker === "running"}
+            onStart={() => void handleStart("worker")}
+            onStop={() => void handleStop("worker")}
+          />
         </ul>
 
         <div className="adminPage__modelField">
@@ -641,9 +567,30 @@ export function AdminPage() {
         </div>
       </section>
 
-      <div className="settingsPage adminPage__settingsAbout">
+      <div className="settingsPage settingsPage__sections adminPage__settingsAbout">
         <SettingsAboutSection />
       </div>
+        </>
+      )}
+
+      {tab === "rss" && (
+        <AdminRssFeedsSection
+          idPrefix={baseId}
+          discoveryStatus={displayServiceStatus(
+            "discovery",
+            apiStatus,
+            pendingAction,
+          )}
+          discoveryApiRunning={apiStatus.discovery === "running"}
+          onDiscoveryStart={(selection) =>
+            void handleStart("discovery", {
+              ingestLinkIds: selection.ingestLinkIds,
+              ingestLinkItemIds: selection.ingestLinkItemIds,
+            })
+          }
+          onDiscoveryStop={() => void handleStop("discovery")}
+        />
+      )}
     </main>
   );
 }

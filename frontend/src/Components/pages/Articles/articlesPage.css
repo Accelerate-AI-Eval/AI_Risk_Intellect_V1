@@ -142,7 +142,8 @@
 }
 
 .articlesPage__tableScroll {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(34rem, 62vh);
 }
 
 .articlesPage__table {
@@ -162,6 +163,9 @@
   background: rgba(15, 23, 42, 0.35);
   border-bottom: 1px solid var(--art-border);
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .articlesPage__th--narrow {

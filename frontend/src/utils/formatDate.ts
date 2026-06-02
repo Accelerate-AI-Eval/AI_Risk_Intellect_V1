@@ -28,6 +28,33 @@ export function formatRelativeDate(iso: string): string {
   return formatDisplayDate(iso);
 }
 
+/** Full date/time for job completion (executed time). */
+export function formatJobExecutedAt(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Human-friendly duration, e.g. "45s", "2m 13s", "1h 4m". */
+export function formatDurationMs(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return "—";
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 export function shortId(id: string): string {
   return id.length > 8 ? id.slice(0, 8) : id;
 }

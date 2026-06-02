@@ -20,6 +20,7 @@ import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePolling } from "../../../utils/usePolling";
 import { usePagination } from "../../../utils/usePagination";
 import { formatRelativeDate } from "../../../utils/formatDate";
+import { DataTablePagination } from "../../common/DataTablePagination";
 import {
   fetchObservabilityStats,
   type ObservabilityDayStats,
@@ -193,6 +194,7 @@ export function ObservabilityPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [modelFilter, setModelFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [rowPageSize, setRowPageSize] = useState(10);
 
   const filterId = (name: string) => `${baseId}-${name}`;
 
@@ -272,7 +274,7 @@ export function ObservabilityPage() {
 
   const pager = usePagination({
     items: filteredRows,
-    pageSize: 15,
+    pageSize: rowPageSize,
     resetKey: `${selectedDate}|${modelFilter}|${searchQuery}`,
   });
 
@@ -580,30 +582,17 @@ export function ObservabilityPage() {
             )}
           </div>
 
-          {filteredRows.length > pager.pageSize ? (
-            <div className="usersPage__pager dtPagination" style={{ padding: "0.75rem 1rem" }}>
-              <button
-                type="button"
-                className="dtPagination__btn"
-                disabled={pager.page <= 0}
-                onClick={pager.goPrev}
-              >
-                Previous
-              </button>
-              <span className="dtPagination__info">
-                Page {pager.page + 1} of {pager.pageCount} · {pager.from}–{pager.to} of{" "}
-                {pager.total}
-              </span>
-              <button
-                type="button"
-                className="dtPagination__btn"
-                disabled={pager.page >= pager.pageCount - 1}
-                onClick={pager.goNext}
-              >
-                Next
-              </button>
-            </div>
-          ) : null}
+          <DataTablePagination
+            className="usersPage__pager"
+            page={pager.page}
+            pageCount={pager.pageCount}
+            total={pager.total}
+            pageSize={pager.pageSize}
+            from={pager.from}
+            to={pager.to}
+            onPageChange={pager.setPage}
+            onPageSizeChange={setRowPageSize}
+          />
         </div>
       </section>
     </main>
