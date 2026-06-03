@@ -772,7 +772,7 @@ export function AdminRssFeedsSection({
                           </td>
                         </tr>
                       ) : (
-                        filteredLinkRows.map((row, displayIndex) => {
+                        filteredLinkRows.map((row) => {
                           const busy = linkActionId === row.id;
                           const isExpanded = expandedLinkId === row.id;
                           const actionsDisabled = busy || editSaving;

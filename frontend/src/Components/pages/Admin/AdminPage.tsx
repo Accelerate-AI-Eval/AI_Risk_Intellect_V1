@@ -150,17 +150,23 @@ export function AdminPage() {
     setPendingAction((pending) => ({ ...pending, [key]: "starting" }));
 
     try {
+      const discoveryPayload =
+        key === "discovery" &&
+        options &&
+        ((options.ingestLinkIds?.length ?? 0) > 0 ||
+          (options.ingestLinkItemIds?.length ?? 0) > 0)
+          ? {
+              ingestLinkIds: options.ingestLinkIds,
+              ingestLinkItemIds: options.ingestLinkItemIds,
+            }
+          : null;
+
       const res = await authFetch(path, {
         method: "POST",
-        ...(key === "discovery" &&
-        ((options?.ingestLinkIds?.length ?? 0) > 0 ||
-          (options?.ingestLinkItemIds?.length ?? 0) > 0)
+        ...(discoveryPayload
           ? {
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ingestLinkIds: options.ingestLinkIds,
-                ingestLinkItemIds: options.ingestLinkItemIds,
-              }),
+              body: JSON.stringify(discoveryPayload),
             }
           : {}),
       });

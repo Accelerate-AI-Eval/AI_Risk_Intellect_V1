@@ -663,6 +663,7 @@ export function JobsPage() {
       />
 
       <UrlIngestionDialog
+        variant="jobs"
         open={enqueueOpen}
         onClose={() => setEnqueueOpen(false)}
         onEnqueued={() => void loadJobs()}
