@@ -11,7 +11,7 @@ const SETTINGS_API_BASE_DEFAULT = "http://localhost:5005/api/v1";
 
 function resolveSettingsApiBase(): string {
   const fromEnv = getApiBaseUrl().trim();
-  if (fromEnv && /^https?:\/\//i.test(fromEnv)) return fromEnv;
+  if (fromEnv) return fromEnv;
   return SETTINGS_API_BASE_DEFAULT;
 }
 

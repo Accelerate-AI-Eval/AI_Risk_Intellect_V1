@@ -116,7 +116,7 @@ adminRouter.post(
 );
 
 adminRouter.post(
-  "/enqueue",
+  "/jobs/enqueue",
   requireAuth,
   validate(enqueueUrlSchema),
   asyncHandler(enqueueUrlHandler),
