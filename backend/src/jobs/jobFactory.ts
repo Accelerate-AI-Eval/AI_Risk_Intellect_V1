@@ -86,6 +86,22 @@ export async function createJob(
   const source = input.source ?? "manual";
 
   if (!input.allowDuplicates) {
+    if (input.ingestLinkItemId != null) {
+      const [existingByItem] = await conn
+        .select()
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.ingestLinkItemId, input.ingestLinkItemId),
+            eq(jobs.jobType, jobType),
+          ),
+        )
+        .limit(1);
+      if (existingByItem) {
+        return { job: existingByItem, created: false };
+      }
+    }
+
     const existing = await findExistingActiveJob(conn, { url, jobType });
     if (existing) {
       return { job: existing, created: false };

@@ -15,7 +15,6 @@ import {
   Trash2,
   SkipForward,
   Timer,
-  Upload,
   XCircle,
   Zap,
   CircleAlert,
@@ -32,7 +31,7 @@ import { UrlIngestionDialog } from "../../common/UrlIngestionDialog";
 import "../Users/usersPage.css";
 import "./jobsPage.css";
 
-type JobTab = "regular" | "aiid";
+// type JobTab = "regular" | "aiid";
 
 type MetricAccent = "blue" | "green" | "amber" | "red" | "slate";
 
@@ -52,14 +51,22 @@ type JobRow = {
   status: string;
   jobType: string;
   source: string;
+  sourceKey: string;
   tries: string;
   executionTime: string;
   executed: string;
   createdAt: string;
+  startedAt: string;
   updatedAt: string;
   riskFetchedAt: string;
   errorMessage: string;
 };
+
+function resolveJobStartedAt(
+  row: Pick<JobRow, "startedAt" | "updatedAt" | "createdAt">,
+): string {
+  return row.startedAt || row.updatedAt || row.createdAt;
+}
 
 function resolveJobCompletedAt(
   row: Pick<JobRow, "status" | "updatedAt" | "riskFetchedAt">,
@@ -75,29 +82,46 @@ function resolveJobCompletedAt(
 }
 
 function formatJobExecutedDisplay(
-  row: Pick<JobRow, "status" | "updatedAt" | "riskFetchedAt">,
+  row: Pick<
+    JobRow,
+    "status" | "startedAt" | "createdAt" | "updatedAt" | "riskFetchedAt"
+  >,
 ): string {
   const status = row.status.toLowerCase();
+  if (status === "running") {
+    return formatJobExecutedAt(resolveJobStartedAt(row));
+  }
   const completedAt = resolveJobCompletedAt(row);
   if (TERMINAL_JOB_STATUSES.has(status) && completedAt) {
     return formatJobExecutedAt(completedAt);
   }
-  if (status === "pending" || status === "running") {
+  if (status === "pending") {
     return "—";
   }
   return "—";
 }
 
 function formatJobExecutionTimeDisplay(
-  row: Pick<JobRow, "status" | "createdAt" | "updatedAt" | "riskFetchedAt">,
+  row: Pick<
+    JobRow,
+    "status" | "startedAt" | "createdAt" | "updatedAt" | "riskFetchedAt"
+  >,
 ): string {
   const status = row.status.toLowerCase();
+  const startedAt = resolveJobStartedAt(row);
+  const startedMs = new Date(startedAt).getTime();
+
+  if (status === "running") {
+    if (Number.isNaN(startedMs)) return "—";
+    return formatDurationMs(Math.max(0, Date.now() - startedMs));
+  }
+
   if (!TERMINAL_JOB_STATUSES.has(status)) return "—";
-  const createdMs = new Date(row.createdAt).getTime();
+
   const completedAt = resolveJobCompletedAt(row);
   const completedMs = new Date(completedAt).getTime();
-  if (Number.isNaN(createdMs) || Number.isNaN(completedMs)) return "—";
-  return formatDurationMs(Math.max(0, completedMs - createdMs));
+  if (Number.isNaN(startedMs) || Number.isNaN(completedMs)) return "—";
+  return formatDurationMs(Math.max(0, completedMs - startedMs));
 }
 
 type JobMetrics = {
@@ -135,6 +159,7 @@ function capitalize(value: string): string {
 function formatSourceLabel(value: string): string {
   const normalized = value.trim().toLowerCase();
   if (normalized === "rss") return "RSS";
+  if (normalized === "etl_reports" || normalized === "api") return "ETL Reports";
   return capitalize(value);
 }
 
@@ -397,6 +422,7 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       tries?: number;
       errorMessage?: string | null;
       createdAt?: string;
+      startedAt?: string | null;
       updatedAt?: string;
       riskFetchedAt?: string | null;
     }>;
@@ -411,10 +437,12 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       url: j.url ?? "",
       status,
       jobType: labelize(j.jobType ?? ""),
+      sourceKey: (j.source ?? "").trim().toLowerCase(),
       source: formatSourceLabel(j.source ?? ""),
       tries: String(j.tries ?? 0),
       executionTime: "—",
       createdAt: j.createdAt ?? "",
+      startedAt: j.startedAt ?? "",
       updatedAt,
       riskFetchedAt: j.riskFetchedAt ?? "",
       executed: "—",
@@ -450,8 +478,14 @@ function jobMatchesFilters(
   if (status !== "all" && row.status.toLowerCase() !== status) {
     return false;
   }
-  if (source !== "all" && row.source.toLowerCase() !== source) {
-    return false;
+  if (source !== "all") {
+    if (source === "etl_reports") {
+      if (row.sourceKey !== "etl_reports" && row.sourceKey !== "api") {
+        return false;
+      }
+    } else if (row.sourceKey !== source) {
+      return false;
+    }
   }
   if (type !== "all" && row.jobType.toLowerCase() !== type) {
     return false;
@@ -477,11 +511,11 @@ function jobMatchesFilters(
 
 export function JobsPage() {
   const baseId = useId();
-  const [tab, setTab] = useState<JobTab>("regular");
+  // const [tab, setTab] = useState<JobTab>("regular");
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
   const [source, setSource] = useState("all");
-  const [importType, setImportType] = useState("");
+  // const [importType, setImportType] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [jobPageSize, setJobPageSize] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
@@ -536,8 +570,8 @@ export function JobsPage() {
   }, []);
 
   useEffect(() => {
-    setDocumentPageTitle(tab === "aiid" ? "AIID Jobs" : "Jobs");
-  }, [tab]);
+    setDocumentPageTitle("Jobs");
+  }, []);
 
   useEffect(() => {
     void loadJobs();
@@ -546,11 +580,7 @@ export function JobsPage() {
   const hasActiveJobs = metrics.pending > 0 || metrics.running > 0;
   const pollIntervalMs = hasActiveJobs ? 3_000 : 10_000;
 
-  usePolling(
-    () => loadJobs({ silent: true }),
-    pollIntervalMs,
-    tab === "regular",
-  );
+  usePolling(() => loadJobs({ silent: true }), pollIntervalMs, true);
 
   useEffect(() => {
     if (rowMenuOpenId == null) return;
@@ -572,17 +602,18 @@ export function JobsPage() {
 
   const displayMetrics = useMemo(() => buildMetrics(metrics), [metrics]);
 
-  const filteredJobRows = useMemo(() => {
-    if (tab !== "regular") return [];
-    return rows.filter((row) =>
-      jobMatchesFilters(row, status, type, source, searchQuery),
-    );
-  }, [tab, rows, status, type, source, searchQuery]);
+  const filteredJobRows = useMemo(
+    () =>
+      rows.filter((row) =>
+        jobMatchesFilters(row, status, type, source, searchQuery),
+      ),
+    [rows, status, type, source, searchQuery],
+  );
 
   const jobPager = usePagination({
-    items: tab === "regular" ? filteredJobRows : [],
+    items: filteredJobRows,
     pageSize: jobPageSize,
-    resetKey: `${tab}|${status}|${type}|${source}|${searchQuery}`,
+    resetKey: `${status}|${type}|${source}|${searchQuery}`,
   });
 
   const handleRefresh = useCallback(async () => {
@@ -622,9 +653,9 @@ export function JobsPage() {
     setSearchQuery("");
   };
 
-  const resetAiidImport = () => {
-    setImportType("");
-  };
+  // const resetAiidImport = () => {
+  //   setImportType("");
+  // };
 
   const filterId = (name: string) => `${baseId}-${name}`;
 
@@ -669,7 +700,7 @@ export function JobsPage() {
         onEnqueued={() => void loadJobs()}
       />
 
-      <div className="usersPage__tabs" role="tablist" aria-label="Job type">
+      {/* <div className="usersPage__tabs" role="tablist" aria-label="Job type">
         <button
           type="button"
           role="tab"
@@ -688,7 +719,7 @@ export function JobsPage() {
         >
           AIID Jobs
         </button>
-      </div>
+      </div> */}
 
       <div className="jobsPage__grid">
         {displayMetrics.map((m) => (
@@ -704,7 +735,7 @@ export function JobsPage() {
         ))}
       </div>
 
-      {tab === "aiid" ? (
+      {/* {tab === "aiid" ? (
         <section className="jobsPage__import" aria-labelledby={`${baseId}-import-title`}>
           <h2 id={`${baseId}-import-title`} className="jobsPage__importTitle">
             + Import AIID Jobs
@@ -746,7 +777,7 @@ export function JobsPage() {
             </div>
           </div>
         </section>
-      ) : null}
+      ) : null} */}
 
       <section className="jobsPage__filters" aria-label="Filter jobs">
         <div className="jobsPage__filter">
@@ -764,17 +795,15 @@ export function JobsPage() {
             <option value="skipped">Skipped</option>
           </select>
         </div>
-        {tab === "regular" ? (
-          <div className="jobsPage__filter">
-            <label htmlFor={filterId("type")}>TYPE</label>
-            <select id={filterId("type")} value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="all">All</option>
-              <option value="crawler">Crawler</option>
-              <option value="indexer">Indexer</option>
-              <option value="ingest">Ingest</option>
-            </select>
-          </div>
-        ) : null}
+        <div className="jobsPage__filter">
+          <label htmlFor={filterId("type")}>TYPE</label>
+          <select id={filterId("type")} value={type} onChange={(e) => setType(e.target.value)}>
+            <option value="all">All</option>
+            <option value="crawler">Crawler</option>
+            <option value="indexer">Indexer</option>
+            <option value="ingest">Ingest</option>
+          </select>
+        </div>
         <div className="jobsPage__filter">
           <label htmlFor={filterId("source")}>SOURCE</label>
           <select
@@ -784,7 +813,7 @@ export function JobsPage() {
           >
             <option value="all">All</option>
             <option value="rss">RSS</option>
-            <option value="api">API</option>
+            <option value="etl_reports">ETL Reports</option>
             <option value="manual">Manual</option>
           </select>
         </div>
@@ -833,11 +862,9 @@ export function JobsPage() {
                 <th scope="col" className="jobsPage__th jobsPage__th--center">
                   STATUS
                 </th>
-                {tab === "regular" ? (
-                  <th scope="col" className="jobsPage__th jobsPage__th--center">
-                    TYPE
-                  </th>
-                ) : null}
+                <th scope="col" className="jobsPage__th jobsPage__th--center">
+                  TYPE
+                </th>
                 <th scope="col" className="jobsPage__th jobsPage__th--left">
                   SOURCE
                 </th>
@@ -860,8 +887,7 @@ export function JobsPage() {
               </tr>
             </thead>
             <tbody>
-              {tab === "regular" ? (
-                loadState === "loading" ? (
+              {loadState === "loading" ? (
                   <tr>
                     <td className="jobsPage__td jobsPage__emptyCell" colSpan={9}>
                       Loading jobs…
@@ -973,32 +999,21 @@ export function JobsPage() {
                       </td>
                     </tr>
                   ))
-                )
-              ) : (
-                <tr>
-                  <td className="jobsPage__td jobsPage__emptyCell" colSpan={7}>
-                    {searchQuery.trim()
-                      ? "No AIID jobs match your search."
-                      : "No AIID jobs to display."}
-                  </td>
-                </tr>
-              )}
+                )}
             </tbody>
           </table>
           </div>
-          {tab === "regular" ? (
-            <DataTablePagination
-              className="jobsPage__pager"
-              page={jobPager.page}
-              pageCount={jobPager.pageCount}
-              total={jobPager.total}
-              pageSize={jobPager.pageSize}
-              from={jobPager.from}
-              to={jobPager.to}
-              onPageChange={jobPager.setPage}
-              onPageSizeChange={setJobPageSize}
-            />
-          ) : null}
+          <DataTablePagination
+            className="jobsPage__pager"
+            page={jobPager.page}
+            pageCount={jobPager.pageCount}
+            total={jobPager.total}
+            pageSize={jobPager.pageSize}
+            from={jobPager.from}
+            to={jobPager.to}
+            onPageChange={jobPager.setPage}
+            onPageSizeChange={setJobPageSize}
+          />
         </div>
       </section>
     </main>

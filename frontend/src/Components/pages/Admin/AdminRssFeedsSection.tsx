@@ -3,17 +3,22 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import {
   Archive,
+  ArchiveRestore,
   CircleX,
   ChevronDown,
   ChevronRight,
   FilterX,
   Link2,
+  MoreHorizontal,
   Pencil,
   Play,
   Plus,
@@ -35,6 +40,7 @@ import {
   extractIngestLink,
   fetchIngestLinkItems,
   fetchIngestLinks,
+  restoreIngestLink,
   updateIngestLink,
   type IngestLinkItemRow,
   type IngestLinkRow,
@@ -102,10 +108,17 @@ function logMatchesFilters(
 
 function linkMatchesFilters(
   row: IngestLinkRow,
+  status: string,
   items: string,
   feedId: string,
   search: string,
 ): boolean {
+  if (status === "active" && row.archived) {
+    return false;
+  }
+  if (status === "archived" && !row.archived) {
+    return false;
+  }
   if (items === "with" && row.itemCount <= 0) {
     return false;
   }
@@ -122,6 +135,7 @@ function linkMatchesFilters(
     row.url,
     row.suggestedName ?? "",
     row.itemCount,
+    row.archived ? "archived" : "active",
     formatRelativeDate(row.createdAt),
   ]
     .join(" ")
@@ -162,8 +176,24 @@ export function AdminRssFeedsSection({
   const [editSaving, setEditSaving] = useState(false);
   const [expandedLinkId, setExpandedLinkId] = useState<number | null>(null);
   const [linkItemsFilter, setLinkItemsFilter] = useState("all");
+  const [linkStatusFilter, setLinkStatusFilter] = useState("all");
   const [linkFeedFilter, setLinkFeedFilter] = useState("all");
   const [linkSearchQuery, setLinkSearchQuery] = useState("");
+  const [linkPageSize, setLinkPageSize] = useState(10);
+  const [linkRowMenuOpenId, setLinkRowMenuOpenId] = useState<number | null>(
+    null,
+  );
+  const [linkRowMenuAnchor, setLinkRowMenuAnchor] = useState<{
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  } | null>(null);
+  const [linkRowMenuPosition, setLinkRowMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const linkRowMenuRef = useRef<HTMLDivElement>(null);
   const [feedItems, setFeedItems] = useState<IngestLinkItemRow[]>([]);
   const [feedItemsLoading, setFeedItemsLoading] = useState(false);
   const [discoveryDialogOpen, setDiscoveryDialogOpen] = useState(false);
@@ -216,16 +246,84 @@ export function AdminRssFeedsSection({
         toast.error(result.message, { autoClose: 3000 });
         return;
       }
-      setLinkRows(result.links);
+      setLinkRows(result.links ?? []);
     } finally {
       setLinksLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (rssTab !== "links") return;
     void loadIngestLinks();
-  }, [rssTab, loadIngestLinks]);
+  }, [loadIngestLinks]);
+
+  const closeLinkRowMenu = useCallback(() => {
+    setLinkRowMenuOpenId(null);
+    setLinkRowMenuAnchor(null);
+    setLinkRowMenuPosition(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!linkRowMenuOpenId || !linkRowMenuAnchor || !linkRowMenuRef.current) {
+      setLinkRowMenuPosition(null);
+      return;
+    }
+
+    const menu = linkRowMenuRef.current;
+    const margin = 8;
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+
+    let top = linkRowMenuAnchor.bottom + 4;
+    let left = linkRowMenuAnchor.right - width;
+
+    if (left < margin) left = margin;
+    if (left + width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - width - margin);
+    }
+
+    if (top + height > window.innerHeight - margin) {
+      top = linkRowMenuAnchor.top - height - 4;
+    }
+    if (top < margin) top = margin;
+
+    setLinkRowMenuPosition({ top, left });
+  }, [linkRowMenuOpenId, linkRowMenuAnchor]);
+
+  useEffect(() => {
+    if (linkRowMenuOpenId == null) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      const wrap = document.querySelector(
+        `[data-rss-feed-row-menu="${linkRowMenuOpenId}"]`,
+      );
+      const portal = document.querySelector(
+        `[data-rss-feed-row-menu-portal="${linkRowMenuOpenId}"]`,
+      );
+      if (wrap?.contains(target) || portal?.contains(target)) return;
+      closeLinkRowMenu();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeLinkRowMenu();
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [linkRowMenuOpenId, closeLinkRowMenu]);
+
+  useEffect(() => {
+    if (linkRowMenuOpenId == null) return;
+    const onScrollOrResize = () => closeLinkRowMenu();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [linkRowMenuOpenId, closeLinkRowMenu]);
 
   useEffect(() => {
     if (rssTab !== "logs") return;
@@ -325,6 +423,11 @@ export function AdminRssFeedsSection({
   };
 
   const handleExtractLink = async (id: number) => {
+    const feed = linkRows.find((row) => row.id === id);
+    const feedLabel =
+      feed?.suggestedName?.trim() || feed?.url || `feed #${id}`;
+    toast.info(`Extracting links from ${feedLabel}…`, { autoClose: 3000 });
+
     setLinkActionId(id);
     try {
       const result = await extractIngestLink(id);
@@ -355,13 +458,44 @@ export function AdminRssFeedsSection({
       }
       toast.success(result.message, { autoClose: 2800 });
       if (editTargetId === id) closeEditDialog();
+      if (expandedLinkId === id) {
+        setExpandedLinkId(null);
+        setFeedItems([]);
+      }
       void loadIngestLinks();
     } finally {
       setLinkActionId(null);
     }
   };
 
-  const linksColSpan = 7;
+  const handleRestoreLink = async (id: number) => {
+    setLinkActionId(id);
+    try {
+      const result = await restoreIngestLink(id);
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 4000 });
+        return;
+      }
+      toast.success(result.message, { autoClose: 2800 });
+      setLinkRows((prev) =>
+        prev.map((row) => (row.id === id ? result.link : row)),
+      );
+      void loadIngestLinks();
+    } finally {
+      setLinkActionId(null);
+    }
+  };
+
+  const activeLinkRows = useMemo(
+    () => linkRows.filter((row) => !row.archived),
+    [linkRows],
+  );
+  const activeLinkIds = useMemo(
+    () => new Set(activeLinkRows.map((row) => row.id)),
+    [activeLinkRows],
+  );
+
+  const linksColSpan = 8;
   const logsColSpan = 7;
   const linkFeedOptions = useMemo(
     () =>
@@ -372,30 +506,70 @@ export function AdminRssFeedsSection({
   );
   const filteredLinkRows = useMemo(
     () =>
-      linkRows.filter((row) =>
+      (linkRows ?? []).filter((row) =>
         linkMatchesFilters(
           row,
+          linkStatusFilter,
           linkItemsFilter,
           linkFeedFilter,
           linkSearchQuery,
         ),
       ),
-    [linkRows, linkItemsFilter, linkFeedFilter, linkSearchQuery],
+    [linkRows, linkStatusFilter, linkItemsFilter, linkFeedFilter, linkSearchQuery],
   );
+  const linkPager = usePagination({
+    items: filteredLinkRows,
+    pageSize: linkPageSize,
+    resetKey: `${linkStatusFilter}|${linkItemsFilter}|${linkFeedFilter}|${linkSearchQuery}`,
+  });
+  const linkPageRows = linkPager.pageItems ?? [];
+
+  const linkRowMenuFeed = useMemo(() => {
+    if (linkRowMenuOpenId == null) return null;
+    return linkRows.find((row) => row.id === linkRowMenuOpenId) ?? null;
+  }, [linkRowMenuOpenId, linkRows]);
+
+  useEffect(() => {
+    if (linkRowMenuOpenId != null && !linkRowMenuFeed) {
+      closeLinkRowMenu();
+    }
+  }, [linkRowMenuOpenId, linkRowMenuFeed, closeLinkRowMenu]);
+
+  useEffect(() => {
+    closeLinkRowMenu();
+  }, [linkPager.page, closeLinkRowMenu]);
+
   const discoveryProgressByFeed = useMemo(() => {
     const map = new Map<
       number,
       { total: number; completed: number; running: number }
     >();
 
-    for (const row of logRows) {
-      if (!row.ingestLinkId) continue;
-      const current = map.get(row.ingestLinkId) ?? {
-        total: 0,
+    for (const link of linkRows) {
+      if (!activeLinkIds.has(link.id)) continue;
+      map.set(link.id, {
+        total: link.itemCount,
         completed: 0,
         running: 0,
-      };
-      current.total += 1;
+      });
+    }
+
+    const latestByItem = new Map<string, DiscoveryLogRow>();
+    for (const row of logRows) {
+      if (!row.ingestLinkId || !activeLinkIds.has(row.ingestLinkId)) continue;
+      const key =
+        row.ingestLinkItemId > 0
+          ? `${row.ingestLinkId}:${row.ingestLinkItemId}`
+          : `${row.ingestLinkId}:${row.extractedUrl}`;
+      const existing = latestByItem.get(key);
+      if (!existing || (row.jobId ?? 0) > (existing.jobId ?? 0)) {
+        latestByItem.set(key, row);
+      }
+    }
+
+    for (const row of latestByItem.values()) {
+      const current = map.get(row.ingestLinkId);
+      if (!current) continue;
       const status = row.status.toUpperCase();
       if (TERMINAL_DISCOVERY_STATUSES.has(status)) {
         current.completed += 1;
@@ -406,11 +580,11 @@ export function AdminRssFeedsSection({
     }
 
     return map;
-  }, [logRows]);
+  }, [logRows, activeLinkIds, linkRows]);
   const logsPerFeedIndex = useMemo(() => {
     const byFeed = new Map<number, DiscoveryLogRow[]>();
     for (const row of logRows) {
-      if (!row.ingestLinkId) continue;
+      if (!row.ingestLinkId || !activeLinkIds.has(row.ingestLinkId)) continue;
       const bucket = byFeed.get(row.ingestLinkId) ?? [];
       bucket.push(row);
       byFeed.set(row.ingestLinkId, bucket);
@@ -428,20 +602,26 @@ export function AdminRssFeedsSection({
       });
     }
     return indexByItemId;
-  }, [logRows]);
+  }, [logRows, activeLinkIds]);
   const logFeedOptions = useMemo(
     () =>
-      [...new Set(logRows.map((row) => row.ingestLinkId))]
+      [...new Set(
+        logRows
+          .map((row) => row.ingestLinkId)
+          .filter((id) => activeLinkIds.has(id)),
+      )]
         .sort((a, b) => a - b)
         .map(String),
-    [logRows],
+    [logRows, activeLinkIds],
   );
   const filteredLogRows = useMemo(
     () =>
-      logRows.filter((row) =>
-        logMatchesFilters(row, logStatusFilter, logFeedFilter, logSearchQuery),
+      logRows.filter(
+        (row) =>
+          activeLinkIds.has(row.ingestLinkId) &&
+          logMatchesFilters(row, logStatusFilter, logFeedFilter, logSearchQuery),
       ),
-    [logRows, logStatusFilter, logFeedFilter, logSearchQuery],
+    [logRows, activeLinkIds, logStatusFilter, logFeedFilter, logSearchQuery],
   );
   const logPager = usePagination({
     items: filteredLogRows,
@@ -480,12 +660,12 @@ export function AdminRssFeedsSection({
                   strokeWidth={2}
                   aria-hidden
                 />
-                <span>Suggested name</span>
+                <span>URL Name</span>
               </label>
               <input
                 type="text"
                 className="usersPage__input"
-                placeholder="e.g. Official Gov Feed"
+                placeholder="URL Name"
                 value={editSuggestedName}
                 onChange={(e) => setEditSuggestedName(e.target.value)}
                 autoComplete="off"
@@ -499,7 +679,7 @@ export function AdminRssFeedsSection({
                   strokeWidth={2}
                   aria-hidden
                 />
-                <span>URL</span>
+                <span>URL Link</span>
               </label>
               <input
                 type="url"
@@ -547,7 +727,7 @@ export function AdminRssFeedsSection({
       />
       <DiscoveryStartDialog
         open={discoveryDialogOpen}
-        links={linkRows}
+        links={activeLinkRows}
         logs={logRows}
         linksLoading={linksLoading}
         starting={discoveryStatus === "starting"}
@@ -567,7 +747,7 @@ export function AdminRssFeedsSection({
           </span>
           <div className="adminPage__cardHeadText">
             <h2 id={sid("discovery-title")} className="adminPage__cardTitle">
-              Discovery service
+             RSS Discovery service
             </h2>
             <p className="adminPage__cardHint">
               Enqueues ingest jobs for extracted article URLs on selected feeds.
@@ -577,7 +757,7 @@ export function AdminRssFeedsSection({
         </div>
         <ul className="adminPage__serviceList">
           <AdminServiceRow
-            label="Discovery Service"
+            label="RSS Discovery Service"
             status={discoveryStatus}
             apiRunning={discoveryApiRunning}
             onStart={() => setDiscoveryDialogOpen(true)}
@@ -654,6 +834,18 @@ export function AdminRssFeedsSection({
               aria-label="Filter feeds"
             >
               <div className="adminPage__linksFilter">
+                <label htmlFor={sid("links-filter-status")}>STATUS</label>
+                <select
+                  id={sid("links-filter-status")}
+                  value={linkStatusFilter}
+                  onChange={(e) => setLinkStatusFilter(e.target.value)}
+                >
+                  <option value="active">Active</option>
+                  <option value="archived">Archived</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+              <div className="adminPage__linksFilter">
                 <label htmlFor={sid("links-filter-items")}>ITEMS</label>
                 <select
                   id={sid("links-filter-items")}
@@ -684,6 +876,7 @@ export function AdminRssFeedsSection({
                 type="button"
                 className="adminPage__linksClearBtn"
                 onClick={() => {
+                  setLinkStatusFilter("all");
                   setLinkItemsFilter("all");
                   setLinkFeedFilter("all");
                   setLinkSearchQuery("");
@@ -716,16 +909,29 @@ export function AdminRssFeedsSection({
             <section className="adminPage__tableSection" aria-label="Feed URLs">
               <div className="adminPage__tableWrap adminPage__tableWrap--links">
                 <div className="adminPage__tableScroll">
-                  <table className="adminPage__table">
+                  <table className="adminPage__table adminPage__table--links">
+                    <colgroup>
+                      <col className="adminPage__colId" />
+                      <col className="adminPage__colName" />
+                      <col className="adminPage__colUrl" />
+                      <col className="adminPage__colItems" />
+                      <col className="adminPage__colDiscovery" />
+                      <col className="adminPage__colStatus" />
+                      <col className="adminPage__colAdded" />
+                      <col className="adminPage__colActions" />
+                    </colgroup>
                     <thead>
                       <tr>
                         <th scope="col" className="adminPage__th">
                           ID
                         </th>
                         <th scope="col" className="adminPage__th">
-                          Suggested name
+                          URL Name
                         </th>
-                        <th scope="col" className="adminPage__th">
+                        <th
+                          scope="col"
+                          className="adminPage__th adminPage__feedUrlCol"
+                        >
                           Feed URL
                         </th>
                         <th
@@ -734,15 +940,24 @@ export function AdminRssFeedsSection({
                         >
                           Items
                         </th>
-                        <th scope="col" className="adminPage__th">
-                          Discovery progress
+                        <th
+                          scope="col"
+                          className="adminPage__th adminPage__th--discovery"
+                        >
+                          RSS Discovery progress
+                        </th>
+                        <th
+                          scope="col"
+                          className="adminPage__th adminPage__th--center"
+                        >
+                          Status
                         </th>
                         <th scope="col" className="adminPage__th">
                           Added
                         </th>
                         <th
                           scope="col"
-                          className="adminPage__th adminPage__th--actions"
+                          className="adminPage__th adminPage__th--actions adminPage__th--actionsSticky"
                         >
                           Actions
                         </th>
@@ -765,6 +980,7 @@ export function AdminRssFeedsSection({
                             colSpan={linksColSpan}
                           >
                             {linkSearchQuery.trim() ||
+                            linkStatusFilter !== "all" ||
                             linkItemsFilter !== "all" ||
                             linkFeedFilter !== "all"
                               ? "No feeds match your filters."
@@ -772,10 +988,10 @@ export function AdminRssFeedsSection({
                           </td>
                         </tr>
                       ) : (
-                        filteredLinkRows.map((row) => {
+                        linkPageRows.map((row) => {
                           const busy = linkActionId === row.id;
                           const isExpanded = expandedLinkId === row.id;
-                          const actionsDisabled = busy || editSaving;
+                          const isArchived = row.archived;
                           const progress = discoveryProgressByFeed.get(
                             row.id,
                           ) ?? {
@@ -792,7 +1008,13 @@ export function AdminRssFeedsSection({
 
                           return (
                             <Fragment key={row.id}>
-                              <tr>
+                              <tr
+                                className={
+                                  isArchived
+                                    ? "adminPage__tableRow--archived"
+                                    : undefined
+                                }
+                              >
                                 <td className="adminPage__td">
                                   <span
                                     className="adminPage__id"
@@ -804,7 +1026,7 @@ export function AdminRssFeedsSection({
                                 <td className="adminPage__td adminPage__cellMuted">
                                   {row.suggestedName?.trim() || "—"}
                                 </td>
-                                <td className="adminPage__td">
+                                <td className="adminPage__td adminPage__feedUrlCol">
                                   <a
                                     href={row.url}
                                     className="adminPage__cellUrl"
@@ -849,7 +1071,7 @@ export function AdminRssFeedsSection({
                                   </div>
                                 </td>
                                 <td className="adminPage__td adminPage__discoveryProgressCell">
-                                  {progress.total > 0 ? (
+                                  {progress.total > 0 || progress.completed > 0 || progress.running > 0 ? (
                                     <div
                                       className="adminPage__discoveryProgress"
                                       aria-label={`${progress.completed} completed, ${progress.running} running, ${progress.total} total`}
@@ -882,59 +1104,55 @@ export function AdminRssFeedsSection({
                                     </span>
                                   )}
                                 </td>
+                                <td className="adminPage__td adminPage__th--center">
+                                  <span
+                                    className={`adminPage__statusPill ${
+                                      isArchived
+                                        ? "adminPage__statusPill--archived"
+                                        : "adminPage__statusPill--done"
+                                    }`}
+                                  >
+                                    {isArchived ? "Archived" : "Active"}
+                                  </span>
+                                </td>
                                 <td className="adminPage__td adminPage__cellMuted">
                                   {formatRelativeDate(row.createdAt)}
                                 </td>
-                                <td className="adminPage__td">
-                                  <div className="adminPage__actions">
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="adminPage__actionBtn adminPage__actionBtn--extract"
-                                        data-tooltip="Extract links from feed"
-                                        onClick={() =>
-                                          void handleExtractLink(row.id)
+                                <td className="adminPage__td adminPage__td--actionsSticky">
+                                  <div
+                                    className="adminPage__rowMenuWrap"
+                                    data-rss-feed-row-menu={row.id}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="adminPage__kebabBtn"
+                                      aria-haspopup="menu"
+                                      aria-expanded={linkRowMenuOpenId === row.id}
+                                      aria-label={`Actions for feed #${row.id}`}
+                                      disabled={busy || editSaving}
+                                      onClick={(e) => {
+                                        const btn = e.currentTarget;
+                                        if (linkRowMenuOpenId === row.id) {
+                                          closeLinkRowMenu();
+                                          return;
                                         }
-                                        disabled={actionsDisabled}
-                                        aria-label="Extract links from feed"
-                                      >
-                                        <Zap
-                                          size={16}
-                                          strokeWidth={2}
-                                          aria-hidden
-                                        />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="adminPage__actionBtn adminPage__actionBtn--edit"
-                                        data-tooltip="Modify feed"
-                                        onClick={() => startEditLink(row)}
-                                        disabled={actionsDisabled}
-                                        aria-label="Modify feed"
-                                      >
-                                        <Pencil
-                                          size={16}
-                                          strokeWidth={2}
-                                          aria-hidden
-                                        />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="adminPage__actionBtn adminPage__actionBtn--archive"
-                                        data-tooltip="Archive feed"
-                                        onClick={() =>
-                                          void handleArchiveLink(row.id)
-                                        }
-                                        disabled={actionsDisabled}
-                                        aria-label="Archive feed"
-                                      >
-                                        <Archive
-                                          size={16}
-                                          strokeWidth={2}
-                                          aria-hidden
-                                        />
-                                      </button>
-                                    </>
+                                        const rect = btn.getBoundingClientRect();
+                                        setLinkRowMenuPosition(null);
+                                        setLinkRowMenuAnchor({
+                                          top: rect.top,
+                                          bottom: rect.bottom,
+                                          left: rect.left,
+                                          right: rect.right,
+                                        });
+                                        setLinkRowMenuOpenId(row.id);
+                                      }}
+                                    >
+                                      <MoreHorizontal
+                                        size={18}
+                                        strokeWidth={2}
+                                        aria-hidden
+                                      />
+                                    </button>
                                   </div>
                                 </td>
                               </tr>
@@ -1014,6 +1232,17 @@ export function AdminRssFeedsSection({
                   </table>
                 </div>
               </div>
+              <DataTablePagination
+                className="usersPage__pager"
+                page={linkPager.page}
+                pageCount={linkPager.pageCount}
+                total={linkPager.total}
+                pageSize={linkPager.pageSize}
+                from={linkPager.from}
+                to={linkPager.to}
+                onPageChange={linkPager.setPage}
+                onPageSizeChange={setLinkPageSize}
+              />
             </section>
           </>
         )}
@@ -1233,6 +1462,80 @@ export function AdminRssFeedsSection({
           </>
         )}
       </section>
+
+      {linkRowMenuOpenId != null &&
+      linkRowMenuAnchor &&
+      linkRowMenuFeed
+        ? createPortal(
+            <div
+              ref={linkRowMenuRef}
+              className="adminPage__rowMenu adminPage__rowMenu--portal"
+              role="menu"
+              aria-orientation="vertical"
+              data-rss-feed-row-menu-portal={linkRowMenuOpenId}
+              style={{
+                top: linkRowMenuPosition?.top ?? linkRowMenuAnchor.bottom + 4,
+                left: linkRowMenuPosition?.left ?? linkRowMenuAnchor.right,
+                visibility: linkRowMenuPosition ? "visible" : "hidden",
+              }}
+            >
+              {linkRowMenuFeed.archived ? (
+                <button
+                  type="button"
+                  className="adminPage__rowMenuItem adminPage__rowMenuItem--restore"
+                  role="menuitem"
+                  onClick={() => {
+                    closeLinkRowMenu();
+                    void handleRestoreLink(linkRowMenuFeed.id);
+                  }}
+                >
+                  <ArchiveRestore size={14} strokeWidth={2} aria-hidden />
+                  Restore
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem adminPage__rowMenuItem--extract"
+                    role="menuitem"
+                    onClick={() => {
+                      closeLinkRowMenu();
+                      void handleExtractLink(linkRowMenuFeed.id);
+                    }}
+                  >
+                    <Zap size={14} strokeWidth={2} aria-hidden />
+                    Extract
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem"
+                    role="menuitem"
+                    onClick={() => {
+                      closeLinkRowMenu();
+                      startEditLink(linkRowMenuFeed);
+                    }}
+                  >
+                    <Pencil size={14} strokeWidth={2} aria-hidden />
+                    Modify
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem adminPage__rowMenuItem--danger"
+                    role="menuitem"
+                    onClick={() => {
+                      closeLinkRowMenu();
+                      void handleArchiveLink(linkRowMenuFeed.id);
+                    }}
+                  >
+                    <Archive size={14} strokeWidth={2} aria-hidden />
+                    Archive
+                  </button>
+                </>
+              )}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

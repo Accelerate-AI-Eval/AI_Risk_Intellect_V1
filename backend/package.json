@@ -25,9 +25,9 @@
     "discovery:once": "cross-env RUN_ONCE=true tsx src/workers/discoveryService.ts",
     "worker": "tsx src/workers/jobWorker.ts",
     "workflow:check": "tsx src/scripts/workflowCheck.ts",
-    "py:install": "pip install -r ../python/requirements.txt",
+    "py:install": "npm --prefix ../python run install",
     "install:all": "npm install && npm run py:install",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -38,6 +38,7 @@
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
     "nodemailer": "^6.9.16",
     "pg": "^8.20.0",
     "rss-parser": "^3.13.0",
@@ -50,6 +51,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.5",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.0.0",
     "@types/node": "^24.12.2",
     "@types/pg": "^8.16.4",
     "concurrently": "^9.2.1",

@@ -8,3 +8,5 @@ export * from "./ingestLinks/ingestLinkItems.js";
 export * from "./jobs/jobs.js";
 export * from "./riskMappings/riskMappings.js";
 export * from "./observability/llmObservability.js";
+export * from "./aiid/reports.js";
+export * from "./aiid/reportUploads.js";

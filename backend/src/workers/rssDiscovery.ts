@@ -14,7 +14,7 @@ import {
   getActiveJobUrls,
   type DiscoveryEnqueueItem,
 } from "../services/admin/discoveryEnqueue.service.js";
-import { normalizeUrl } from "../utils/fetchUtils.js";
+import { FEED_FETCH_HEADERS, normalizeUrl } from "../utils/fetchUtils.js";
 
 const log = {
   info: (msg: string, ...args: unknown[]) =>
@@ -30,11 +30,7 @@ const DEFAULT_MAX_PER_CYCLE = 50;
 
 const parser = new Parser({
   timeout: 20_000,
-  headers: {
-    "User-Agent":
-      "Mozilla/5.0 (compatible; AIRiskIntellect-Discovery/1.0; +https://localhost)",
-    Accept: "application/rss+xml, application/xml, text/xml, */*",
-  },
+  headers: FEED_FETCH_HEADERS,
 });
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {

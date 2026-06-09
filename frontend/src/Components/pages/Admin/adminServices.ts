@@ -2,7 +2,7 @@ import { authFetch } from "../../../utils/authFetch";
 
 export type ServiceKey = "worker" | "discovery";
 export type ApiServiceState = "stopped" | "running";
-export type ServiceState = ApiServiceState | "starting" | "stopping";
+export type ServiceState = ApiServiceState | "starting" | "stopping" | "idle";
 export type PendingAction = "starting" | "stopping";
 
 export const DEFAULT_API_STATUS: Record<ServiceKey, ApiServiceState> = {
@@ -18,6 +18,8 @@ export function serviceStatusLabel(status: ServiceState): string {
       return "Stopping...";
     case "running":
       return "Running";
+    case "idle":
+      return "Idle";
     default:
       return "Stopped";
   }
@@ -30,6 +32,8 @@ export function serviceStatusPillClass(status: ServiceState): string {
     case "starting":
     case "stopping":
       return "adminPage__statusPill--pending";
+    case "idle":
+      return "adminPage__statusPill--idle";
     default:
       return "adminPage__statusPill--stopped";
   }
@@ -45,6 +49,25 @@ export function displayServiceStatus(
   pending: Partial<Record<ServiceKey, PendingAction>>,
 ): ServiceState {
   return pending[key] ?? apiStatus[key];
+}
+
+/** Reports worker: process may be up while the report queue is empty (e.g. after skip). */
+export function resolveReportsWorkerDisplayStatus(
+  workerStatus: ServiceState,
+  workerApiRunning: boolean,
+  hasActiveReportJobs: boolean,
+  options?: { runWarmup?: boolean },
+): ServiceState {
+  if (workerStatus === "starting" || workerStatus === "stopping") {
+    return workerStatus;
+  }
+  if (!workerApiRunning) {
+    return "stopped";
+  }
+  if (hasActiveReportJobs || options?.runWarmup) {
+    return "running";
+  }
+  return "idle";
 }
 
 export async function readServiceApiStatus(): Promise<Record<

@@ -26,6 +26,8 @@ export function UrlIngestionDialog({
   const isJobs = variant === "jobs";
   const baseId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const suggestedNameInputRef = useRef<HTMLInputElement>(null);
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const [ingestUrl, setIngestUrl] = useState("");
   const [suggestedName, setSuggestedName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -39,8 +41,10 @@ export function UrlIngestionDialog({
 
   useEffect(() => {
     if (!open) return;
-    dialogRef.current?.querySelector<HTMLInputElement>("input[type=url]")?.focus();
-  }, [open]);
+    const focusTarget = isJobs ? urlInputRef : suggestedNameInputRef;
+    const focusTimer = window.setTimeout(() => focusTarget.current?.focus(), 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [open, isJobs]);
 
   const handleSubmit = useCallback(async () => {
     const url = ingestUrl.trim();
@@ -161,13 +165,14 @@ export function UrlIngestionDialog({
             <>
               <label className={labelClass} htmlFor={suggestedNameId}>
                 <Tag className={labelIconClass} size={16} strokeWidth={2} aria-hidden />
-                <span>Suggested name</span>
+                <span>URL Name</span>
               </label>
               <input
+                ref={suggestedNameInputRef}
                 id={suggestedNameId}
                 type="text"
                 className={inputClass}
-                placeholder="e.g. Official Gov Feed"
+                placeholder="URL Name"
                 value={suggestedName}
                 onChange={(e) => setSuggestedName(e.target.value)}
                 autoComplete="off"
@@ -184,9 +189,10 @@ export function UrlIngestionDialog({
           ) : null}
           <label className={labelClass} htmlFor={urlId}>
             <Link2 className={labelIconClass} size={16} strokeWidth={2} aria-hidden />
-            <span>URL</span>
+            <span>URL Link</span>
           </label>
           <input
+            ref={urlInputRef}
             id={urlId}
             type="url"
             className={inputClass}

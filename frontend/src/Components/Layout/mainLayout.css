@@ -179,6 +179,77 @@
   text-decoration: underline;
 }
 
+.mainLayout__alertsMenu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mainLayout__alertsBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--main-text-muted, #64748b);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.mainLayout__alertsBtn:hover,
+.mainLayout__alertsBtn--active {
+  color: var(--main-auth-button-color, #1cb0d4);
+  background: rgba(28, 176, 212, 0.12);
+  border-color: rgba(28, 176, 212, 0.2);
+}
+
+.mainLayout__alertsBtn:focus-visible {
+  outline: 2px solid var(--main-auth-button-color, #1cb0d4);
+  outline-offset: 2px;
+}
+
+.mainLayout__alertsPanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(320px, calc(100vw - 2rem));
+  padding: 0.75rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow:
+    0 4px 6px -1px rgba(15, 23, 42, 0.08),
+    0 10px 24px -4px rgba(15, 23, 42, 0.12);
+  z-index: 50;
+}
+
+.mainLayout__alertsPanelHeader {
+  margin-bottom: 0.5rem;
+}
+
+.mainLayout__alertsPanelTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--main-text-color, #1f2937);
+}
+
+.mainLayout__alertsEmpty {
+  margin: 0;
+  padding: 0.75rem 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--main-text-muted, #64748b);
+  text-align: center;
+}
+
 .mainLayout__userMenu {
   position: relative;
   flex-shrink: 0;
@@ -466,6 +537,30 @@ html.app-theme-dark .mainLayout__userName {
 
 html.app-theme-dark .mainLayout__userEmail,
 html.app-theme-dark .mainLayout__supportEmail {
+  color: #94a3b8;
+}
+
+html.app-theme-dark .mainLayout__alertsBtn {
+  color: #94a3b8;
+}
+
+html.app-theme-dark .mainLayout__alertsBtn:hover,
+html.app-theme-dark .mainLayout__alertsBtn--active {
+  color: #5eead4;
+  background: rgba(28, 176, 212, 0.16);
+  border-color: rgba(56, 189, 248, 0.24);
+}
+
+html.app-theme-dark .mainLayout__alertsPanel {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+html.app-theme-dark .mainLayout__alertsPanelTitle {
+  color: #f1f5f9;
+}
+
+html.app-theme-dark .mainLayout__alertsEmpty {
   color: #94a3b8;
 }
 

@@ -10,6 +10,8 @@ export type AdminServiceRowProps = {
   label: string;
   status: ServiceState;
   apiRunning: boolean;
+  /** When true, Start stays enabled if the process is up but idle (queue empty). */
+  allowStartWhileIdle?: boolean;
   onStart: () => void;
   onStop: () => void;
 };
@@ -18,11 +20,13 @@ export function AdminServiceRow({
   label,
   status,
   apiRunning,
+  allowStartWhileIdle = false,
   onStart,
   onStop,
 }: AdminServiceRowProps) {
   const busy = isServiceBusy(status);
-  const canStart = !busy && !apiRunning;
+  const canStart =
+    !busy && (!apiRunning || (allowStartWhileIdle && status === "idle"));
   const canStop = !busy && apiRunning;
 
   return (

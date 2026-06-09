@@ -7,6 +7,7 @@ import { jobsRouter } from "./jobs.routes.js";
 import { risksRouter } from "./risks.routes.js";
 import { dashboardRouter } from "./dashboard.routes.js";
 import { observabilityRouter } from "./observability.routes.js";
+import { notificationsRouter } from "../notifications/notifications.routes.js";
 
 export const apiRouter: Router = Router();
 
@@ -22,3 +23,4 @@ apiRouter.use("/jobs", jobsRouter);
 apiRouter.use("/risks", risksRouter);
 apiRouter.use("/dashboard", dashboardRouter);
 apiRouter.use("/observability", observabilityRouter);
+apiRouter.use("/notifications", notificationsRouter);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { LogOut, User, Palette, Sun, Moon, Monitor } from "lucide-react";
+import { NotificationBell } from "../../notifications/NotificationBell";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   getStoredTheme,
@@ -66,11 +67,12 @@ export function TopBar() {
   useEffect(() => {
     if (!open) return;
     const onDocMouse = (e: MouseEvent) => {
-      if (rootRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
+      const target = e.target as Node;
+      if (open && !rootRef.current?.contains(target)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDocMouse);
     document.addEventListener("keydown", onKey);
@@ -81,6 +83,10 @@ export function TopBar() {
   }, [open]);
 
   const close = () => setOpen(false);
+
+  const openUserMenu = () => {
+    setOpen((value) => !value);
+  };
 
   const logout = async () => {
     close();
@@ -101,13 +107,14 @@ export function TopBar() {
       <div className="mainLayout__topBarInner">
         <div className="mainLayout__topBarSpacer" aria-hidden />
         <div className="mainLayout__topBarEnd">
-          
+          <NotificationBell />
+
           <div className="mainLayout__userMenu" ref={rootRef}>
             <div className="mainLayout__userTrigger">
               <button
                 type="button"
                 className="mainLayout__userAvatar"
-                onClick={() => setOpen((v) => !v)}
+                onClick={openUserMenu}
                 aria-expanded={open}
                 aria-haspopup="menu"
                 aria-label="User menu"

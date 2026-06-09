@@ -195,6 +195,38 @@ export async function extractIngestLink(
   }
 }
 
+export async function restoreIngestLink(
+  id: number,
+): Promise<
+  | { ok: true; message: string; link: IngestLinkRow }
+  | { ok: false; message: string }
+> {
+  try {
+    const res = await authFetch(`/admin/ingest-links/${id}/restore`, {
+      method: "POST",
+    });
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      link?: IngestLinkRow;
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not restore this link."),
+      };
+    }
+    if (!data.link) {
+      return { ok: false, message: "Could not restore this link." };
+    }
+    return {
+      ok: true,
+      message: data.message ?? "Ingest link restored.",
+      link: data.link,
+    };
+  } catch {
+    return { ok: false, message: "Network error while restoring link." };
+  }
+}
+
 export async function archiveIngestLink(
   id: number,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {

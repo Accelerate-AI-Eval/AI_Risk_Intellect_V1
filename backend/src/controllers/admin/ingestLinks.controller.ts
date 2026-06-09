@@ -2,8 +2,9 @@ import type { Request, Response } from "express";
 import {
   archiveIngestLink,
   extractIngestLink,
-  listActiveIngestLinks,
+  listIngestLinks,
   listIngestLinkItems,
+  restoreIngestLink,
   updateIngestLink,
 } from "../../services/admin/ingestLinks.service.js";
 import type { UpdateIngestLinkInput } from "../../validators/admin.validators.js";
@@ -12,7 +13,7 @@ export async function listIngestLinksHandler(
   _req: Request,
   res: Response,
 ): Promise<void> {
-  const links = await listActiveIngestLinks();
+  const links = await listIngestLinks();
   res.json({ links });
 }
 
@@ -76,6 +77,20 @@ export async function archiveIngestLinkHandler(
   res.json({
     ok: true,
     message: "Ingest link archived.",
+    link,
+  });
+}
+
+export async function restoreIngestLinkHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const id = Number(req.params.id);
+  const link = await restoreIngestLink(id);
+
+  res.json({
+    ok: true,
+    message: "Ingest link restored.",
     link,
   });
 }

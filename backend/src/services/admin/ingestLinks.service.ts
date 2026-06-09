@@ -6,6 +6,7 @@ import { HttpError } from "../../utils/httpError.js";
 import {
   normalizeUrl,
   validateUrl,
+  validateUrlBasic,
   UrlFetchError,
 } from "../../utils/fetchUtils.js";
 import { parseFeedItemLinks } from "./parseFeedItemLinks.js";
@@ -43,6 +44,28 @@ function mapUrlFetchError(err: UrlFetchError): HttpError {
   }
 }
 
+/** RSS feeds only: try SSRF/DNS validation, then fall back to format-only checks. */
+async function validateIngestLinkUrl(normalized: string): Promise<void> {
+  try {
+    await validateUrl(normalized);
+  } catch (err) {
+    if (
+      err instanceof UrlFetchError &&
+      (err.code === "SSRF_BLOCKED" || err.code === "DNS_FAILED")
+    ) {
+      try {
+        await validateUrlBasic(normalized);
+      } catch (basicErr) {
+        if (basicErr instanceof UrlFetchError) throw mapUrlFetchError(basicErr);
+        throw basicErr;
+      }
+      return;
+    }
+    if (err instanceof UrlFetchError) throw mapUrlFetchError(err);
+    throw err;
+  }
+}
+
 async function resolveUrl(rawUrl: string): Promise<string> {
   let normalized: string;
   try {
@@ -51,12 +74,7 @@ async function resolveUrl(rawUrl: string): Promise<string> {
     throw HttpError.badRequest("URL is not valid.");
   }
 
-  try {
-    await validateUrl(normalized);
-  } catch (err) {
-    if (err instanceof UrlFetchError) throw mapUrlFetchError(err);
-    throw err;
-  }
+  await validateIngestLinkUrl(normalized);
 
   return normalized;
 }
@@ -95,6 +113,23 @@ function toItemDto(row: typeof ingestLinkItems.$inferSelect): IngestLinkItemDto 
     url: row.url,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+export async function listIngestLinks(): Promise<IngestLinkDto[]> {
+  const rows = await db
+    .select({
+      link: ingestLinks,
+      itemCount: count(ingestLinkItems.id),
+    })
+    .from(ingestLinks)
+    .leftJoin(
+      ingestLinkItems,
+      eq(ingestLinkItems.ingestLinkId, ingestLinks.id),
+    )
+    .groupBy(ingestLinks.id)
+    .orderBy(ingestLinks.archived, desc(ingestLinks.createdAt));
+
+  return rows.map((r) => toDto(r.link, Number(r.itemCount)));
 }
 
 export async function listActiveIngestLinks(): Promise<IngestLinkDto[]> {
@@ -309,25 +344,13 @@ export async function createIngestLink(
     const existing = await findIngestLinkByUrl(tx, normalized);
 
     if (existing) {
-      if (!existing.archived) {
-        throw HttpError.conflict("This URL is already present.");
+      if (existing.archived) {
+        throw HttpError.conflict(
+          "This URL is archived. Restore it from the RSS feeds table instead of adding it again.",
+        );
       }
 
-      const [restored] = await tx
-        .update(ingestLinks)
-        .set({
-          archived: false,
-          suggestedName: normalizedSuggestedName,
-          updatedAt: new Date(),
-        })
-        .where(eq(ingestLinks.id, existing.id))
-        .returning();
-
-      if (!restored) {
-        throw HttpError.internal("Could not restore ingest link.");
-      }
-
-      return { link: toDto(restored, 0) };
+      throw HttpError.conflict("This URL is already present.");
     }
 
     const [link] = await tx
@@ -431,12 +454,7 @@ export async function extractIngestLink(
     throw HttpError.notFound("Ingest link not found.");
   }
 
-  try {
-    await validateUrl(current.url);
-  } catch (err) {
-    if (err instanceof UrlFetchError) throw mapUrlFetchError(err);
-    throw err;
-  }
+  await validateIngestLinkUrl(current.url);
 
   let itemUrls: string[];
   try {
@@ -512,5 +530,29 @@ export async function archiveIngestLink(id: number): Promise<IngestLinkDto> {
     throw HttpError.notFound("Ingest link not found.");
   }
 
-  return toDto(updated, 0);
+  const [countRow] = await db
+    .select({ itemCount: count(ingestLinkItems.id) })
+    .from(ingestLinkItems)
+    .where(eq(ingestLinkItems.ingestLinkId, id));
+
+  return toDto(updated, Number(countRow?.itemCount ?? 0));
+}
+
+export async function restoreIngestLink(id: number): Promise<IngestLinkDto> {
+  const [updated] = await db
+    .update(ingestLinks)
+    .set({ archived: false, updatedAt: new Date() })
+    .where(and(eq(ingestLinks.id, id), eq(ingestLinks.archived, true)))
+    .returning();
+
+  if (!updated) {
+    throw HttpError.notFound("Archived ingest link not found.");
+  }
+
+  const [countRow] = await db
+    .select({ itemCount: count(ingestLinkItems.id) })
+    .from(ingestLinkItems)
+    .where(eq(ingestLinkItems.ingestLinkId, id));
+
+  return toDto(updated, Number(countRow?.itemCount ?? 0));
 }

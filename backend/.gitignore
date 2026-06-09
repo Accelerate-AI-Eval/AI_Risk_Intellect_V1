@@ -1,0 +1,2 @@
+storage/etl-reports/*
+!storage/etl-reports/.gitkeep

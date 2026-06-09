@@ -16,6 +16,15 @@ const DEFAULT_HEADERS: Record<string, string> = {
   "Upgrade-Insecure-Requests": "1",
 };
 
+/** Browser-like headers for RSS/Atom feed fetch (many sites block bot user agents). */
+export const FEED_FETCH_HEADERS: Record<string, string> = {
+  "User-Agent": UA,
+  Accept:
+    "application/rss+xml, application/xml, text/xml, application/atom+xml, application/octet-stream, */*",
+  "Accept-Language": "en-US,en;q=0.5",
+  Connection: "keep-alive",
+};
+
 export class UrlFetchError extends Error {
   constructor(
     message: string,
@@ -52,11 +61,7 @@ export function normalizeUrl(raw: string): string {
   return parsed.toString();
 }
 
-/**
- * Validate URL scheme and reject private/reserved IP ranges (SSRF prevention).
- * Port of `app.utils.fetch_utils.validate_url`.
- */
-export async function validateUrl(url: string): Promise<void> {
+function assertUrlFormat(url: string): URL {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -81,6 +86,24 @@ export async function validateUrl(url: string): Promise<void> {
       "INVALID_URL",
     );
   }
+
+  return parsed;
+}
+
+/**
+ * Validate URL format only (scheme, hostname, no credentials).
+ * Skips SSRF/DNS resolution checks — used as RSS ingest fallback.
+ */
+export async function validateUrlBasic(url: string): Promise<void> {
+  assertUrlFormat(url);
+}
+
+/**
+ * Validate URL scheme and reject private/reserved IP ranges (SSRF prevention).
+ * Port of `app.utils.fetch_utils.validate_url`.
+ */
+export async function validateUrl(url: string): Promise<void> {
+  const parsed = assertUrlFormat(url);
 
   if (isBlockedResolvedIp(parsed.hostname)) {
     throw new UrlFetchError(

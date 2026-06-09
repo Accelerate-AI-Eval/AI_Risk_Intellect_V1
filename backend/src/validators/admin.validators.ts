@@ -26,6 +26,11 @@ export const enqueueUrlSchema = z.object({
 
 export type EnqueueUrlInput = z.infer<typeof enqueueUrlSchema>;
 
+/** Jobs page: queue article ingest (no RSS feed fields). */
+export const enqueueJobUrlSchema = enqueueUrlSchema.pick({ url: true });
+
+export type EnqueueJobUrlInput = z.infer<typeof enqueueJobUrlSchema>;
+
 export const setLlmModelSchema = z.object({
   modelId: z.string().trim().min(1, "Model is required.").max(256),
 });
@@ -61,3 +66,24 @@ export const startDiscoverySchema = z.object({
 });
 
 export type StartDiscoveryInput = z.infer<typeof startDiscoverySchema>;
+
+export const startReportsRunSchema = z
+  .object({
+    uploadIds: z
+      .array(z.coerce.number().int().positive())
+      .min(1, "Select at least one upload to run.")
+      .optional(),
+    reportIds: z
+      .array(z.coerce.number().int().positive())
+      .min(1, "Select at least one report URL to run.")
+      .optional(),
+  })
+  .refine(
+    (value) =>
+      (value.uploadIds?.length ?? 0) > 0 || (value.reportIds?.length ?? 0) > 0,
+    {
+      message: "Select at least one upload or report URL to run.",
+    },
+  );
+
+export type StartReportsRunInput = z.infer<typeof startReportsRunSchema>;

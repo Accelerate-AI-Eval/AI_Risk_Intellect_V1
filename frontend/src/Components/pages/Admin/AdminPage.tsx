@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "react-toastify";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   Cpu,
   Database,
   Download,
   RotateCw,
+  Rss,
+  Settings2,
   Trash2,
   Upload,
+  Workflow,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
+import { startEtlReportsRun } from "../../../utils/etlReportsApi";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { PageHeader } from "../../Layout/PageHeader";
 import {
@@ -20,6 +25,7 @@ import {
 import "../Users/usersPage.css";
 import "../Settings/settingsPage.css";
 import { AdminRssFeedsSection } from "./AdminRssFeedsSection";
+import { EtlSection } from "./etl/EtlSection";
 import { AdminServiceRow } from "./AdminServiceRow";
 import {
   DEFAULT_API_STATUS,
@@ -50,11 +56,11 @@ type LlmModelConfig = {
 
 type AdminTab = "controls" | "rss" | "etl";
 
-const ADMIN_TAB_LABELS: Record<AdminTab, string> = {
-  controls: "Controls",
-  rss: "RSS Feeds",
-  etl: "ETL",
-};
+const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [
+  { key: "controls", label: "Controls", icon: Settings2 },
+  { key: "rss", label: "RSS Feeds", icon: Rss },
+  { key: "etl", label: "ETL", icon: Workflow },
+];
 
 export function AdminPage() {
   const baseId = useId();
@@ -74,7 +80,8 @@ export function AdminPage() {
   const [llmModelLoading, setLlmModelLoading] = useState(true);
   const [llmModelSaving, setLlmModelSaving] = useState(false);
   useEffect(() => {
-    setDocumentPageTitle(ADMIN_TAB_LABELS[tab]);
+    const activeTab = ADMIN_TABS.find((item) => item.key === tab);
+    setDocumentPageTitle(activeTab?.label ?? "Controls");
   }, [tab]);
 
   const loadServiceStatus = useCallback(async () => {
@@ -137,6 +144,43 @@ export function AdminPage() {
       return next;
     });
   }, []);
+
+  const handleReportsStart = async (selection: {
+    uploadIds: number[];
+    reportIds: number[];
+  }) => {
+    setPendingAction((pending) => ({ ...pending, worker: "starting" }));
+
+    try {
+      const result = await startEtlReportsRun(selection);
+      if (!result.ok) {
+        clearPending("worker");
+        toast.error(result.message, { autoClose: 3500 });
+        void loadServiceStatus();
+        return;
+      }
+
+      const started = await waitForServiceApiState("worker", true);
+      clearPending("worker");
+      void loadServiceStatus();
+
+      if (!started) {
+        toast.warning(
+          "Jobs enqueued, but the worker has not reported running yet.",
+          { autoClose: 4000 },
+        );
+        return;
+      }
+
+      toast.success(result.message, { autoClose: 3000 });
+    } catch {
+      clearPending("worker");
+      void loadServiceStatus();
+      toast.error("Network error while starting reports worker.", {
+        autoClose: 3000,
+      });
+    }
+  };
 
   const handleStart = async (
     key: ServiceKey,
@@ -339,7 +383,7 @@ export function AdminPage() {
       />
 
       <div className="adminPage__tabs" role="tablist" aria-label="Controls sections">
-        {(Object.keys(ADMIN_TAB_LABELS) as AdminTab[]).map((key) => (
+        {ADMIN_TABS.map(({ key, label, icon: TabIcon }) => (
           <button
             key={key}
             type="button"
@@ -348,7 +392,8 @@ export function AdminPage() {
             className={`adminPage__tab${tab === key ? " adminPage__tab--selected" : ""}`}
             onClick={() => setTab(key)}
           >
-            {ADMIN_TAB_LABELS[key]}
+            <TabIcon size={15} strokeWidth={2} className="adminPage__tabIcon" aria-hidden />
+            <span className="adminPage__tabLabel">{label}</span>
           </button>
         ))}
       </div>
@@ -595,6 +640,20 @@ export function AdminPage() {
             })
           }
           onDiscoveryStop={() => void handleStop("discovery")}
+        />
+      )}
+
+      {tab === "etl" && (
+        <EtlSection
+          idPrefix={baseId}
+          workerStatus={displayServiceStatus(
+            "worker",
+            apiStatus,
+            pendingAction,
+          )}
+          workerApiRunning={apiStatus.worker === "running"}
+          onReportsStart={(selection) => void handleReportsStart(selection)}
+          onWorkerStop={() => void handleStop("worker")}
         />
       )}
     </main>

@@ -20,6 +20,7 @@ from app.extraction.extract_utils import (
 )
 from app.llm.model_config import get_model_config, set_model
 from app.ingestion.errors import SkipIngest
+from app.etl.pipeline import prepare_etl_import
 from app.ingestion.pipeline import (
     prepare_html_ingest,
     prepare_pdf_ingest,
@@ -57,6 +58,11 @@ class ExtractRiskBody(BaseModel):
 
 class SetLlmModelBody(BaseModel):
     modelId: str = Field(min_length=1)
+
+
+class EtlImportBody(BaseModel):
+    filename: str = Field(min_length=1)
+    file_base64: str = Field(default="")
 
 
 def _error_payload(error: str, message: str) -> dict[str, object]:
@@ -128,6 +134,28 @@ def put_llm_model_config(body: SetLlmModelBody) -> dict[str, object]:
         return {"ok": True, **config}
     except ValueError as exc:
         return _error_payload("InvalidModel", str(exc))
+
+
+@app.post("/etl/import")
+def etl_import(body: EtlImportBody) -> dict[str, object]:
+    try:
+        file_bytes = base64.b64decode(body.file_base64 or "")
+    except Exception as exc:
+        return _error_payload("InvalidBase64", str(exc))
+
+    if not file_bytes:
+        return _error_payload("EmptyFile", "uploaded file is empty")
+
+    try:
+        result = prepare_etl_import(
+            file_bytes,
+            body.filename,
+        )
+        return {"ok": True, **result}
+    except ValueError as exc:
+        return _error_payload("InvalidFile", str(exc))
+    except Exception as exc:
+        return _error_payload(type(exc).__name__, str(exc))
 
 
 @app.post("/extract/risk")

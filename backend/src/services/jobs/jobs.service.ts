@@ -12,6 +12,7 @@ export type JobListItem = {
   source: string;
   tries: number;
   errorMessage: string | null;
+  startedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   riskFetchedAt: Date | null;
@@ -42,6 +43,7 @@ export async function listJobs(): Promise<{
       source: jobs.source,
       tries: jobs.tries,
       errorMessage: jobs.errorMessage,
+      startedAt: jobs.startedAt,
       createdAt: jobs.createdAt,
       updatedAt: jobs.updatedAt,
     })

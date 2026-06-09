@@ -30,7 +30,12 @@ export const jobTypeEnum = pgEnum("job_type", [
   "ingest",
 ]);
 
-export const jobSourceEnum = pgEnum("job_source", ["rss", "api", "manual"]);
+export const jobSourceEnum = pgEnum("job_source", [
+  "rss",
+  "api",
+  "manual",
+  "etl_reports",
+]);
 
 export const jobs = pgTable(
   "jobs",
@@ -52,6 +57,7 @@ export const jobs = pgTable(
     ),
     tries: integer("tries").notNull().default(0),
     errorMessage: text("error_message"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

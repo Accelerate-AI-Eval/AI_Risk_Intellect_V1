@@ -3,11 +3,13 @@ import { requireAuth } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { enqueueUrlHandler } from "../controllers/admin/admin.controller.js";
+import { enqueueJobUrlHandler } from "../controllers/admin/manualJobEnqueue.controller.js";
 import {
   archiveIngestLinkHandler,
   extractIngestLinkHandler,
   listIngestLinkItemsHandler,
   listIngestLinksHandler,
+  restoreIngestLinkHandler,
   updateIngestLinkHandler,
 } from "../controllers/admin/ingestLinks.controller.js";
 import { listDiscoveryLogsHandler } from "../controllers/admin/discoveryLogs.controller.js";
@@ -21,12 +23,24 @@ import {
   stopWorkerHandler,
 } from "../controllers/admin/services.controller.js";
 import {
+  enqueueJobUrlSchema,
   enqueueUrlSchema,
   ingestLinkIdSchema,
   setLlmModelSchema,
   startDiscoverySchema,
   updateIngestLinkSchema,
+  startReportsRunSchema,
 } from "../validators/admin.validators.js";
+import { etlUploadMiddleware } from "../middleware/upload.middleware.js";
+import { uploadReportsEtlHandler } from "../controllers/admin/etlUpload.controller.js";
+import {
+  archiveReportUploadHandler,
+  listReportUploadItemsHandler,
+  listReportUploadsHandler,
+} from "../controllers/admin/etlReportUploads.controller.js";
+import { startReportsRunHandler } from "../controllers/admin/etlReportsRun.controller.js";
+import { listReportsLogsHandler } from "../controllers/admin/reportsLogs.controller.js";
+
 
 export const adminRouter: Router = Router();
 
@@ -101,6 +115,13 @@ adminRouter.post(
   asyncHandler(archiveIngestLinkHandler),
 );
 
+adminRouter.post(
+  "/ingest-links/:id/restore",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(restoreIngestLinkHandler),
+);
+
 adminRouter.get(
   "/ingest-links/:id/items",
   requireAuth,
@@ -116,8 +137,63 @@ adminRouter.post(
 );
 
 adminRouter.post(
-  "/jobs/enqueue",
+  "/enqueue",
   requireAuth,
   validate(enqueueUrlSchema),
   asyncHandler(enqueueUrlHandler),
+);
+
+adminRouter.post(
+  "/jobs/enqueue",
+  requireAuth,
+  validate(enqueueJobUrlSchema),
+  asyncHandler(enqueueJobUrlHandler),
+);
+
+adminRouter.post(
+  "/etl/reports/upload",
+  requireAuth,
+  etlUploadMiddleware,
+  asyncHandler(uploadReportsEtlHandler),
+);
+
+
+adminRouter.get(
+  "/etl/reports/uploads",
+  requireAuth,
+  asyncHandler(listReportUploadsHandler),
+);
+
+adminRouter.get(
+  "/etl/reports/uploads/:id/items",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(listReportUploadItemsHandler),
+);
+
+adminRouter.post(
+  "/etl/reports/uploads/:id/archive",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(archiveReportUploadHandler),
+);
+
+adminRouter.post(
+  "/etl/reports/upload",
+  requireAuth,
+  etlUploadMiddleware,
+  asyncHandler(uploadReportsEtlHandler),
+);
+
+adminRouter.post(
+  "/etl/reports/start",
+  requireAuth,
+  validate(startReportsRunSchema),
+  asyncHandler(startReportsRunHandler),
+);
+
+adminRouter.get(
+  "/etl/reports/logs",
+  requireAuth,
+  asyncHandler(listReportsLogsHandler),
 );

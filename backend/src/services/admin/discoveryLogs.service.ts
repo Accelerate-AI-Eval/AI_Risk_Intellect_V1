@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull, or } from "drizzle-orm";
+import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { ingestLinkItems } from "../../schema/ingestLinks/ingestLinkItems.js";
 import { ingestLinks } from "../../schema/ingestLinks/ingestLinks.js";
@@ -110,6 +110,7 @@ async function fetchDiscoveryJobRows(): Promise<DiscoveryJobRow[]> {
     eq(jobs.source, "rss"),
     or(isNotNull(jobs.ingestLinkItemId), isNotNull(jobs.ingestLinkId)),
   );
+  const activeFeedFilter = eq(ingestLinks.archived, false);
 
   try {
     return await db
@@ -128,7 +129,11 @@ async function fetchDiscoveryJobRows(): Promise<DiscoveryJobRow[]> {
       })
       .from(jobs)
       .leftJoin(ingestLinkItems, eq(ingestLinkItems.id, jobs.ingestLinkItemId))
-      .where(discoveryJobFilter)
+      .innerJoin(
+        ingestLinks,
+        sql`${ingestLinks.id} = COALESCE(${ingestLinkItems.ingestLinkId}, ${jobs.ingestLinkId})`,
+      )
+      .where(and(discoveryJobFilter, activeFeedFilter))
       .orderBy(desc(jobs.createdAt))
       .limit(500);
   } catch (err) {
@@ -152,15 +157,33 @@ async function fetchDiscoveryJobRows(): Promise<DiscoveryJobRow[]> {
       })
       .from(jobs)
       .innerJoin(ingestLinkItems, eq(ingestLinkItems.url, jobs.url))
-      .where(eq(jobs.source, "rss"))
+      .innerJoin(ingestLinks, eq(ingestLinks.id, ingestLinkItems.ingestLinkId))
+      .where(and(eq(jobs.source, "rss"), activeFeedFilter))
       .orderBy(desc(jobs.createdAt))
       .limit(500);
   }
 }
 
+function dedupeLatestJobPerItem(rows: DiscoveryJobRow[]): DiscoveryJobRow[] {
+  const latest = new Map<string, DiscoveryJobRow>();
+
+  for (const row of rows) {
+    const key =
+      row.ingestLinkItemId != null && row.ingestLinkItemId > 0
+        ? `item:${row.ingestLinkItemId}`
+        : `url:${row.jobUrl}`;
+    const existing = latest.get(key);
+    if (!existing || row.jobId > existing.jobId) {
+      latest.set(key, row);
+    }
+  }
+
+  return [...latest.values()].sort((a, b) => b.jobId - a.jobId);
+}
+
 /** Logs for URLs actually queued by the discovery service (RSS jobs tied to feed items). */
 export async function listDiscoveryLogs(): Promise<DiscoveryLogDto[]> {
-  const rows = await fetchDiscoveryJobRows();
+  const rows = dedupeLatestJobPerItem(await fetchDiscoveryJobRows());
 
   return rows.map((row) => {
     const ingestLinkId = row.itemIngestLinkId ?? row.ingestLinkId ?? 0;

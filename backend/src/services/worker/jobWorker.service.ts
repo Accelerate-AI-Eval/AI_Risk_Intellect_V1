@@ -1,14 +1,16 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
+import { articles } from "../../schema/articles/articles.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { extractRiskForArticle } from "./extractRisk.service.js";
 import { processUrlToDb } from "./processUrl.service.js";
+import { resolveIngestSource } from "./resolveIngestSource.js";
 
 export type ClaimedJob = {
   id: number;
   articleId: number;
   url: string;
-  source: "manual" | "rss" | "api";
+  source: "manual" | "rss" | "api" | "etl_reports";
   tries: number;
 };
 
@@ -33,12 +35,14 @@ export async function claimNextJob(): Promise<ClaimedJob | null> {
       return null;
     }
 
+    const runStartedAt = new Date();
     const [claimed] = await tx
       .update(jobs)
       .set({
         status: "running",
         tries: sql`${jobs.tries} + 1`,
-        updatedAt: new Date(),
+        startedAt: runStartedAt,
+        updatedAt: runStartedAt,
       })
       .where(eq(jobs.id, pending.id))
       .returning({
@@ -81,12 +85,17 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   };
 
   try {
-    const source =
-      job.source === "rss" || job.source === "manual" ? job.source : "manual";
+    const source = resolveIngestSource(job.source);
+    const [articleRow] = await db
+      .select({ title: articles.title })
+      .from(articles)
+      .where(eq(articles.id, job.articleId))
+      .limit(1);
 
-    log("ingest start", { url: job.url, source });
+    log("ingest start", { url: job.url, source, jobSource: job.source });
     const ingest = await processUrlToDb(job.url, job.articleId, {
       source,
+      title: articleRow?.title ?? undefined,
     });
 
     if (ingest.outcome === "skipped") {
