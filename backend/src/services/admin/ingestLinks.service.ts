@@ -150,14 +150,9 @@ export async function listActiveIngestLinks(): Promise<IngestLinkDto[]> {
   return rows.map((r) => toDto(r.link, Number(r.itemCount)));
 }
 
-/** Resolve active ingest links by ID (throws if any ID is missing or archived). */
-export async function resolveActiveIngestLinksByIds(
-  ids: number[],
-): Promise<IngestLinkDto[]> {
+async function queryActiveIngestLinksByIds(ids: number[]) {
   const uniqueIds = [...new Set(ids)];
-  if (uniqueIds.length === 0) {
-    throw HttpError.badRequest("Select at least one feed to run.");
-  }
+  if (uniqueIds.length === 0) return [];
 
   const rows = await db
     .select({
@@ -174,15 +169,41 @@ export async function resolveActiveIngestLinksByIds(
     )
     .groupBy(ingestLinks.id);
 
-  if (rows.length !== uniqueIds.length) {
-    throw HttpError.badRequest("One or more selected feeds were not found.");
+  const byId = new Map(rows.map((r) => [r.link.id, r]));
+  return uniqueIds
+    .filter((id) => byId.has(id))
+    .map((id) => {
+      const row = byId.get(id)!;
+      return toDto(row.link, Number(row.itemCount));
+    });
+}
+
+/** Return active ingest links for the given IDs, omitting missing or archived feeds. */
+export async function filterActiveIngestLinksByIds(
+  ids: number[],
+): Promise<IngestLinkDto[]> {
+  return queryActiveIngestLinksByIds(ids);
+}
+
+/** Resolve active ingest links by ID (throws if any ID is missing or archived). */
+export async function resolveActiveIngestLinksByIds(
+  ids: number[],
+): Promise<IngestLinkDto[]> {
+  const uniqueIds = [...new Set(ids)];
+  if (uniqueIds.length === 0) {
+    throw HttpError.badRequest("Select at least one feed to run.");
   }
 
-  const byId = new Map(rows.map((r) => [r.link.id, r]));
-  return uniqueIds.map((id) => {
-    const row = byId.get(id)!;
-    return toDto(row.link, Number(row.itemCount));
-  });
+  const links = await queryActiveIngestLinksByIds(uniqueIds);
+  if (links.length !== uniqueIds.length) {
+    const foundIds = new Set(links.map((link) => link.id));
+    const missing = uniqueIds.filter((id) => !foundIds.has(id));
+    throw HttpError.badRequest(
+      `One or more selected feeds were not found (IDs: ${missing.join(", ")}). Re-select feeds and save again.`,
+    );
+  }
+
+  return links;
 }
 
 /**

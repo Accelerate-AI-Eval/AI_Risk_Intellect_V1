@@ -239,6 +239,34 @@
       "when": 1781700000000,
       "tag": "0033_jobs_started_at",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1781800000000,
+      "tag": "0034_cron_job_schedules",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1781900000000,
+      "tag": "0035_cron_job_timezone",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0036_cron_job_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1782100000000,
+      "tag": "0037_application_logs",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,9 @@ export type NotificationKind =
   | "job_pending"
   | "feed_extracted"
   | "report_upload_completed"
-  | "report_upload_failed";
+  | "report_upload_failed"
+  | "cron_job_started"
+  | "cron_job_stopped";
 
 export interface NotificationItem {
   id: string;

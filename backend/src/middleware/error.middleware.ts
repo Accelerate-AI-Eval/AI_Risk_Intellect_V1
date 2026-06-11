@@ -1,7 +1,11 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
 import { env } from "../env.js";
+import { createLogger } from "../logger/index.js";
 import { HttpError } from "../utils/httpError.js";
+import { getRequestClientInfo } from "../utils/requestClient.js";
+
+const errorLog = createLogger("error");
 
 export function notFoundHandler(
   req: Request,
@@ -13,7 +17,7 @@ export function notFoundHandler(
 
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
@@ -39,7 +43,12 @@ export function errorHandler(
     return;
   }
 
-  console.error("[unhandled error]", err);
+  errorLog.error("Unhandled error", {
+    err,
+    ...getRequestClientInfo(req),
+    method: req.method,
+    path: req.originalUrl,
+  });
   res.status(500).json({
     error: {
       code: "INTERNAL",

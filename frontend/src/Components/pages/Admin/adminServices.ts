@@ -103,3 +103,12 @@ export async function waitForServiceApiState(
   }
   return false;
 }
+
+/** After RSS discovery or cron save, both services should report running. */
+export async function waitForDiscoveryAndWorkerRunning(
+  maxMs = 30_000,
+): Promise<{ discovery: boolean; worker: boolean }> {
+  const discovery = await waitForServiceApiState("discovery", true, maxMs);
+  const worker = await waitForServiceApiState("worker", true, maxMs);
+  return { discovery, worker };
+}

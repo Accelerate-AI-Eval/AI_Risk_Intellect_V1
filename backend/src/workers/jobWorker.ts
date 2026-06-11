@@ -5,18 +5,12 @@
  *   npm run worker
  */
 import "../bootstrap.js";
+import { createLogger } from "../logger/index.js";
 import { runOneJob } from "../services/worker/jobWorker.service.js";
 import { assertPythonServiceReady } from "../services/worker/pythonHealth.js";
 import { workerState } from "./state.js";
 
-const log = {
-  info: (msg: string, ...args: unknown[]) =>
-    console.log(`${new Date().toISOString()} [JOB-WORKER] INFO: ${msg}`, ...args),
-  warn: (msg: string, ...args: unknown[]) =>
-    console.warn(`${new Date().toISOString()} [JOB-WORKER] WARN: ${msg}`, ...args),
-  error: (msg: string, ...args: unknown[]) =>
-    console.error(`${new Date().toISOString()} [JOB-WORKER] ERROR: ${msg}`, ...args),
-};
+const log = createLogger("job-worker");
 
 const POLL_MS = Math.max(
   500,

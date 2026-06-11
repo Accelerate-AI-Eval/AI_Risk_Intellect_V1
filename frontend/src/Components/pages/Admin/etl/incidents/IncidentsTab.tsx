@@ -33,7 +33,7 @@ export function IncidentsTab({ idPrefix }: IncidentsTabProps) {
         </span>
         <div className="adminPage__cardHeadText">
           <h2 id={sid("title")} className="adminPage__cardTitle">
-            Incidents Service
+           ETL Incidents Service
           </h2>
           <p className="adminPage__cardHint">
             Import AI Incident Database incident records from a CSV or Excel

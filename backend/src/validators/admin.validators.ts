@@ -87,3 +87,64 @@ export const startReportsRunSchema = z
   );
 
 export type StartReportsRunInput = z.infer<typeof startReportsRunSchema>;
+
+const cronDateSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date (YYYY-MM-DD).");
+
+const cronTimeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{2}:\d{2}$/, "Use a valid time (HH:mm).");
+
+const repeatUnitSchema = z.enum(["day", "week", "month", "year"]);
+
+const cronTimezoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine(
+    (value) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Use a valid IANA timezone." },
+  );
+
+export const saveCronJobSchema = z
+  .object({
+    startDate: cronDateSchema,
+    startTime: cronTimeSchema,
+    timezone: cronTimezoneSchema,
+    repeat: z.boolean(),
+    repeatInterval: z.coerce.number().int().positive().max(365),
+    repeatUnit: repeatUnitSchema,
+    repeatDays: z.array(z.number().int().min(0).max(6)),
+    ingestLinkIds: z
+      .array(z.coerce.number().int().positive())
+      .min(1, "Select at least one RSS feed."),
+  })
+  .refine(
+    (value) =>
+      !value.repeat ||
+      value.repeatUnit !== "week" ||
+      value.repeatDays.length > 0,
+    {
+      message: "Select at least one day for a weekly repeat.",
+      path: ["repeatDays"],
+    },
+  );
+
+export type SaveCronJobInput = z.infer<typeof saveCronJobSchema>;
+
+export const cronJobIdSchema = z.object({
+  id: z.enum(["rss-discovery"]),
+});
+
+export type CronJobIdParams = z.infer<typeof cronJobIdSchema>;

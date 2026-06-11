@@ -16,11 +16,10 @@ export function NotificationBell() {
     loading,
     unreadCount,
     readIds,
-    readTick,
     load,
     markRead,
     markAllRead,
-  } = useNotifications(true);
+  } = useNotifications();
 
   useEffect(() => {
     if (!open) return;
@@ -143,7 +142,7 @@ export function NotificationBell() {
 
                 return (
                   <li
-                    key={`${item.id}-${readTick}`}
+                    key={item.id}
                     className={`notifications__item${isUnread ? " notifications__item--unread" : ""}`}
                   >
                     {item.href ? (

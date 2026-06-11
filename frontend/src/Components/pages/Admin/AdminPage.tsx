@@ -24,6 +24,7 @@ import {
 } from "../Settings/SettingsSections";
 import "../Users/usersPage.css";
 import "../Settings/settingsPage.css";
+import { AdminCronJobsSection } from "./AdminCronJobsSection";
 import { AdminRssFeedsSection } from "./AdminRssFeedsSection";
 import { EtlSection } from "./etl/EtlSection";
 import { AdminServiceRow } from "./AdminServiceRow";
@@ -31,6 +32,7 @@ import {
   DEFAULT_API_STATUS,
   displayServiceStatus,
   readServiceApiStatus,
+  waitForDiscoveryAndWorkerRunning,
   waitForServiceApiState,
   type ApiServiceState,
   type PendingAction,
@@ -55,6 +57,7 @@ type LlmModelConfig = {
 };
 
 type AdminTab = "controls" | "rss" | "etl";
+type RssSubTab = "links" | "logs";
 
 const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [
   { key: "controls", label: "Controls", icon: Settings2 },
@@ -65,6 +68,7 @@ const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [
 export function AdminPage() {
   const baseId = useId();
   const [tab, setTab] = useState<AdminTab>("controls");
+  const [rssTab, setRssTab] = useState<RssSubTab>("links");
   const [apiStatus, setApiStatus] =
     useState<Record<ServiceKey, ApiServiceState>>(DEFAULT_API_STATUS);
   const [pendingAction, setPendingAction] = useState<
@@ -191,7 +195,11 @@ export function AdminPage() {
         ? "/admin/services/worker/start"
         : "/admin/services/discovery/start";
 
-    setPendingAction((pending) => ({ ...pending, [key]: "starting" }));
+    setPendingAction((pending) =>
+      key === "discovery"
+        ? { ...pending, discovery: "starting", worker: "starting" }
+        : { ...pending, [key]: "starting" },
+    );
 
     try {
       const discoveryPayload =
@@ -219,7 +227,12 @@ export function AdminPage() {
         error?: { message?: string };
       };
       if (!res.ok) {
-        clearPending(key);
+        if (key === "discovery") {
+          clearPending("discovery");
+          clearPending("worker");
+        } else {
+          clearPending(key);
+        }
         toast.error(
           data.error?.message ??
             `Could not start ${key === "worker" ? "worker" : "discovery"} service.`,
@@ -229,23 +242,47 @@ export function AdminPage() {
         return;
       }
 
-      const started = await waitForServiceApiState(key, true);
-      clearPending(key);
-      void loadServiceStatus();
+      if (key === "discovery") {
+        const { discovery, worker } = await waitForDiscoveryAndWorkerRunning();
+        clearPending("discovery");
+        clearPending("worker");
+        void loadServiceStatus();
 
-      if (!started) {
-        toast.warning(
-          "Start requested, but the service has not reported running yet.",
-          { autoClose: 4000 },
-        );
-        return;
+        if (!discovery || !worker) {
+          toast.warning(
+            discovery && !worker
+              ? "Discovery started, but the worker has not reported running yet."
+              : worker && !discovery
+                ? "Worker started, but discovery has not reported running yet."
+                : "Start requested, but discovery and worker have not reported running yet.",
+            { autoClose: 4000 },
+          );
+          return;
+        }
+      } else {
+        const started = await waitForServiceApiState(key, true);
+        clearPending(key);
+        void loadServiceStatus();
+
+        if (!started) {
+          toast.warning(
+            "Start requested, but the service has not reported running yet.",
+            { autoClose: 4000 },
+          );
+          return;
+        }
       }
 
       toast.success(data.message ?? "Service started.", {
         autoClose: 2500,
       });
     } catch {
-      clearPending(key);
+      if (key === "discovery") {
+        clearPending("discovery");
+        clearPending("worker");
+      } else {
+        clearPending(key);
+      }
       void loadServiceStatus();
       toast.error("Network error while starting service.", { autoClose: 3000 });
     }
@@ -461,6 +498,47 @@ export function AdminPage() {
         </div>
       </div>
 
+      <AdminCronJobsSection
+        idPrefix={baseId}
+        discoveryStatus={displayServiceStatus(
+          "discovery",
+          apiStatus,
+          pendingAction,
+        )}
+        onScheduleSaved={async () => {
+          setPendingAction((pending) => ({
+            ...pending,
+            discovery: "starting",
+            worker: "starting",
+          }));
+          const { discovery, worker } = await waitForDiscoveryAndWorkerRunning();
+          clearPending("discovery");
+          clearPending("worker");
+          void loadServiceStatus();
+          if (!discovery || !worker) {
+            toast.warning(
+              "Cron job saved, but discovery or worker has not reported running yet.",
+              { autoClose: 4000 },
+            );
+          }
+        }}
+        onScheduleStopped={async () => {
+          setPendingAction((pending) => ({
+            ...pending,
+            discovery: "stopping",
+          }));
+          const stopped = await waitForServiceApiState("discovery", false);
+          clearPending("discovery");
+          void loadServiceStatus();
+          if (!stopped) {
+            toast.warning(
+              "Cron job stop requested, but discovery has not reported stopped yet.",
+              { autoClose: 4000 },
+            );
+          }
+        }}
+      />
+
       <div className="settingsPage adminPage__settings">
         <SettingsSections />
       </div>
@@ -633,6 +711,8 @@ export function AdminPage() {
             pendingAction,
           )}
           discoveryApiRunning={apiStatus.discovery === "running"}
+          rssTab={rssTab}
+          onRssTabChange={setRssTab}
           onDiscoveryStart={(selection) =>
             void handleStart("discovery", {
               ingestLinkIds: selection.ingestLinkIds,

@@ -30,6 +30,7 @@ import type {
   ResetPasswordInput,
   UpdateMyProfileInput,
 } from "../../validators/auth.validators.js";
+import { getRequestClientInfo } from "../../utils/requestClient.js";
 
 const REFRESH_COOKIE_NAME = "refresh_token";
 
@@ -45,12 +46,11 @@ function refreshCookieOptions(expiresAt?: Date): CookieOptions {
 }
 
 function clientMeta(req: Request) {
-  const userAgent = req.headers["user-agent"] ?? null;
-  const forwarded = req.headers["x-forwarded-for"];
-  const ip = Array.isArray(forwarded)
-    ? forwarded[0]
-    : (forwarded?.split(",")[0]?.trim() ?? req.ip ?? null);
-  return { userAgent, ipAddress: ip ?? null };
+  const client = getRequestClientInfo(req);
+  return {
+    userAgent: client.userAgent,
+    ipAddress: client.ipAddress,
+  };
 }
 
 function queryToken(req: Request): string {

@@ -1,6 +1,7 @@
 import mainLogo from "../../assets/images/mainlogo.svg";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { isSidebarNavItemActive, SIDEBAR_NAV } from "./sidebarNav";
+import { NotificationsProvider } from "../../notifications/NotificationsProvider";
 import { TopBar } from "./TopBar";
 import "./mainLayout.css";
 
@@ -15,7 +16,8 @@ export function MainLayout() {
   const { pathname } = useLocation();
 
   return (
-    <div className="mainLayout">
+    <NotificationsProvider>
+      <div className="mainLayout">
       <aside className="mainLayout__sidebar" aria-label="Main navigation">
         <div className="mainLayout__brand">
           <img
@@ -60,5 +62,6 @@ export function MainLayout() {
         </div>
       </div>
     </div>
+    </NotificationsProvider>
   );
 }

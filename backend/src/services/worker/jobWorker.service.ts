@@ -1,5 +1,8 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
+import { createLogger } from "../../logger/index.js";
+
+const jobLog = createLogger("job");
 import { articles } from "../../schema/articles/articles.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { extractRiskForArticle } from "./extractRisk.service.js";
@@ -78,10 +81,7 @@ async function finishJob(
  */
 export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   const log = (msg: string, extra?: Record<string, unknown>) => {
-    console.log(
-      `[job ${job.id}] ${msg}`,
-      extra ? JSON.stringify(extra) : "",
-    );
+    jobLog.info(msg, { jobId: job.id, ...extra });
   };
 
   try {
@@ -120,7 +120,7 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
     await finishJob(job.id, "done", null);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[job ${job.id}] error:`, message);
+    jobLog.error("Job failed", { jobId: job.id, message, err });
     await finishJob(job.id, "error", message);
   }
 }

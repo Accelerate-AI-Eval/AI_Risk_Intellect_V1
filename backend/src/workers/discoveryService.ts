@@ -7,17 +7,11 @@ import "../bootstrap.js";
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createLogger } from "../logger/index.js";
 import { autoIngestLoop } from "./rssDiscovery.js";
 import { workerState } from "./state.js";
 
-const log = {
-  info: (msg: string, ...args: unknown[]) =>
-    console.log(`${new Date().toISOString()} [DISCOVERY] INFO: ${msg}`, ...args),
-  warn: (msg: string, ...args: unknown[]) =>
-    console.warn(`${new Date().toISOString()} [DISCOVERY] WARN: ${msg}`, ...args),
-  error: (msg: string, ...args: unknown[]) =>
-    console.error(`${new Date().toISOString()} [DISCOVERY] ERROR: ${msg}`, ...args),
-};
+const log = createLogger("discovery-service");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "../..");

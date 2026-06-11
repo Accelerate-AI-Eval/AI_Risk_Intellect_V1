@@ -51,6 +51,7 @@
 .articlesPage__pager.dtPagination,
 .jobsPage__pager.dtPagination,
 .riskPage__pager.dtPagination,
+.adminPage__dataTablePager.dtPagination,
 .observabilityPage__tablePanel .dtPagination {
   --dt-pager-bg: #fff;
   --dt-pager-input-bg: #fff;

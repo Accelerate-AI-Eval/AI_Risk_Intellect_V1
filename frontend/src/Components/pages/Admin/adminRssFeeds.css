@@ -236,13 +236,15 @@
   background: rgba(15, 23, 42, 0.25);
   color: var(--adm-text);
   padding: 0 0.75rem 0 2.35rem;
-  font-size: 0.9rem;
-  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25;
 }
 
 .adminPage__dataFilters .adminPage__logsSearchInput::placeholder,
 .adminPage__dataFilters .adminPage__linksSearchInput::placeholder {
   color: #94a3b8;
+  font-size: 0.875rem;
+  opacity: 1;
 }
 
 .adminPage__dataFilters .adminPage__logsClearBtn,
@@ -326,12 +328,139 @@
   transform: translateY(0);
 }
 
-.adminPage__rssWorkspace .adminPage__tableSection {
+.adminPage__rssWorkspace .adminPage__tableSection,
+.adminPage__rssWorkspace .adminPage__dataTableSection {
   min-width: 0;
   margin-top: 0;
 }
 
-.adminPage__rssWorkspace .adminPage__tableWrap {
+.adminPage__dataTableSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.adminPage__dataTableHead .adminPage__dataFilters {
+  margin-bottom: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.adminPage__dataTableToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.adminPage__dataTableToolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.adminPage__dataTableToolbarActions .adminPage__rssRefreshBtn,
+.adminPage__dataTableToolbarActions .adminPage__rssIngestBtn {
+  margin-left: 0;
+}
+
+.adminPage__dataTableToolbarSearch {
+  position: relative;
+  flex: 0 1 420px;
+  min-width: min(220px, 100%);
+  margin-left: auto;
+}
+
+.adminPage__dataTableToolbarSearch .adminPage__linksSearchIcon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--adm-muted);
+  pointer-events: none;
+}
+
+.adminPage__dataTableToolbarSearch .adminPage__linksSearchInput {
+  width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--ui-border-radius, 8px);
+  background: rgba(15, 23, 42, 0.25);
+  color: var(--adm-text);
+  padding: 0 0.75rem 0 2.35rem;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.adminPage__dataTableToolbarSearch .adminPage__linksSearchInput::placeholder {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  opacity: 1;
+}
+
+.adminPage__dataTableToolbarSearch .adminPage__linksSearchInput:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.adminPage__th--sortable {
+  padding: 0;
+}
+
+.adminPage__sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.85rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.adminPage__th--center .adminPage__sortBtn {
+  justify-content: center;
+  text-align: center;
+}
+
+.adminPage__sortBtn:hover {
+  color: var(--adm-text);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.adminPage__sortBtn--active {
+  color: var(--adm-text);
+}
+
+.adminPage__sortBtn svg {
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.adminPage__sortBtn--active svg {
+  opacity: 1;
+  color: #38bdf8;
+}
+
+.adminPage__rssWorkspace .adminPage__tableWrap,
+.adminPage__rssWorkspace .adminPage__dataTableWrap {
   display: flex;
   flex-direction: column;
   border-radius: 10px;
@@ -339,6 +468,22 @@
   background: var(--adm-card);
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.adminPage__dataTableHead + .adminPage__dataTableWrap {
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+}
+
+.adminPage__dataTableHead {
+  border: 1px solid var(--adm-border);
+  border-radius: 10px 10px 0 0;
+  background: var(--adm-card);
+  overflow: hidden;
+}
+
+.adminPage__dataTablePager.dtPagination {
+  border-top: 1px solid var(--adm-border);
 }
 
 .adminPage__tableWrap--links {
@@ -543,6 +688,10 @@
   text-align: center;
 }
 
+.adminPage__td--center {
+  text-align: center;
+}
+
 .adminPage__th--actions {
   text-align: right;
 }
@@ -669,6 +818,32 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #22d3ee, #34d399);
   transition: width 0.25s ease;
+}
+
+.adminPage__addedAtCell {
+  min-width: 6.5rem;
+}
+
+.adminPage__addedAt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.adminPage__extractionTimesCell {
+  min-width: 11rem;
+}
+
+.adminPage__extractionTimes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--adm-text);
+  white-space: nowrap;
 }
 
 .adminPage__urlInput--cell {
@@ -973,63 +1148,48 @@
 }
 
 .adminPage__table--logs {
-  min-width: 0;
   table-layout: fixed;
+  min-width: 52rem;
 }
 
-.adminPage__table--logs .adminPage__th,
-.adminPage__table--logs .adminPage__td {
-  padding: 0.62rem 0.55rem;
-  white-space: normal;
-}
-
-.adminPage__table--logs .adminPage__th:nth-child(1),
-.adminPage__table--logs .adminPage__th:nth-child(2),
-.adminPage__table--logs .adminPage__th:nth-child(3) {
+.adminPage__table--logs .adminPage__colLogFeedId,
+.adminPage__table--logs .adminPage__colLogExtracted,
+.adminPage__table--logs .adminPage__colLogJob {
   width: 5.5rem;
 }
 
-.adminPage__table--logs .adminPage__th:nth-child(4) {
-  width: 13rem;
+.adminPage__table--logs .adminPage__colLogUrl {
+  width: auto;
+  min-width: 14rem;
 }
 
-.adminPage__table--logs .adminPage__th:nth-child(5) {
+.adminPage__table--logs .adminPage__colLogReason {
   width: 15.5rem;
 }
 
-.adminPage__table--logs .adminPage__th:nth-child(6) {
+.adminPage__table--logs .adminPage__colLogStatus {
   width: 7.25rem;
 }
 
-.adminPage__table--logs .adminPage__th:nth-child(7) {
+.adminPage__table--logs .adminPage__colLogExecution {
   width: 8.25rem;
 }
 
-.adminPage__table--logs .adminPage__cellUrl {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .adminPage__table--logs .adminPage__reasonCell {
-  max-width: none;
-  min-width: 0;
-  line-height: 1.4;
+  white-space: normal;
+  line-height: 1.35;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.adminPage__table--logs .adminPage__td:nth-child(6),
-.adminPage__table--logs .adminPage__th:nth-child(6) {
-  text-align: center;
+.adminPage__executionTimeCell {
+  min-width: 8.25rem;
 }
 
 .adminPage__executionCell {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
 }
 
 .adminPage__executionDuration {
@@ -1051,16 +1211,6 @@
 html:not(.app-theme-dark) .adminPage__executionDuration {
   color: #0e7490;
   background: rgba(14, 116, 144, 0.1);
-}
-
-.adminPage__table--logs .adminPage__statusPill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  min-width: 5.6rem;
-  padding: 0.28rem 0.6rem;
-  white-space: nowrap;
 }
 
 /* Box-shaped status badges in RSS feeds (override global pill radius). */

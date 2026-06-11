@@ -25,7 +25,11 @@ export function spawnBackendScript(
 
   const spawnOpts: SpawnOptions = {
     cwd: backendRoot,
-    env: { ...process.env, ...options?.env },
+    env: {
+      ...process.env,
+      BACKEND_MANAGED_CHILD: "1",
+      ...options?.env,
+    },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   };

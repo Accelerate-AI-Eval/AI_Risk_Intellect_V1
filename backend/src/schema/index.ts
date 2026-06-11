@@ -8,5 +8,8 @@ export * from "./ingestLinks/ingestLinkItems.js";
 export * from "./jobs/jobs.js";
 export * from "./riskMappings/riskMappings.js";
 export * from "./observability/llmObservability.js";
+export * from "./observability/applicationLogs.js";
 export * from "./aiid/reports.js";
 export * from "./aiid/reportUploads.js";
+export * from "./cronJobs/cronJobSchedules.js";
+export * from "./cronJobs/cronJobEvents.js";

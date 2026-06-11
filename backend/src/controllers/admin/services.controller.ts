@@ -13,9 +13,22 @@ import {
   setLlmModel,
 } from "../../services/admin/llmModelConfig.service.js";
 import {
+  ensureWorkerProcessRunning,
   startWorkerProcess,
   stopWorkerProcess,
 } from "../../services/admin/workerManager.service.js";
+
+function discoveryStartMessage(
+  selectedItemCount: number,
+  feedCount: number,
+): string {
+  const feedLabel = `${feedCount} feed${feedCount === 1 ? "" : "s"}`;
+  const discoveryPart =
+    selectedItemCount > 0
+      ? `Discovery enqueued ${selectedItemCount} selected extracted URL${selectedItemCount === 1 ? "" : "s"} from ${feedLabel}.`
+      : `Discovery enqueued extracted URLs for ${feedLabel}.`;
+  return `${discoveryPart} Worker service started to process ingest jobs.`;
+}
 import type { SetLlmModelInput, StartDiscoveryInput } from "../../validators/admin.validators.js";
 
 export async function getServicesStatusHandler(
@@ -52,15 +65,14 @@ export async function startDiscoveryHandler(
     ingestLinkIds: resolvedLinkIds,
     ingestLinkItemIds: itemRefs.map((item) => item.id),
   });
+  const { pid: workerPid } = ensureWorkerProcessRunning();
 
   const selectedItemCount = itemRefs.length;
   res.status(200).json({
     ok: true,
-    message:
-      selectedItemCount > 0
-        ? `Discovery enqueued ${selectedItemCount} selected extracted URL${selectedItemCount === 1 ? "" : "s"} from ${resolvedLinkIds.length} feed${resolvedLinkIds.length === 1 ? "" : "s"}.`
-        : `Discovery enqueued extracted URLs for ${resolvedLinkIds.length} feed${resolvedLinkIds.length === 1 ? "" : "s"}.`,
+    message: discoveryStartMessage(selectedItemCount, resolvedLinkIds.length),
     pid,
+    workerPid,
     feedCount: resolvedLinkIds.length,
     selectedItemCount,
     services: getServicesStatus(),

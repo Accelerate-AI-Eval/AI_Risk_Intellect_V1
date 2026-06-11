@@ -1,6 +1,7 @@
 import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { etlReportUploads } from "../schema/aiid/reportUploads.js";
+import { cronJobEvents } from "../schema/cronJobs/cronJobEvents.js";
 import { ingestLinkItems } from "../schema/ingestLinks/ingestLinkItems.js";
 import { ingestLinks } from "../schema/ingestLinks/ingestLinks.js";
 import { jobs } from "../schema/jobs/jobs.js";
@@ -79,7 +80,7 @@ function mapJobNotification(row: {
       : `${sourceLabel} · ${urlLabel}`;
 
   return {
-    id: `job:${row.id}:${status}`,
+    id: `job:${row.id}`,
     kind,
     title,
     message: detail,
@@ -101,7 +102,7 @@ function mapFeedExtractNotification(row: {
     `Feed #${row.id}`;
 
   return {
-    id: `feed_extract:${row.id}:${row.updatedAt.toISOString()}`,
+    id: `feed_extract:${row.id}`,
     kind: "feed_extracted",
     title: "RSS feed extracted",
     message: `${row.itemCount} URL${row.itemCount === 1 ? "" : "s"} from ${label}`,
@@ -130,6 +131,29 @@ function mapReportUploadNotification(row: {
       ? (row.errorMessage?.trim() || `${label} could not be imported.`)
       : `${label} · ${row.importedRows} of ${row.totalRows} row${row.totalRows === 1 ? "" : "s"} imported`,
     createdAt: row.updatedAt.toISOString(),
+    href: "/admin",
+  };
+}
+
+function mapCronJobEventNotification(row: {
+  id: number;
+  jobId: string;
+  eventType: "started" | "stopped";
+  message: string | null;
+  createdAt: Date;
+}): NotificationDto {
+  const isStarted = row.eventType === "started";
+
+  return {
+    id: `cron_job:${row.id}:${row.eventType}`,
+    kind: isStarted ? "cron_job_started" : "cron_job_stopped",
+    title: isStarted ? "Cron job started" : "Cron job stopped",
+    message:
+      row.message?.trim() ||
+      (isStarted
+        ? "RSS feed discovery cron job started."
+        : "RSS feed discovery cron job stopped."),
+    createdAt: row.createdAt.toISOString(),
     href: "/admin",
   };
 }
@@ -219,6 +243,23 @@ export async function listNotifications(options?: {
 
   for (const row of uploadRows) {
     notifications.push(mapReportUploadNotification(row));
+  }
+
+  const cronEventRows = await db
+    .select({
+      id: cronJobEvents.id,
+      jobId: cronJobEvents.jobId,
+      eventType: cronJobEvents.eventType,
+      message: cronJobEvents.message,
+      createdAt: cronJobEvents.createdAt,
+    })
+    .from(cronJobEvents)
+    .where(gte(cronJobEvents.createdAt, since))
+    .orderBy(desc(cronJobEvents.createdAt))
+    .limit(20);
+
+  for (const row of cronEventRows) {
+    notifications.push(mapCronJobEventNotification(row));
   }
 
   return notifications

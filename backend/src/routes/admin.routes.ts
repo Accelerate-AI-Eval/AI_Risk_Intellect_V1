@@ -30,6 +30,8 @@ import {
   startDiscoverySchema,
   updateIngestLinkSchema,
   startReportsRunSchema,
+  saveCronJobSchema,
+  cronJobIdSchema,
 } from "../validators/admin.validators.js";
 import { etlUploadMiddleware } from "../middleware/upload.middleware.js";
 import { uploadReportsEtlHandler } from "../controllers/admin/etlUpload.controller.js";
@@ -40,6 +42,13 @@ import {
 } from "../controllers/admin/etlReportUploads.controller.js";
 import { startReportsRunHandler } from "../controllers/admin/etlReportsRun.controller.js";
 import { listReportsLogsHandler } from "../controllers/admin/reportsLogs.controller.js";
+import {
+  listCronJobsHandler,
+  saveCronJobHandler,
+  stopCronJobHandler,
+} from "../controllers/admin/cronJobs.controller.js";
+import { listCronJobLogsHandler } from "../controllers/admin/cronLogs.controller.js";
+import { listApplicationLogsHandler } from "../controllers/admin/applicationLogs.controller.js";
 
 
 export const adminRouter: Router = Router();
@@ -48,6 +57,39 @@ adminRouter.get(
   "/services/status",
   requireAuth,
   asyncHandler(getServicesStatusHandler),
+);
+
+adminRouter.get(
+  "/cron-jobs",
+  requireAuth,
+  asyncHandler(listCronJobsHandler),
+);
+
+adminRouter.put(
+  "/cron-jobs/:id",
+  requireAuth,
+  validate(cronJobIdSchema, "params"),
+  validate(saveCronJobSchema),
+  asyncHandler(saveCronJobHandler),
+);
+
+adminRouter.post(
+  "/cron-jobs/:id/stop",
+  requireAuth,
+  validate(cronJobIdSchema, "params"),
+  asyncHandler(stopCronJobHandler),
+);
+
+adminRouter.get(
+  "/cron-jobs/logs",
+  requireAuth,
+  asyncHandler(listCronJobLogsHandler),
+);
+
+adminRouter.get(
+  "/application-logs",
+  requireAuth,
+  asyncHandler(listApplicationLogsHandler),
 );
 
 adminRouter.post(

@@ -1,5 +1,12 @@
 import Parser from "rss-parser";
 import {
+  getCronScheduleSkipReason,
+  isWithinCronSchedule,
+  msUntilStartTimeToday,
+  type CronScheduleConfig,
+} from "../config/cronScheduleConfig.js";
+import { loadActiveCronScheduleConfig } from "../services/admin/cronSchedule.service.js";
+import {
   gatherRssFeedUrls,
   loadSourcesConfig,
   type SourcesConfig,
@@ -7,23 +14,19 @@ import {
 import {
   getExtractedItemRefsByIngestLinkIds,
   resolveExtractedItemRefsByIds,
-  resolveActiveIngestLinksByIds,
+  filterActiveIngestLinksByIds,
+  extractIngestLink,
 } from "../services/admin/ingestLinks.service.js";
 import {
   enqueueDiscoveryBatch,
   getActiveJobUrls,
+  getIngestLinkItemIdsWithIngestJobs,
   type DiscoveryEnqueueItem,
 } from "../services/admin/discoveryEnqueue.service.js";
+import { createLogger } from "../logger/index.js";
 import { FEED_FETCH_HEADERS, normalizeUrl } from "../utils/fetchUtils.js";
 
-const log = {
-  info: (msg: string, ...args: unknown[]) =>
-    console.log(`[DISCOVERY] INFO: ${msg}`, ...args),
-  warn: (msg: string, ...args: unknown[]) =>
-    console.warn(`[DISCOVERY] WARN: ${msg}`, ...args),
-  error: (msg: string, ...args: unknown[]) =>
-    console.error(`[DISCOVERY] ERROR: ${msg}`, ...args),
-};
+const log = createLogger("rss-discovery");
 
 const DEFAULT_INTERVAL_MIN = 15;
 const DEFAULT_MAX_PER_CYCLE = 50;
@@ -201,12 +204,54 @@ function parseDiscoveryIngestLinkItemIds(): number[] | null {
  * Enqueue ingest jobs for extracted item URLs on selected feeds (ingest_link_items).
  * Uses the same article + pending ingest job flow as RSS discovery enqueue.
  */
+async function ensureExtractedItemsForFeeds(
+  ingestLinkIds: number[],
+): Promise<void> {
+  for (const feedId of ingestLinkIds) {
+    try {
+      const result = await extractIngestLink(feedId);
+      if (result.inserted > 0) {
+        log.info(
+          "[rss-discovery] auto-extracted feed #%d: %d new URL(s)",
+          feedId,
+          result.inserted,
+        );
+      }
+    } catch (err) {
+      log.warn(
+        "[rss-discovery] auto-extract failed for feed #%d: %s",
+        feedId,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
 async function runExtractedUrlDiscoveryCycle(
   ingestLinkIds: number[],
 ): Promise<void> {
-  const links = await resolveActiveIngestLinksByIds(ingestLinkIds);
-  const itemRefs = await getExtractedItemRefsByIngestLinkIds(ingestLinkIds);
+  const links = await filterActiveIngestLinksByIds(ingestLinkIds);
+  if (links.length === 0) {
+    log.warn(
+      "[rss-discovery] no active RSS feeds found for the configured schedule",
+    );
+    return;
+  }
+  if (links.length !== ingestLinkIds.length) {
+    log.warn(
+      "[rss-discovery] skipping missing or archived feed IDs from the schedule",
+    );
+  }
+  const activeIds = links.map((link) => link.id);
+  log.info(
+    "[rss-discovery] refreshing RSS feeds before enqueue (same as manual Extract)",
+  );
+  await ensureExtractedItemsForFeeds(activeIds);
+  const itemRefs = await getExtractedItemRefsByIngestLinkIds(activeIds);
   const activeJobs = await getActiveJobUrls();
+  const itemIdsWithJobs = await getIngestLinkItemIdsWithIngestJobs(
+    itemRefs.map((item) => item.id),
+  );
 
   const byFeed = new Map<number, typeof itemRefs>();
   for (const link of links) {
@@ -222,7 +267,11 @@ async function runExtractedUrlDiscoveryCycle(
     const items = byFeed.get(link.id) ?? [];
     let eligible = 0;
     for (const item of items) {
-      if (item.url && !activeJobs.has(item.url)) {
+      if (
+        item.url &&
+        !activeJobs.has(item.url) &&
+        !itemIdsWithJobs.has(item.id)
+      ) {
         toEnqueue.push({
           url: item.url,
           ingestLinkId: item.ingestLinkId,
@@ -249,7 +298,7 @@ async function runExtractedUrlDiscoveryCycle(
 
   if (toEnqueue.length === 0) {
     log.info(
-      "[rss-discovery] all extracted URLs already have active ingest jobs",
+      "[rss-discovery] no new extracted URLs to enqueue (feed items already ingested or in progress)",
     );
     return;
   }
@@ -269,9 +318,17 @@ async function runSelectedExtractedItemsCycle(
 ): Promise<void> {
   const itemRefs = await resolveExtractedItemRefsByIds(ingestLinkItemIds);
   const activeJobs = await getActiveJobUrls();
+  const itemIdsWithJobs = await getIngestLinkItemIdsWithIngestJobs(
+    itemRefs.map((item) => item.id),
+  );
 
   const toEnqueue = itemRefs
-    .filter((item) => item.url && !activeJobs.has(item.url))
+    .filter(
+      (item) =>
+        item.url &&
+        !activeJobs.has(item.url) &&
+        !itemIdsWithJobs.has(item.id),
+    )
     .map((item) => ({
       url: item.url,
       ingestLinkId: item.ingestLinkId,
@@ -280,7 +337,7 @@ async function runSelectedExtractedItemsCycle(
 
   if (toEnqueue.length === 0) {
     log.info(
-      "[rss-discovery] selected extracted URLs already have active ingest jobs",
+      "[rss-discovery] selected extracted URLs already have ingest jobs or are in progress",
     );
     return;
   }
@@ -293,16 +350,49 @@ async function runSelectedExtractedItemsCycle(
   );
 }
 
+function isCronLoopMode(): boolean {
+  return !["1", "true", "yes"].includes(
+    (process.env.RUN_ONCE ?? "false").toLowerCase(),
+  );
+}
+
+async function loadCronScheduleForWorker() {
+  return (await loadActiveCronScheduleConfig()) ?? null;
+}
+
 async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
-  const ingestLinkItemIds = parseDiscoveryIngestLinkItemIds();
-  if (ingestLinkItemIds) {
-    await runSelectedExtractedItemsCycle(ingestLinkItemIds);
+  const hasManualEnv =
+    parseDiscoveryIngestLinkItemIds() != null ||
+    parseDiscoveryIngestLinkIds() != null;
+
+  // Manual one-shot discovery (RSS Feeds tab) takes precedence over cron schedule.
+  if (!isCronLoopMode() && hasManualEnv) {
+    const ingestLinkItemIds = parseDiscoveryIngestLinkItemIds();
+    if (ingestLinkItemIds) {
+      await runSelectedExtractedItemsCycle(ingestLinkItemIds);
+      return;
+    }
+
+    const ingestLinkIds = parseDiscoveryIngestLinkIds();
+    if (ingestLinkIds) {
+      await runExtractedUrlDiscoveryCycle(ingestLinkIds);
+      return;
+    }
+  }
+
+  const cronSchedule = await loadCronScheduleForWorker();
+  if (cronSchedule?.active) {
+    if (cronSchedule.ingestLinkIds.length === 0) {
+      log.warn("[rss-discovery] cron is active but no RSS feeds are selected");
+      return;
+    }
+    await runExtractedUrlDiscoveryCycle(cronSchedule.ingestLinkIds);
     return;
   }
 
-  const ingestLinkIds = parseDiscoveryIngestLinkIds();
-  if (ingestLinkIds) {
-    await runExtractedUrlDiscoveryCycle(ingestLinkIds);
+  // Cron loop child (RUN_ONCE=false): do not fall back to sources.yaml when inactive.
+  if (isCronLoopMode() && !hasManualEnv) {
+    log.info("[rss-discovery] cron schedule inactive, skipping cycle");
     return;
   }
 
@@ -342,6 +432,30 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
   );
 }
 
+/** Sleep between cron loop cycles (exported for tests). */
+export function computeDiscoveryLoopSleepMs(
+  intervalMs: number,
+  elapsed: number,
+  cronSchedule: CronScheduleConfig | null,
+  now: Date = new Date(),
+): number {
+  const pollIntervalSleep = Math.max(5_000, intervalMs - elapsed);
+  if (!cronSchedule?.active) {
+    return pollIntervalSleep;
+  }
+
+  if (isWithinCronSchedule(cronSchedule, now)) {
+    return pollIntervalSleep;
+  }
+
+  const untilStart = msUntilStartTimeToday(cronSchedule, now);
+  if (untilStart != null && untilStart > 0) {
+    return Math.max(1_000, untilStart);
+  }
+
+  return pollIntervalSleep;
+}
+
 /**
  * Port of `app.workers.rss_discovery.auto_ingest_loop`.
  */
@@ -367,7 +481,25 @@ export async function autoIngestLoop(
 
     const t0 = Date.now();
     try {
-      await runDiscoveryCycle(config);
+      const cronSchedule = await loadCronScheduleForWorker();
+      if (!cronSchedule?.active) {
+        if (isCronLoopMode()) {
+          log.info("[rss-discovery] no active cron schedule, skipping cycle");
+        } else {
+          await runDiscoveryCycle(config);
+        }
+      } else if (!isWithinCronSchedule(cronSchedule)) {
+        const reason = getCronScheduleSkipReason(cronSchedule);
+        log.info(
+          "[rss-discovery] outside schedule window, skipping cycle (%s)",
+          reason ?? "unknown",
+        );
+      } else {
+        log.info(
+          "[rss-discovery] within schedule window — running discovery cycle now",
+        );
+        await runDiscoveryCycle(config);
+      }
     } catch (err) {
       if (stopSignal.aborted) break;
       log.error("[rss-discovery] error during cycle: %s", String(err));
@@ -376,6 +508,22 @@ export async function autoIngestLoop(
     if (runOnce || stopSignal.aborted) break;
 
     const elapsed = Date.now() - t0;
+
+    if (!runOnce) {
+      const cronSchedule = await loadCronScheduleForWorker();
+      const sleepMs = computeDiscoveryLoopSleepMs(
+        intervalMs,
+        elapsed,
+        cronSchedule,
+      );
+      try {
+        await sleep(sleepMs, stopSignal);
+      } catch {
+        break;
+      }
+      continue;
+    }
+
     const sleepMs = Math.max(5_000, intervalMs - elapsed);
 
     try {

@@ -53,7 +53,13 @@ import {
 import { usePagination } from "../../../utils/usePagination";
 import { DiscoveryStartDialog } from "./DiscoveryStartDialog";
 import { UrlIngestionDialog } from "../../common/UrlIngestionDialog";
-import { DataTablePagination } from "../../common/DataTablePagination";
+import { AdminDataTable } from "./AdminDataTable";
+import { AdminSortableTh } from "./AdminSortableTh";
+import {
+  nextTableSort,
+  sortByTableState,
+  type TableSortState,
+} from "./adminTableSort";
 import "../Users/usersPage.css";
 import "./adminRssFeeds.css";
 
@@ -106,6 +112,40 @@ function logMatchesFilters(
   return hay.includes(q);
 }
 
+type LinkSortKey =
+  | "id"
+  | "name"
+  | "url"
+  | "items"
+  | "discovery"
+  | "status"
+  | "added";
+
+function getLinkSortValue(
+  row: IngestLinkRow,
+  key: LinkSortKey,
+  progress: { completed: number },
+): string | number | null {
+  switch (key) {
+    case "id":
+      return row.id;
+    case "name":
+      return row.suggestedName?.trim() || "";
+    case "url":
+      return row.url;
+    case "items":
+      return row.itemCount;
+    case "discovery":
+      return progress.completed;
+    case "status":
+      return row.archived ? 1 : 0;
+    case "added":
+      return row.createdAt;
+    default:
+      return null;
+  }
+}
+
 function linkMatchesFilters(
   row: IngestLinkRow,
   status: string,
@@ -147,6 +187,8 @@ export type AdminRssFeedsSectionProps = {
   idPrefix: string;
   discoveryStatus: ServiceState;
   discoveryApiRunning: boolean;
+  rssTab?: RssSubTab;
+  onRssTabChange?: (tab: RssSubTab) => void;
   onDiscoveryStart: (selection: {
     ingestLinkIds: number[];
     ingestLinkItemIds: number[];
@@ -158,13 +200,17 @@ export function AdminRssFeedsSection({
   idPrefix,
   discoveryStatus,
   discoveryApiRunning,
+  rssTab: rssTabProp,
+  onRssTabChange,
   onDiscoveryStart,
   onDiscoveryStop,
 }: AdminRssFeedsSectionProps) {
   const localId = useId();
   const sid = (name: string) => `${idPrefix}-${localId}-${name}`;
 
-  const [rssTab, setRssTab] = useState<RssSubTab>("links");
+  const [internalRssTab, setInternalRssTab] = useState<RssSubTab>("links");
+  const rssTab = rssTabProp ?? internalRssTab;
+  const setRssTab = onRssTabChange ?? setInternalRssTab;
   const [ingestDialogOpen, setIngestDialogOpen] = useState(false);
   const [linkRows, setLinkRows] = useState<IngestLinkRow[]>([]);
   const [linksLoading, setLinksLoading] = useState(false);
@@ -180,6 +226,9 @@ export function AdminRssFeedsSection({
   const [linkFeedFilter, setLinkFeedFilter] = useState("all");
   const [linkSearchQuery, setLinkSearchQuery] = useState("");
   const [linkPageSize, setLinkPageSize] = useState(10);
+  const [linkSort, setLinkSort] = useState<TableSortState<LinkSortKey> | null>(
+    null,
+  );
   const [linkRowMenuOpenId, setLinkRowMenuOpenId] = useState<number | null>(
     null,
   );
@@ -517,12 +566,6 @@ export function AdminRssFeedsSection({
       ),
     [linkRows, linkStatusFilter, linkItemsFilter, linkFeedFilter, linkSearchQuery],
   );
-  const linkPager = usePagination({
-    items: filteredLinkRows,
-    pageSize: linkPageSize,
-    resetKey: `${linkStatusFilter}|${linkItemsFilter}|${linkFeedFilter}|${linkSearchQuery}`,
-  });
-  const linkPageRows = linkPager.pageItems ?? [];
 
   const linkRowMenuFeed = useMemo(() => {
     if (linkRowMenuOpenId == null) return null;
@@ -534,10 +577,6 @@ export function AdminRssFeedsSection({
       closeLinkRowMenu();
     }
   }, [linkRowMenuOpenId, linkRowMenuFeed, closeLinkRowMenu]);
-
-  useEffect(() => {
-    closeLinkRowMenu();
-  }, [linkPager.page, closeLinkRowMenu]);
 
   const discoveryProgressByFeed = useMemo(() => {
     const map = new Map<
@@ -581,6 +620,30 @@ export function AdminRssFeedsSection({
 
     return map;
   }, [logRows, activeLinkIds, linkRows]);
+
+  const sortedLinkRows = useMemo(() => {
+    if (!linkSort) return filteredLinkRows;
+
+    return sortByTableState(filteredLinkRows, linkSort, (row, key) =>
+      getLinkSortValue(
+        row,
+        key,
+        discoveryProgressByFeed.get(row.id) ?? { completed: 0 },
+      ),
+    );
+  }, [filteredLinkRows, linkSort, discoveryProgressByFeed]);
+
+  const linkPager = usePagination({
+    items: sortedLinkRows,
+    pageSize: linkPageSize,
+    resetKey: `${linkStatusFilter}|${linkItemsFilter}|${linkFeedFilter}|${linkSearchQuery}|${linkSort?.key ?? ""}|${linkSort?.direction ?? ""}`,
+  });
+  const linkPageRows = linkPager.pageItems ?? [];
+
+  useEffect(() => {
+    closeLinkRowMenu();
+  }, [linkPager.page, closeLinkRowMenu]);
+
   const logsPerFeedIndex = useMemo(() => {
     const byFeed = new Map<number, DiscoveryLogRow[]>();
     for (const row of logRows) {
@@ -751,7 +814,8 @@ export function AdminRssFeedsSection({
             </h2>
             <p className="adminPage__cardHint">
               Enqueues ingest jobs for extracted article URLs on selected feeds.
-              Run Extract on each feed before starting discovery.
+              Manual runs and cron schedules use the same logs below. Run Extract
+              on each feed before starting discovery.
             </p>
           </div>
         </div>
@@ -828,7 +892,10 @@ export function AdminRssFeedsSection({
         </div>
 
         {rssTab === "links" && (
-          <>
+            <AdminDataTable
+              ariaLabel="Feed URLs"
+              wrapClassName="adminPage__tableWrap--links"
+              filters={
             <section
               className="adminPage__dataFilters"
               aria-label="Filter feeds"
@@ -906,9 +973,18 @@ export function AdminRssFeedsSection({
                 />
               </div>
             </section>
-            <section className="adminPage__tableSection" aria-label="Feed URLs">
-              <div className="adminPage__tableWrap adminPage__tableWrap--links">
-                <div className="adminPage__tableScroll">
+              }
+              pagination={{
+                page: linkPager.page,
+                pageCount: linkPager.pageCount,
+                total: linkPager.total,
+                pageSize: linkPager.pageSize,
+                from: linkPager.from,
+                to: linkPager.to,
+                onPageChange: linkPager.setPage,
+                onPageSizeChange: setLinkPageSize,
+              }}
+            >
                   <table className="adminPage__table adminPage__table--links">
                     <colgroup>
                       <col className="adminPage__colId" />
@@ -922,39 +998,67 @@ export function AdminRssFeedsSection({
                     </colgroup>
                     <thead>
                       <tr>
-                        <th scope="col" className="adminPage__th">
-                          ID
-                        </th>
-                        <th scope="col" className="adminPage__th">
-                          URL Name
-                        </th>
-                        <th
-                          scope="col"
-                          className="adminPage__th adminPage__feedUrlCol"
-                        >
-                          Feed URL
-                        </th>
-                        <th
-                          scope="col"
-                          className="adminPage__th adminPage__th--center"
-                        >
-                          Items
-                        </th>
-                        <th
-                          scope="col"
-                          className="adminPage__th adminPage__th--discovery"
-                        >
-                          RSS Discovery progress
-                        </th>
-                        <th
-                          scope="col"
-                          className="adminPage__th adminPage__th--center"
-                        >
-                          Status
-                        </th>
-                        <th scope="col" className="adminPage__th">
-                          Added
-                        </th>
+                        <AdminSortableTh
+                          label="ID"
+                          sortKey="id"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                          className="adminPage__th--center"
+                        />
+                        <AdminSortableTh
+                          label="URL Name"
+                          sortKey="name"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                        />
+                        <AdminSortableTh
+                          label="Feed URL"
+                          sortKey="url"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                          className="adminPage__feedUrlCol"
+                        />
+                        <AdminSortableTh
+                          label="Items"
+                          sortKey="items"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                          className="adminPage__th--center"
+                        />
+                        <AdminSortableTh
+                          label="RSS Discovery progress"
+                          sortKey="discovery"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                          className="adminPage__th--discovery"
+                        />
+                        <AdminSortableTh
+                          label="Status"
+                          sortKey="status"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                          className="adminPage__th--center"
+                        />
+                        <AdminSortableTh
+                          label="Added"
+                          sortKey="added"
+                          sort={linkSort}
+                          onSort={(key) =>
+                            setLinkSort((current) => nextTableSort(current, key))
+                          }
+                        />
                         <th
                           scope="col"
                           className="adminPage__th adminPage__th--actions adminPage__th--actionsSticky"
@@ -1015,7 +1119,7 @@ export function AdminRssFeedsSection({
                                     : undefined
                                 }
                               >
-                                <td className="adminPage__td">
+                                <td className="adminPage__td adminPage__th--center">
                                   <span
                                     className="adminPage__id"
                                     title={`Feed ID #${row.id}`}
@@ -1230,25 +1334,14 @@ export function AdminRssFeedsSection({
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
-              <DataTablePagination
-                className="usersPage__pager"
-                page={linkPager.page}
-                pageCount={linkPager.pageCount}
-                total={linkPager.total}
-                pageSize={linkPager.pageSize}
-                from={linkPager.from}
-                to={linkPager.to}
-                onPageChange={linkPager.setPage}
-                onPageSizeChange={setLinkPageSize}
-              />
-            </section>
-          </>
+            </AdminDataTable>
         )}
 
         {rssTab === "logs" && (
-          <>
+            <AdminDataTable
+              ariaLabel="Discovery logs"
+              wrapClassName="adminPage__tableWrap--logs"
+              filters={
             <section
               className="adminPage__dataFilters"
               aria-label="Filter logs"
@@ -1316,20 +1409,40 @@ export function AdminRssFeedsSection({
                 />
               </div>
             </section>
-
-            <section
-              className="adminPage__tableSection"
-              aria-label="Discovery logs"
+              }
+              pagination={{
+                page: logPager.page,
+                pageCount: logPager.pageCount,
+                total: logPager.total,
+                pageSize: logPager.pageSize,
+                from: logPager.from,
+                to: logPager.to,
+                onPageChange: logPager.setPage,
+                onPageSizeChange: setLogPageSize,
+              }}
             >
-              <div className="adminPage__tableWrap adminPage__tableWrap--logs">
-                <div className="adminPage__tableScroll">
                   <table className="adminPage__table adminPage__table--logs">
+                    <colgroup>
+                      <col className="adminPage__colLogFeedId" />
+                      <col className="adminPage__colLogExtracted" />
+                      <col className="adminPage__colLogJob" />
+                      <col className="adminPage__colLogUrl" />
+                      <col className="adminPage__colLogReason" />
+                      <col className="adminPage__colLogStatus" />
+                      <col className="adminPage__colLogExecution" />
+                    </colgroup>
                     <thead>
                       <tr>
-                        <th scope="col" className="adminPage__th">
+                        <th
+                          scope="col"
+                          className="adminPage__th adminPage__th--center"
+                        >
                           Feed ID
                         </th>
-                        <th scope="col" className="adminPage__th">
+                        <th
+                          scope="col"
+                          className="adminPage__th adminPage__th--center"
+                        >
                           Extracted
                         </th>
                         <th
@@ -1350,7 +1463,6 @@ export function AdminRssFeedsSection({
                         >
                           Status
                         </th>
-
                         <th scope="col" className="adminPage__th">
                           Execution time
                         </th>
@@ -1376,7 +1488,7 @@ export function AdminRssFeedsSection({
                             logStatusFilter !== "all" ||
                             logFeedFilter !== "all"
                               ? "No logs match your filters."
-                              : "No discovery runs yet. Start discovery on selected feeds to queue URLs."}
+                              : "No discovery runs yet. Start discovery manually or save a cron schedule to queue URLs."}
                           </td>
                         </tr>
                       ) : (
@@ -1384,12 +1496,12 @@ export function AdminRssFeedsSection({
                           <tr
                             key={`${row.ingestLinkItemId}-${row.jobId ?? "none"}`}
                           >
-                            <td className="adminPage__td">
+                            <td className="adminPage__td adminPage__td--center">
                               <span className="adminPage__id">
                                 #{row.ingestLinkId}
                               </span>
                             </td>
-                            <td className="adminPage__td">
+                            <td className="adminPage__td adminPage__td--center">
                               <span
                                 className="adminPage__id"
                                 title={`Extracted item ID #${row.ingestLinkItemId}`}
@@ -1399,7 +1511,7 @@ export function AdminRssFeedsSection({
                                   1}
                               </span>
                             </td>
-                            <td className="adminPage__td adminPage__th--center">
+                            <td className="adminPage__td adminPage__td--center">
                               {row.jobId != null ? (
                                 <span className="adminPage__id">
                                   #{row.jobId}
@@ -1422,7 +1534,7 @@ export function AdminRssFeedsSection({
                             <td className="adminPage__td adminPage__cellMuted adminPage__reasonCell">
                               {row.reason || "—"}
                             </td>
-                            <td className="adminPage__td adminPage__th--center">
+                            <td className="adminPage__td adminPage__td--center">
                               <span
                                 className={`adminPage__statusPill ${discoveryLogStatusClass(row.status)}`}
                               >
@@ -1430,7 +1542,7 @@ export function AdminRssFeedsSection({
                               </span>
                             </td>
 
-                            <td className="adminPage__td adminPage__cellMuted">
+                            <td className="adminPage__td adminPage__executionTimeCell">
                               <div className="adminPage__executionCell">
                                 <span className="adminPage__executionDuration">
                                   {formatDurationMs(row.executionMs)}
@@ -1445,21 +1557,7 @@ export function AdminRssFeedsSection({
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
-              <DataTablePagination
-                className="usersPage__pager"
-                page={logPager.page}
-                pageCount={logPager.pageCount}
-                total={logPager.total}
-                pageSize={logPager.pageSize}
-                from={logPager.from}
-                to={logPager.to}
-                onPageChange={logPager.setPage}
-                onPageSizeChange={setLogPageSize}
-              />
-            </section>
-          </>
+            </AdminDataTable>
         )}
       </section>
 

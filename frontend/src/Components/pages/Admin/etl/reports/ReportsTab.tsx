@@ -7,13 +7,26 @@ import {
   Database,
   Plus,
   RefreshCw,
+  Search,
 } from "lucide-react";
+import { AdminDataTable } from "../../AdminDataTable";
+import { AdminSortableTh } from "../../AdminSortableTh";
+import {
+  nextTableSort,
+  sortByTableState,
+  type TableSortState,
+} from "../../adminTableSort";
 import { AdminServiceRow } from "../../AdminServiceRow";
 import {
   resolveReportsWorkerDisplayStatus,
   type ServiceState,
 } from "../../adminServices";
-import { formatRelativeDate } from "../../../../../utils/formatDate";
+import {
+  formatDisplayDate,
+  formatDurationMs,
+  // formatJobExecutedAt,
+  formatRelativeDate,
+} from "../../../../../utils/formatDate";
 import {
   archiveEtlReportUpload,
   fetchEtlReportUploadItems,
@@ -25,6 +38,7 @@ import {
   fetchReportsLogs,
   type ReportsLogRow,
 } from "../../../../../utils/reportsLogsApi";
+import { usePagination } from "../../../../../utils/usePagination";
 import { uploadEtlReports } from "../etlUpload";
 import { ReportsUploadDialog } from "./ReportsUploadDialog";
 import { ReportsStartDialog } from "./ReportsStartDialog";
@@ -42,12 +56,59 @@ interface ReportsTabProps {
   onWorkerStop: () => void;
 }
 
-const TABLE_COL_SPAN = 6;
+const TABLE_COL_SPAN = 7;
 const TERMINAL_DISCOVERY_STATUSES = new Set(["EXECUTED", "SKIPPED", "FAILED"]);
 const RUNNING_DISCOVERY_STATUSES = new Set(["PENDING", "RUNNING"]);
 
 function itemCountForRow(row: EtlReportUploadRow): number {
   return row.importedRows > 0 ? row.importedRows : row.totalRows;
+}
+
+function extractionEndedAt(row: EtlReportUploadRow): string | null {
+  if (row.status === "processing") return null;
+  return row.updatedAt;
+}
+
+type UploadSortKey =
+  | "id"
+  | "name"
+  | "items"
+  | "discovery"
+  | "added"
+  | "extraction";
+
+function getUploadSortValue(
+  row: EtlReportUploadRow,
+  key: UploadSortKey,
+  progress: { completed: number },
+): string | number | null {
+  switch (key) {
+    case "id":
+      return row.id;
+    case "name":
+      return row.suggestedName?.trim() || "";
+    case "items":
+      return itemCountForRow(row);
+    case "discovery":
+      return progress.completed;
+    case "added":
+      return row.createdAt;
+    case "extraction": {
+      const end = extractionEndedAt(row);
+      if (!end) return null;
+      return new Date(end).getTime() - new Date(row.createdAt).getTime();
+    }
+    default:
+      return null;
+  }
+}
+
+function uploadMatchesSearch(row: EtlReportUploadRow, search: string): boolean {
+  const q = search.trim().toLowerCase();
+  if (!q) return true;
+
+  const hay = [row.id, row.suggestedName ?? ""].join(" ").toLowerCase();
+  return hay.includes(q);
 }
 
 export function ReportsTab({
@@ -75,6 +136,11 @@ export function ReportsTab({
   const [logRows, setLogRows] = useState<ReportsLogRow[]>([]);
   const [logsRefreshing, setLogsRefreshing] = useState(false);
   const [runWarmup, setRunWarmup] = useState(false);
+  const [uploadSearchQuery, setUploadSearchQuery] = useState("");
+  const [uploadPageSize, setUploadPageSize] = useState(10);
+  const [uploadSort, setUploadSort] = useState<TableSortState<UploadSortKey> | null>(
+    null,
+  );
 
   const sid = (name: string) => `${idPrefix}-reports-${baseId}-${name}`;
 
@@ -116,14 +182,21 @@ export function ReportsTab({
       { total: number; completed: number; running: number }
     >();
 
+    for (const upload of uploads) {
+      const itemCount = itemCountForRow(upload);
+      if (itemCount > 0) {
+        map.set(upload.id, {
+          total: itemCount,
+          completed: 0,
+          running: 0,
+        });
+      }
+    }
+
     for (const row of latestLogRows) {
       if (!row.uploadId) continue;
-      const current = map.get(row.uploadId) ?? {
-        total: 0,
-        completed: 0,
-        running: 0,
-      };
-      current.total += 1;
+      const current = map.get(row.uploadId);
+      if (!current) continue;
       const status = row.status.toUpperCase();
       if (TERMINAL_DISCOVERY_STATUSES.has(status)) {
         current.completed += 1;
@@ -134,7 +207,32 @@ export function ReportsTab({
     }
 
     return map;
-  }, [latestLogRows]);
+  }, [uploads, latestLogRows]);
+
+  const filteredUploads = useMemo(
+    () => uploads.filter((row) => uploadMatchesSearch(row, uploadSearchQuery)),
+    [uploads, uploadSearchQuery],
+  );
+
+  const sortedUploads = useMemo(() => {
+    if (!uploadSort) return filteredUploads;
+
+    return sortByTableState(filteredUploads, uploadSort, (row, key) =>
+      getUploadSortValue(
+        row,
+        key,
+        discoveryProgressByUpload.get(row.id) ?? { completed: 0 },
+      ),
+    );
+  }, [filteredUploads, uploadSort, discoveryProgressByUpload]);
+
+  const uploadPager = usePagination({
+    items: sortedUploads,
+    pageSize: uploadPageSize,
+    resetKey: `${uploadSearchQuery}|${uploadSort?.key ?? ""}|${uploadSort?.direction ?? ""}`,
+  });
+
+  const uploadPageRows = uploadPager.pageItems ?? [];
 
   const loadReportsLogs = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -298,7 +396,7 @@ export function ReportsTab({
           </span>
           <div className="adminPage__cardHeadText">
             <h2 id={sid("title")} className="adminPage__cardTitle">
-              Reports Service
+              ETL Reports Service
             </h2>
             <p className="adminPage__cardHint">
               Import AI Incident Database report records from a CSV or Excel file.
@@ -323,79 +421,145 @@ export function ReportsTab({
         className="adminPage__rssWorkspace"
         aria-labelledby={sid("workspace-title")}
       >
-        <div className="adminPage__rssWorkspaceHead">
-          <div className="adminPage__rssWorkspaceTopRow">
-            <h2
-              id={sid("workspace-title")}
-              className="adminPage__cardTitle adminPage__rssWorkspaceTitle"
+        <h2
+          id={sid("workspace-title")}
+          className="adminPage__cardTitle adminPage__rssWorkspaceTitle"
+        >
+          Report uploads
+        </h2>
+
+        <AdminDataTable
+          ariaLabel="Report uploads"
+          wrapClassName="adminPage__tableWrap--links"
+          filters={
+            <div
+              className="adminPage__dataTableToolbar"
+              aria-label="Report uploads toolbar"
             >
-              Report uploads
-            </h2>
-            <div className="adminPage__rssWorkspaceActions">
-              <button
-                type="button"
-                className="usersPage__inviteBtn adminPage__rssRefreshBtn"
-                onClick={() => {
-                  void loadUploads({ silent: true });
-                  void loadReportsLogs({ silent: true });
-                }}
-                disabled={
-                  uploadsLoading || uploadsRefreshing || logsRefreshing
-                }
-                aria-busy={
-                  uploadsLoading || uploadsRefreshing || logsRefreshing
-                }
-              >
-                <RefreshCw
+              <div className="adminPage__dataTableToolbarActions">
+                <button
+                  type="button"
+                  className="usersPage__inviteBtn adminPage__rssRefreshBtn"
+                  onClick={() => {
+                    void loadUploads({ silent: true });
+                    void loadReportsLogs({ silent: true });
+                  }}
+                  disabled={
+                    uploadsLoading || uploadsRefreshing || logsRefreshing
+                  }
+                  aria-busy={
+                    uploadsLoading || uploadsRefreshing || logsRefreshing
+                  }
+                >
+                  <RefreshCw
+                    size={18}
+                    strokeWidth={2}
+                    className={
+                      uploadsRefreshing || logsRefreshing
+                        ? "pageHeader__refreshIcon--spin"
+                        : undefined
+                    }
+                    aria-hidden
+                  />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  className="usersPage__inviteBtn adminPage__rssIngestBtn"
+                  onClick={() => setUploadDialogOpen(true)}
+                  disabled={uploading}
+                  aria-busy={uploading}
+                >
+                  <Plus size={18} strokeWidth={2} aria-hidden />
+                  Upload CSV
+                </button>
+              </div>
+              <div className="adminPage__dataTableToolbarSearch">
+                <Search
+                  className="adminPage__linksSearchIcon"
                   size={18}
                   strokeWidth={2}
-                  className={
-                    uploadsRefreshing || logsRefreshing
-                      ? "pageHeader__refreshIcon--spin"
-                      : undefined
-                  }
                   aria-hidden
                 />
-                Refresh
-              </button>
-              <button
-                type="button"
-                className="usersPage__inviteBtn adminPage__rssIngestBtn"
-                onClick={() => setUploadDialogOpen(true)}
-                disabled={uploading}
-                aria-busy={uploading}
-              >
-                <Plus size={18} strokeWidth={2} aria-hidden />
-                Upload CSV
-              </button>
+                <input
+                  id={sid("uploads-search")}
+                  type="search"
+                  className="adminPage__linksSearchInput"
+                  placeholder="Search ID or suggested name…"
+                  value={uploadSearchQuery}
+                  onChange={(e) => setUploadSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  enterKeyHint="search"
+                  aria-label="Search by ID or suggested name"
+                />
+              </div>
             </div>
-          </div>
-        </div>
-
-        <section className="adminPage__tableSection" aria-label="Report uploads">
-          <div className="adminPage__tableWrap adminPage__tableWrap--links">
-            <div className="adminPage__tableScroll">
+          }
+          pagination={{
+            page: uploadPager.page,
+            pageCount: uploadPager.pageCount,
+            total: uploadPager.total,
+            pageSize: uploadPager.pageSize,
+            from: uploadPager.from,
+            to: uploadPager.to,
+            onPageChange: uploadPager.setPage,
+            onPageSizeChange: setUploadPageSize,
+          }}
+        >
               <table className="adminPage__table adminPage__table--links">
                 <thead>
                   <tr>
-                    <th scope="col" className="adminPage__th">
-                      ID
-                    </th>
-                    <th scope="col" className="adminPage__th">
-                      Suggested name
-                    </th>
-                    <th
-                      scope="col"
-                      className="adminPage__th adminPage__th--center"
-                    >
-                      Items
-                    </th>
-                    <th scope="col" className="adminPage__th">
-                      Discovery progress
-                    </th>
-                    <th scope="col" className="adminPage__th">
-                      Added
-                    </th>
+                    <AdminSortableTh
+                      label="ID"
+                      sortKey="id"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                      className="adminPage__th--center"
+                    />
+                    <AdminSortableTh
+                      label="Suggested name"
+                      sortKey="name"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                    />
+                    <AdminSortableTh
+                      label="Items"
+                      sortKey="items"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                      className="adminPage__th--center"
+                    />
+                    <AdminSortableTh
+                      label="Discovery progress"
+                      sortKey="discovery"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                    />
+                    <AdminSortableTh
+                      label="Added"
+                      sortKey="added"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                    />
+                    <AdminSortableTh
+                      label="Extraction"
+                      sortKey="extraction"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                      className="adminPage__th--center"
+                    />
                     <th
                       scope="col"
                       className="adminPage__th adminPage__th--actions"
@@ -405,7 +569,7 @@ export function ReportsTab({
                   </tr>
                 </thead>
                 <tbody>
-                  {uploadsLoading && uploads.length === 0 ? (
+                  {uploadsLoading && filteredUploads.length === 0 ? (
                     <tr>
                       <td
                         className="adminPage__td adminPage__emptyCell"
@@ -414,18 +578,19 @@ export function ReportsTab({
                         Loading report uploads…
                       </td>
                     </tr>
-                  ) : uploads.length === 0 ? (
+                  ) : filteredUploads.length === 0 ? (
                     <tr>
                       <td
                         className="adminPage__td adminPage__emptyCell"
                         colSpan={TABLE_COL_SPAN}
                       >
-                        No report uploads yet. Upload a CSV or Excel file to get
-                        started.
+                        {uploadSearchQuery.trim()
+                          ? "No uploads match your search."
+                          : "No report uploads yet. Upload a CSV or Excel file to get started."}
                       </td>
                     </tr>
                   ) : (
-                    uploads.map((row) => {
+                    uploadPageRows.map((row) => {
                       const busy = actionId === row.id;
                       const isExpanded = expandedUploadId === row.id;
                       const items = itemCountForRow(row);
@@ -442,11 +607,19 @@ export function ReportsTab({
                               (progress.completed / progress.total) * 100,
                             )
                           : 0;
+                      const extractionEnd = extractionEndedAt(row);
+                      const extractionDurationMs =
+                        extractionEnd != null
+                          ? new Date(extractionEnd).getTime() -
+                            new Date(row.createdAt).getTime()
+                          : null;
+                      const addedRelative = formatRelativeDate(row.createdAt);
+                      const addedDate = formatDisplayDate(row.createdAt);
 
                       return (
                         <Fragment key={row.id}>
                           <tr>
-                            <td className="adminPage__td">
+                            <td className="adminPage__td adminPage__th--center">
                               <span
                                 className="adminPage__id"
                                 title={`Upload ID #${row.id}`}
@@ -493,7 +666,9 @@ export function ReportsTab({
                               </div>
                             </td>
                             <td className="adminPage__td adminPage__discoveryProgressCell">
-                              {progress.total > 0 ? (
+                              {progress.total > 0 ||
+                              progress.completed > 0 ||
+                              progress.running > 0 ? (
                                 <div
                                   className="adminPage__discoveryProgress"
                                   aria-label={`${progress.completed} completed, ${progress.running} running, ${progress.total} total`}
@@ -507,11 +682,8 @@ export function ReportsTab({
                                       <span>{progress.running} running</span>
                                     ) : progress.completed === progress.total ? (
                                       <span>Complete</span>
-                                    ) : (
-                                      <span className="adminPage__cellMuted">
-                                        Waiting
-                                      </span>
-                                    )}
+                                    ) : null}
+                                    {/* <span className="adminPage__cellMuted">Waiting</span> */}
                                   </div>
                                   <div
                                     className="adminPage__discoveryProgressTrack"
@@ -532,8 +704,33 @@ export function ReportsTab({
                                 </span>
                               )}
                             </td>
-                            <td className="adminPage__td adminPage__cellMuted">
-                              {formatRelativeDate(row.createdAt)}
+                            <td className="adminPage__td adminPage__addedAtCell">
+                              <div className="adminPage__addedAt">
+                                <span>{addedRelative}</span>
+                                {addedRelative !== addedDate ? (
+                                  <span className="adminPage__cellMuted">
+                                    {addedDate}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td className="adminPage__td adminPage__th--center adminPage__extractionTimesCell">
+                              <div className="adminPage__extractionTimes">
+                                {/* <span title={row.createdAt}>
+                                  Start: {formatJobExecutedAt(row.createdAt)}
+                                </span>
+                                <span title={extractionEnd ?? undefined}>
+                                  End:{" "}
+                                  {extractionEnd
+                                    ? formatJobExecutedAt(extractionEnd)
+                                    : "In progress"}
+                                </span> */}
+                                {extractionDurationMs != null ? (
+                                  <span className="adminPage__cellMuted">
+                                    {formatDurationMs(extractionDurationMs)}
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                             <td className="adminPage__td">
                               <div className="adminPage__actions">
@@ -627,9 +824,7 @@ export function ReportsTab({
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
-        </section>
+        </AdminDataTable>
       </section>
 
       <ReportsUploadDialog

@@ -8,6 +8,7 @@ import { risksRouter } from "./risks.routes.js";
 import { dashboardRouter } from "./dashboard.routes.js";
 import { observabilityRouter } from "./observability.routes.js";
 import { notificationsRouter } from "../notifications/notifications.routes.js";
+import { internalRouter } from "./internal.routes.js";
 
 export const apiRouter: Router = Router();
 
@@ -15,6 +16,7 @@ apiRouter.get("/health", (_req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
+apiRouter.use("/internal", internalRouter);
 apiRouter.use("/auth", authRouter);
 apiRouter.use("/users", usersRouter);
 apiRouter.use("/admin", adminRouter);

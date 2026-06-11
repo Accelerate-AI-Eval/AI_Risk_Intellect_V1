@@ -1,5 +1,8 @@
 import type { ChildProcess } from "node:child_process";
+import { createLogger } from "../../logger/index.js";
 import { workerState } from "../../workers/state.js";
+
+const workerManagerLog = createLogger("worker-manager");
 import {
   killChildProcess,
   spawnBackendScript,
@@ -25,6 +28,53 @@ export function getWorkerStatus(): {
   };
 }
 
+export function ensureWorkerProcessRunning(): {
+  pid: number | null;
+  started: boolean;
+} {
+  if (isRunning()) {
+    return {
+      pid: workerState.jobWorkerChild?.pid ?? null,
+      started: false,
+    };
+  }
+
+  try {
+    const { pid } = startWorkerProcess();
+    return { pid, started: true };
+  } catch {
+    return { pid: null, started: false };
+  }
+}
+
+/**
+ * Discovery runs in a child process; ask the API server to start the managed worker.
+ */
+export async function requestWorkerServiceStart(): Promise<void> {
+  if (process.env.BACKEND_MANAGED_CHILD === "1") {
+    const port = process.env.PORT ?? process.env.BACKEND_PORT ?? "5005";
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:${port}/api/v1/internal/services/worker/ensure`,
+        {
+          method: "POST",
+          signal: AbortSignal.timeout(8_000),
+        },
+      );
+      if (!res.ok) {
+        workerManagerLog.warn("Worker ensure request failed", {
+          status: res.status,
+        });
+      }
+    } catch (err) {
+      workerManagerLog.warn("Could not request worker start from API", { err });
+    }
+    return;
+  }
+
+  ensureWorkerProcessRunning();
+}
+
 export function startWorkerProcess(): { pid: number } {
   if (isRunning()) {
     return { pid: workerState.jobWorkerChild!.pid! };
@@ -36,14 +86,16 @@ export function startWorkerProcess(): { pid: number } {
   workerState.jobWorkerEnabled = true;
 
   child.stdout?.on("data", (chunk: Buffer) => {
-    process.stdout.write(chunk);
+    const text = chunk.toString().trimEnd();
+    if (text) workerManagerLog.info(text);
   });
   child.stderr?.on("data", (chunk: Buffer) => {
-    process.stderr.write(chunk);
+    const text = chunk.toString().trimEnd();
+    if (text) workerManagerLog.warn(text);
   });
 
   child.on("error", (err) => {
-    console.error("[worker-manager] child process error:", err);
+    workerManagerLog.error("Child process error", { err });
     workerState.jobWorkerEnabled = false;
     workerState.jobWorkerChild = null;
   });
