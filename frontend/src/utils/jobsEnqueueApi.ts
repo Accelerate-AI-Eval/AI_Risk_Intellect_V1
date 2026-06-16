@@ -22,7 +22,6 @@ export async function enqueueJobUrl(url: string): Promise<
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: trimmed }),
     });
-    console.log("Error here")
     const data = (await res.json().catch(() => ({}))) as ApiErrorBody;
 
     if (res.status === 201) {

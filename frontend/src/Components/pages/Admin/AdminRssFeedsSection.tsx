@@ -1008,12 +1008,13 @@ export function AdminRssFeedsSection({
                           className="adminPage__th--center"
                         />
                         <AdminSortableTh
-                          label="URL Name"
+                          label="Suggested name"
                           sortKey="name"
                           sort={linkSort}
                           onSort={(key) =>
                             setLinkSort((current) => nextTableSort(current, key))
                           }
+                          className="adminPage__nameCol"
                         />
                         <AdminSortableTh
                           label="Feed URL"
@@ -1127,7 +1128,7 @@ export function AdminRssFeedsSection({
                                     #{row.id}
                                   </span>
                                 </td>
-                                <td className="adminPage__td adminPage__cellMuted">
+                                <td className="adminPage__td adminPage__cellMuted adminPage__nameCol">
                                   {row.suggestedName?.trim() || "—"}
                                 </td>
                                 <td className="adminPage__td adminPage__feedUrlCol">
@@ -1272,7 +1273,8 @@ export function AdminRssFeedsSection({
                                       aria-label={`Extracted links for feed #${row.id}`}
                                     >
                                       <p className="adminPage__itemsPanelTitle">
-                                        Extracted links for feed #{row.id}
+                                        {row.suggestedName?.trim() ||
+                                          `Feed #${row.id}`}
                                       </p>
                                       {feedItemsLoading ? (
                                         <p

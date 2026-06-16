@@ -6,6 +6,7 @@ import "../../../Users/usersPage.css";
 export interface ReportsUploadDialogProps {
   open: boolean;
   uploading: boolean;
+  reuploadTarget?: { id: number; suggestedName: string | null } | null;
   onClose: () => void;
   onSubmit: (payload: { suggestedName: string; file: File }) => void;
 }
@@ -13,6 +14,7 @@ export interface ReportsUploadDialogProps {
 export function ReportsUploadDialog({
   open,
   uploading,
+  reuploadTarget = null,
   onClose,
   onSubmit,
 }: ReportsUploadDialogProps) {
@@ -36,8 +38,11 @@ export function ReportsUploadDialog({
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+    setSuggestedName(reuploadTarget?.suggestedName?.trim() ?? "");
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     dialogRef.current?.querySelector<HTMLInputElement>("input[type=text]")?.focus();
-  }, [open]);
+  }, [open, reuploadTarget]);
 
   const handleSubmit = useCallback(() => {
     if (!selectedFile) {
@@ -76,7 +81,7 @@ export function ReportsUploadDialog({
       >
         <div className="usersPage__dialogHead">
           <h2 id={titleId} className="usersPage__dialogTitle">
-            Upload reports
+            {reuploadTarget ? `Reupload report #${reuploadTarget.id}` : "Upload reports"}
           </h2>
           <button
             type="button"
@@ -145,7 +150,13 @@ export function ReportsUploadDialog({
               aria-busy={uploading}
             >
               <Upload size={16} strokeWidth={2} aria-hidden />
-              {uploading ? "Uploading…" : "Upload"}
+              {uploading
+                ? reuploadTarget
+                  ? "Reuploading…"
+                  : "Uploading…"
+                : reuploadTarget
+                  ? "Reupload"
+                  : "Upload"}
             </button>
           </div>
         </div>

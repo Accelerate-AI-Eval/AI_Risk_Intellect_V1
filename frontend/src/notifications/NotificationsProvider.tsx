@@ -17,11 +17,13 @@ import {
 import { maybeToastNotification } from "./notificationToasts";
 import type { NotificationItem, NotificationKind } from "./types";
 
-const POLL_MS = 20_000;
+const POLL_MS = 8_000;
 
 const CRON_TOAST_KINDS: NotificationKind[] = [
   "cron_job_started",
   "cron_job_stopped",
+  "cron_job_scheduled",
+  "cron_job_completed",
 ];
 
 type NotificationsContextValue = {

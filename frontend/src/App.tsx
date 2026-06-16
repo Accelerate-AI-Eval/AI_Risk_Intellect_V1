@@ -44,8 +44,9 @@ function App() {
             <Route path="/observability" element={<ObservabilityPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/users" element={<UsersPage />} />
-            {/* Settings content lives on Controls; redirect legacy URL */}
+            {/* Settings content lives on Controls; redirect legacy URLs */}
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/admin" element={<Navigate to="/controls" replace />} />
             <Route path="/account" element={<AccountPage />} />
           </Route>
         </Route>

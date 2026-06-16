@@ -9,6 +9,34 @@ import type { DiscoveryLogRow } from "../../../utils/discoveryLogsApi";
 import "../Users/usersPage.css";
 import "./adminRssFeeds.css";
 
+const COMPLETED_DISCOVERY_STATUSES = new Set(["EXECUTED", "SKIPPED", "FAILED"]);
+
+function buildLatestLogStatusByItemId(
+  logs: DiscoveryLogRow[],
+): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const row of logs) {
+    if (!row.ingestLinkItemId || map.has(row.ingestLinkItemId)) continue;
+    map.set(row.ingestLinkItemId, row.status.toUpperCase());
+  }
+  return map;
+}
+
+function notCompletedItemIds(
+  items: IngestLinkItemRow[],
+  statusByItemId: Map<number, string>,
+): Set<number> {
+  const selected = new Set<number>();
+  for (const item of items) {
+    const status = statusByItemId.get(item.id);
+    const isCompleted = status
+      ? COMPLETED_DISCOVERY_STATUSES.has(status)
+      : false;
+    if (!isCompleted) selected.add(item.id);
+  }
+  return selected;
+}
+
 export type DiscoveryStartDialogProps = {
   open: boolean;
   links: IngestLinkRow[];
@@ -51,14 +79,10 @@ export function DiscoveryStartDialog({
     () => new Map(allItems.map((item) => [item.id, item.ingestLinkId])),
     [allItems],
   );
-  const latestLogStatusByItemId = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const row of logs) {
-      if (!row.ingestLinkItemId || map.has(row.ingestLinkItemId)) continue;
-      map.set(row.ingestLinkItemId, row.status.toUpperCase());
-    }
-    return map;
-  }, [logs]);
+  const latestLogStatusByItemId = useMemo(
+    () => buildLatestLogStatusByItemId(logs),
+    [logs],
+  );
   const allSelected =
     allIds.length > 0 && allIds.every((id) => selectedItemIds.has(id));
   const someSelected = allIds.some((id) => selectedItemIds.has(id));
@@ -90,15 +114,14 @@ export function DiscoveryStartDialog({
       .then((rows) => {
         if (cancelled) return;
         const next: Record<number, IngestLinkItemRow[]> = {};
-        const selected = new Set<number>();
+        const fetchedItems: IngestLinkItemRow[] = [];
         for (const row of rows) {
           next[row.linkId] = row.items;
-          for (const item of row.items) {
-            selected.add(item.id);
-          }
+          fetchedItems.push(...row.items);
         }
+        const statusByItemId = buildLatestLogStatusByItemId(logs);
         setItemsByLinkId(next);
-        setSelectedItemIds(selected);
+        setSelectedItemIds(notCompletedItemIds(fetchedItems, statusByItemId));
       })
       .finally(() => {
         if (!cancelled) setItemsLoading(false);
@@ -107,7 +130,7 @@ export function DiscoveryStartDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, links, linksLoading]);
+  }, [open, links, linksLoading, logs]);
 
   useEffect(() => {
     const el = selectAllRef.current;
@@ -167,36 +190,22 @@ export function DiscoveryStartDialog({
     });
   }, []);
 
-  const applyCompletionPreset = useCallback(
-    (mode: "completed" | "notCompleted") => {
-      const completedStatuses = new Set(["EXECUTED", "SKIPPED", "FAILED"]);
+  const selectNotCompletedOnly = useCallback(() => {
+    const selectedFeedIds = new Set<number>();
+    for (const itemId of selectedItemIds) {
+      const feedId = itemLinkById.get(itemId);
+      if (typeof feedId === "number") selectedFeedIds.add(feedId);
+    }
 
-      const selectedFeedIds = new Set<number>();
-      for (const itemId of selectedItemIds) {
-        const feedId = itemLinkById.get(itemId);
-        if (typeof feedId === "number") selectedFeedIds.add(feedId);
-      }
+    const targetItems =
+      selectedFeedIds.size > 0
+        ? allItems.filter((item) => selectedFeedIds.has(item.ingestLinkId))
+        : allItems;
 
-      const targetItems =
-        selectedFeedIds.size > 0
-          ? allItems.filter((item) => selectedFeedIds.has(item.ingestLinkId))
-          : allItems;
-
-      const next = new Set<number>();
-      for (const item of targetItems) {
-        const status = latestLogStatusByItemId.get(item.id);
-        const isCompleted = status ? completedStatuses.has(status) : false;
-        if (
-          (mode === "completed" && isCompleted) ||
-          (mode === "notCompleted" && !isCompleted)
-        ) {
-          next.add(item.id);
-        }
-      }
-      setSelectedItemIds(next);
-    },
-    [allItems, itemLinkById, latestLogStatusByItemId, selectedItemIds],
-  );
+    setSelectedItemIds(
+      notCompletedItemIds(targetItems, latestLogStatusByItemId),
+    );
+  }, [allItems, itemLinkById, latestLogStatusByItemId, selectedItemIds]);
 
   const handleStart = useCallback(() => {
     if (selectedItemIds.size === 0) return;
@@ -285,19 +294,7 @@ export function DiscoveryStartDialog({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      applyCompletionPreset("completed");
-                    }}
-                    disabled={starting}
-                  >
-                    Completed
-                  </button>
-                  <button
-                    type="button"
-                    className="adminPage__discoveryPresetBtn"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      applyCompletionPreset("notCompleted");
+                      selectNotCompletedOnly();
                     }}
                     disabled={starting}
                   >

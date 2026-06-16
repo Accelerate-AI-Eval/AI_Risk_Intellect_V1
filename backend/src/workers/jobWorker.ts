@@ -6,8 +6,11 @@
  */
 import "../bootstrap.js";
 import { createLogger } from "../logger/index.js";
-import { runOneJob } from "../services/worker/jobWorker.service.js";
-import { assertPythonServiceReady } from "../services/worker/pythonHealth.js";
+import { runOneJob, hasPendingJobs } from "../services/worker/jobWorker.service.js";
+import {
+  assertPythonServiceReady,
+  syncPythonLlmFromEnv,
+} from "../services/worker/pythonHealth.js";
 import { workerState } from "./state.js";
 
 const log = createLogger("job-worker");
@@ -15,6 +18,14 @@ const log = createLogger("job-worker");
 const POLL_MS = Math.max(
   500,
   Number.parseInt(process.env.JOB_POLL_MS ?? "2000", 10) || 2000,
+);
+
+const MANAGED_CHILD = process.env.BACKEND_MANAGED_CHILD === "1";
+const AUTO_STOP_WHEN_IDLE =
+  MANAGED_CHILD && process.env.WORKER_AUTO_STOP !== "0";
+const IDLE_POLLS_BEFORE_STOP = Math.max(
+  1,
+  Number.parseInt(process.env.WORKER_IDLE_POLLS ?? "2", 10) || 2,
 );
 
 let stopRequested = false;
@@ -52,7 +63,8 @@ async function workerLoop(): Promise<void> {
 
   try {
     await assertPythonServiceReady();
-    log.info("python ingest/extract service is reachable");
+    await syncPythonLlmFromEnv();
+    log.info("python ingest/extract service is reachable and LLM config synced");
   } catch (err) {
     log.error(
       "python service not ready — start backend with npm run dev (or npm run py:dev). %s",
@@ -61,11 +73,32 @@ async function workerLoop(): Promise<void> {
   }
 
   try {
+    let idlePolls = 0;
+
     while (!stopRequested && !stopController.signal.aborted) {
       const ran = await runOneJob();
-      if (!ran) {
-        await sleep(POLL_MS, stopController.signal);
+      if (ran) {
+        idlePolls = 0;
+        continue;
       }
+
+      if (AUTO_STOP_WHEN_IDLE) {
+        const pending = await hasPendingJobs();
+        if (!pending) {
+          idlePolls += 1;
+          if (idlePolls >= IDLE_POLLS_BEFORE_STOP) {
+            log.info(
+              "no pending jobs — stopping managed worker (idle_polls=%d)",
+              idlePolls,
+            );
+            break;
+          }
+        } else {
+          idlePolls = 0;
+        }
+      }
+
+      await sleep(POLL_MS, stopController.signal);
     }
   } catch (err) {
     if (stopRequested || stopController.signal.aborted) {

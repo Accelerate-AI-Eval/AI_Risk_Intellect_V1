@@ -45,9 +45,10 @@ import {
   weekdayInTimezone,
 } from "../../../utils/cronTimezones";
 import {
-  toastCronJobStarted,
+  toastCronJobScheduled,
   toastCronJobStopped,
 } from "../../../notifications/notificationToasts";
+import { useNotifications } from "../../../notifications/useNotifications";
 import { formatJobExecutedAt } from "../../../utils/formatDate";
 import {
   fetchIngestLinks,
@@ -134,10 +135,12 @@ function feedMatchesSearch(feed: IngestLinkRow, search: string): boolean {
 
 function scheduleFromJob(job: CronJobRow | null): SaveCronScheduleInput {
   const schedule = job?.schedule;
-  const timezone = schedule?.timezone ?? browserTimezone();
+  const timezone = schedule?.timezone?.trim() || browserTimezone();
+  const savedStartDate = schedule?.startDate?.trim();
+  const savedStartTime = schedule?.startTime?.trim();
   return {
-    startDate: schedule?.startDate ?? todayInTimezone(timezone),
-    startTime: normalizeCronTime(schedule?.startTime ?? "10:30"),
+    startDate: savedStartDate || todayInTimezone(timezone),
+    startTime: normalizeCronTime(savedStartTime || "10:30"),
     timezone,
     repeat: schedule?.repeat ?? true,
     repeatInterval: schedule?.repeatInterval ?? 1,
@@ -183,6 +186,7 @@ export function AdminCronJobsSection({
   onScheduleSaved,
   onScheduleStopped,
 }: AdminCronJobsSectionProps) {
+  const { load: loadNotifications } = useNotifications();
   const [job, setJob] = useState<CronJobRow | null>(null);
   const [form, setForm] = useState<SaveCronScheduleInput>(scheduleFromJob(null));
   const [savedForm, setSavedForm] = useState<SaveCronScheduleInput>(
@@ -240,19 +244,21 @@ export function AdminCronJobsSection({
   );
 
   const scheduleActive = job?.schedule?.active ?? false;
-  const scheduleRunning = job?.enabled ?? false;
+  const cronLoopRunning = job?.running ?? false;
 
   const canSaveCron = useMemo(() => {
     if (form.ingestLinkIds.length === 0) return false;
     if (!scheduleActive) return true;
-    if (!scheduleRunning) return true;
+    if (!cronLoopRunning) return true;
     return isFormDirty;
   }, [
     form.ingestLinkIds.length,
+    cronLoopRunning,
     isFormDirty,
     scheduleActive,
-    scheduleRunning,
   ]);
+
+  const scheduleTimezone = form.timezone || browserTimezone();
 
   const cronStatusLabel = useMemo(() => {
     if (!scheduleActive) {
@@ -261,21 +267,21 @@ export function AdminCronJobsSection({
         : "Not scheduled";
     }
     const runState =
-      scheduleRunning || discoveryStatus === "running"
+      cronLoopRunning || discoveryStatus === "running"
         ? serviceStatusLabel(discoveryStatus)
-        : "Stopped";
+        : "Waiting";
     return `Scheduled · ${runState}`;
-  }, [discoveryStatus, scheduleActive, scheduleRunning]);
+  }, [cronLoopRunning, discoveryStatus, scheduleActive]);
 
   const cronStatusPill = useMemo(() => {
     if (!scheduleActive) {
       return serviceStatusPillClass(discoveryStatus);
     }
-    if (scheduleRunning || discoveryStatus === "running") {
+    if (cronLoopRunning || discoveryStatus === "running") {
       return serviceStatusPillClass(discoveryStatus);
     }
     return serviceStatusPillClass("stopped");
-  }, [discoveryStatus, scheduleActive, scheduleRunning]);
+  }, [cronLoopRunning, discoveryStatus, scheduleActive]);
 
   const canStopCron = useMemo(() => {
     const discoveryUp =
@@ -286,8 +292,8 @@ export function AdminCronJobsSection({
   }, [discoveryStatus, scheduleActive]);
 
   const maxStartDate = useMemo(
-    () => todayInTimezone(form.timezone),
-    [form.timezone],
+    () => todayInTimezone(scheduleTimezone),
+    [scheduleTimezone],
   );
 
   const startTimeOptions = useMemo(
@@ -368,10 +374,12 @@ export function AdminCronJobsSection({
     const nextJob = result.jobs[0] ?? null;
     const nextForm = scheduleFromJob(nextJob);
     setJob(nextJob);
-    if (!options?.preserveForm) {
-      setForm(nextForm);
+    if (options?.preserveForm) {
       setSavedForm(nextForm);
+      return;
     }
+    setForm(nextForm);
+    setSavedForm(nextForm);
   }, []);
 
   const loadCronLogs = useCallback(async (options?: { silent?: boolean }) => {
@@ -437,6 +445,24 @@ export function AdminCronJobsSection({
     if (cronTab !== "logs" || loading) return;
     void loadCronLogs({ silent: true });
   }, [discoveryStatus, cronTab, loadCronLogs, loading]);
+
+  const cronJobRunning = useMemo(
+    () =>
+      cronLoopRunning ||
+      discoveryStatus === "running" ||
+      discoveryStatus === "starting",
+    [cronLoopRunning, discoveryStatus],
+  );
+
+  useEffect(() => {
+    if (!cronJobRunning) return;
+
+    const timer = window.setInterval(() => {
+      void loadNotifications({ silent: true });
+    }, 4_000);
+
+    return () => window.clearInterval(timer);
+  }, [cronJobRunning, loadNotifications]);
 
   const scheduledFeedIds = useMemo(
     () => job?.schedule?.ingestLinkIds ?? [],
@@ -512,17 +538,19 @@ export function AdminCronJobsSection({
       toast.error("Select at least one RSS feed.", { autoClose: 2800 });
       return;
     }
-    const timezone = browserTimezone();
+    const timezone = form.timezone?.trim() || browserTimezone();
     const today = todayInTimezone(timezone);
     if (form.startDate > today) {
       toast.error(
-        `Start date must be on or before today (${today}) in your region (${formatTimezoneOption(timezone)}).`,
+        `Start date must be on or before today (${today}) in ${formatTimezoneOption(timezone)}.`,
         { autoClose: 3500 },
       );
       return;
     }
     const payload: SaveCronScheduleInput = {
       ...form,
+      startDate: form.startDate,
+      startTime: normalizeCronTime(form.startTime),
       timezone,
     };
     if (
@@ -554,8 +582,10 @@ export function AdminCronJobsSection({
       if (cronTab === "logs") {
         void loadCronLogs({ silent: true });
       }
-      toast.success(result.message, { autoClose: 3200 });
-      toastCronJobStarted();
+      toastCronJobScheduled(
+        `RSS discovery scheduled for ${payload.ingestLinkIds.length} feed(s). ${formatCronScheduleSummary(payload)}`,
+      );
+      void loadNotifications({ silent: true });
     } catch {
       toast.error("Network error while saving cron job.", { autoClose: 3000 });
     } finally {
@@ -986,12 +1016,16 @@ export function AdminCronJobsSection({
                             ...current,
                             startDate: clampStartDateForTimezone(
                               e.target.value,
-                              current.timezone,
+                              current.timezone || browserTimezone(),
                             ),
                           }))
                         }
                       />
                     </div>
+                    <p className="adminPage__cronFieldHint">
+                      Anchor date for repeat schedules. Saved value is kept when
+                      you update feeds or recurrence.
+                    </p>
                   </div>
 
                   <div className="adminPage__cronField">
@@ -1084,10 +1118,11 @@ export function AdminCronJobsSection({
                           )
                         : null}
                     </div>
+                    <p className="adminPage__cronFieldHint">
+                      {formatTimezoneOption(scheduleTimezone)}
+                    </p>
                   </div>
                 </div>
-
-                {/* Your region — hidden; timezone still auto-detected via browserTimezone() on save */}
               </div>
 
               <div className="adminPage__cronRecurrence">

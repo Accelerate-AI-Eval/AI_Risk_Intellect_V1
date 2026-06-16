@@ -5,6 +5,7 @@ import {
   msUntilStartTimeToday,
   type CronScheduleConfig,
 } from "../config/cronScheduleConfig.js";
+import { getZonedDateTimeParts } from "../utils/cronTimezone.js";
 import { loadActiveCronScheduleConfig } from "../services/admin/cronSchedule.service.js";
 import {
   gatherRssFeedUrls,
@@ -25,8 +26,13 @@ import {
 } from "../services/admin/discoveryEnqueue.service.js";
 import { createLogger } from "../logger/index.js";
 import { FEED_FETCH_HEADERS, normalizeUrl } from "../utils/fetchUtils.js";
+import { recordCronJobEvent } from "../services/admin/cronJobEvents.service.js";
+import { formatCronCompletedMessage } from "../services/admin/cronNotificationMessages.js";
 
 const log = createLogger("rss-discovery");
+
+/** Avoid duplicate "started" events when multiple cycles run after the daily start time. */
+let lastCronStartedDayKey: string | null = null;
 
 const DEFAULT_INTERVAL_MIN = 15;
 const DEFAULT_MAX_PER_CYCLE = 50;
@@ -229,13 +235,13 @@ async function ensureExtractedItemsForFeeds(
 
 async function runExtractedUrlDiscoveryCycle(
   ingestLinkIds: number[],
-): Promise<void> {
+): Promise<number> {
   const links = await filterActiveIngestLinksByIds(ingestLinkIds);
   if (links.length === 0) {
     log.warn(
       "[rss-discovery] no active RSS feeds found for the configured schedule",
     );
-    return;
+    return 0;
   }
   if (links.length !== ingestLinkIds.length) {
     log.warn(
@@ -293,14 +299,14 @@ async function runExtractedUrlDiscoveryCycle(
     log.warn(
       "[rss-discovery] no extracted item links for selected feeds — run Extract on each feed first",
     );
-    return;
+    return 0;
   }
 
   if (toEnqueue.length === 0) {
     log.info(
       "[rss-discovery] no new extracted URLs to enqueue (feed items already ingested or in progress)",
     );
-    return;
+    return 0;
   }
 
   const n = await enqueueDiscoveryBatch(toEnqueue);
@@ -310,6 +316,7 @@ async function runExtractedUrlDiscoveryCycle(
     toEnqueue.length,
     links.length,
   );
+  return n;
 }
 
 /** Enqueue only the selected extracted item URLs. */
@@ -360,7 +367,15 @@ async function loadCronScheduleForWorker() {
   return (await loadActiveCronScheduleConfig()) ?? null;
 }
 
-async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
+type CronCycleCompletion = {
+  scheduleId: string;
+  enqueued: number;
+  feedCount: number;
+};
+
+async function runDiscoveryCycle(
+  config: SourcesConfig,
+): Promise<CronCycleCompletion | null> {
   const hasManualEnv =
     parseDiscoveryIngestLinkItemIds() != null ||
     parseDiscoveryIngestLinkIds() != null;
@@ -370,13 +385,13 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
     const ingestLinkItemIds = parseDiscoveryIngestLinkItemIds();
     if (ingestLinkItemIds) {
       await runSelectedExtractedItemsCycle(ingestLinkItemIds);
-      return;
+      return null;
     }
 
     const ingestLinkIds = parseDiscoveryIngestLinkIds();
     if (ingestLinkIds) {
       await runExtractedUrlDiscoveryCycle(ingestLinkIds);
-      return;
+      return null;
     }
   }
 
@@ -384,16 +399,22 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
   if (cronSchedule?.active) {
     if (cronSchedule.ingestLinkIds.length === 0) {
       log.warn("[rss-discovery] cron is active but no RSS feeds are selected");
-      return;
+      return null;
     }
-    await runExtractedUrlDiscoveryCycle(cronSchedule.ingestLinkIds);
-    return;
+    const enqueued = await runExtractedUrlDiscoveryCycle(
+      cronSchedule.ingestLinkIds,
+    );
+    return {
+      scheduleId: cronSchedule.id,
+      enqueued,
+      feedCount: cronSchedule.ingestLinkIds.length,
+    };
   }
 
   // Cron loop child (RUN_ONCE=false): do not fall back to sources.yaml when inactive.
   if (isCronLoopMode() && !hasManualEnv) {
     log.info("[rss-discovery] cron schedule inactive, skipping cycle");
-    return;
+    return null;
   }
 
   const cap = cycleCap();
@@ -401,7 +422,7 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
 
   if (feedUrls.length === 0) {
     log.warn("[rss-discovery] no RSS feeds configured");
-    return;
+    return null;
   }
 
   const urlsBySource = await discoverUrlsBySource(feedUrls);
@@ -419,7 +440,7 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
 
   if (selected.length === 0) {
     log.info("[rss-discovery] no new URLs this cycle");
-    return;
+    return null;
   }
 
   const n = await enqueueDiscoveryBatch(
@@ -429,6 +450,17 @@ async function runDiscoveryCycle(config: SourcesConfig): Promise<void> {
     "[rss-discovery] queued %d new articles (balanced across %d sources)",
     n,
     filteredBySource.size,
+  );
+  return null;
+}
+
+async function recordCronCycleCompleted(
+  completion: CronCycleCompletion,
+): Promise<void> {
+  await recordCronJobEvent(
+    completion.scheduleId,
+    "completed",
+    formatCronCompletedMessage(completion.enqueued, completion.feedCount),
   );
 }
 
@@ -459,11 +491,14 @@ export function computeDiscoveryLoopSleepMs(
 /**
  * Port of `app.workers.rss_discovery.auto_ingest_loop`.
  */
+/** Exit code when the cron loop stops after a single scheduled run (not a crash). */
+export const CRON_LOOP_PLANNED_EXIT_CODE = 12;
+
 export async function autoIngestLoop(
   stopSignal: AbortSignal,
   configPath: string,
   options?: { runOnce?: boolean },
-): Promise<void> {
+): Promise<{ plannedCronExit: boolean }> {
   const runOnce = options?.runOnce ?? false;
   const config = loadSourcesConfig(configPath);
   const intervalMs = cycleIntervalMs(config);
@@ -475,6 +510,8 @@ export async function autoIngestLoop(
     cap,
     runOnce,
   );
+
+  let plannedCronExit = false;
 
   do {
     if (stopSignal.aborted) break;
@@ -498,14 +535,33 @@ export async function autoIngestLoop(
         log.info(
           "[rss-discovery] within schedule window — running discovery cycle now",
         );
-        await runDiscoveryCycle(config);
+        if (cronSchedule && isCronLoopMode()) {
+          const dayKey = `${cronSchedule.id}:${getZonedDateTimeParts(new Date(), cronSchedule.timezone).date}`;
+          if (lastCronStartedDayKey !== dayKey) {
+            lastCronStartedDayKey = dayKey;
+            await recordCronJobEvent(
+              cronSchedule.id,
+              "started",
+              "RSS feed discovery cron job started.",
+            );
+          }
+        }
+        const completion = await runDiscoveryCycle(config);
+        if (completion && isCronLoopMode()) {
+          await recordCronCycleCompleted(completion);
+          log.info(
+            "[rss-discovery] scheduled cron cycle finished — stopping until next run",
+          );
+          plannedCronExit = true;
+          break;
+        }
       }
     } catch (err) {
       if (stopSignal.aborted) break;
       log.error("[rss-discovery] error during cycle: %s", String(err));
     }
 
-    if (runOnce || stopSignal.aborted) break;
+    if (runOnce || stopSignal.aborted || plannedCronExit) break;
 
     const elapsed = Date.now() - t0;
 
@@ -534,4 +590,5 @@ export async function autoIngestLoop(
   } while (!stopSignal.aborted);
 
   log.info("[rss-discovery] exiting");
+  return { plannedCronExit };
 }

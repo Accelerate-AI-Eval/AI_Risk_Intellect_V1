@@ -10,6 +10,8 @@ import {
 export const cronJobEventTypeEnum = pgEnum("cron_job_event_type", [
   "started",
   "stopped",
+  "scheduled",
+  "completed",
 ]);
 
 export const cronJobEvents = pgTable("cron_job_events", {

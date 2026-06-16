@@ -267,6 +267,20 @@
       "when": 1782100000000,
       "tag": "0037_application_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1782200000000,
+      "tag": "0038_cron_job_event_scheduled_completed",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1782300000000,
+      "tag": "0039_etl_report_upload_items_extraction",
+      "breakpoints": true
     }
   ]
 }

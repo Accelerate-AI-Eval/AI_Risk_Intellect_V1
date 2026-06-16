@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const etlReportUploadStatuses = [
+  "pending",
   "processing",
   "completed",
   "failed",

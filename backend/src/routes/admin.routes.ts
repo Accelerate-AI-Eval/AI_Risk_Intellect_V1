@@ -34,7 +34,11 @@ import {
   cronJobIdSchema,
 } from "../validators/admin.validators.js";
 import { etlUploadMiddleware } from "../middleware/upload.middleware.js";
-import { uploadReportsEtlHandler } from "../controllers/admin/etlUpload.controller.js";
+import {
+  extractReportUploadHandler,
+  reuploadReportUploadHandler,
+  uploadReportsEtlHandler,
+} from "../controllers/admin/etlUpload.controller.js";
 import {
   archiveReportUploadHandler,
   listReportUploadItemsHandler,
@@ -221,10 +225,18 @@ adminRouter.post(
 );
 
 adminRouter.post(
-  "/etl/reports/upload",
+  "/etl/reports/uploads/:id/extract",
   requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(extractReportUploadHandler),
+);
+
+adminRouter.post(
+  "/etl/reports/uploads/:id/reupload",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
   etlUploadMiddleware,
-  asyncHandler(uploadReportsEtlHandler),
+  asyncHandler(reuploadReportUploadHandler),
 );
 
 adminRouter.post(

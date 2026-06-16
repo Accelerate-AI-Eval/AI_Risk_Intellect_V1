@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
+import multer from "multer";
 import { ZodError } from "zod";
+import { ETL_MAX_FILE_BYTES } from "../etl/etlImport.types.js";
 import { env } from "../env.js";
 import { createLogger } from "../logger/index.js";
 import { HttpError } from "../utils/httpError.js";
@@ -27,6 +29,20 @@ export function errorHandler(
         code: err.code,
         message: err.message,
         details: err.details ?? undefined,
+      },
+    });
+    return;
+  }
+
+  if (err instanceof multer.MulterError) {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? `File is too large. Maximum upload size is ${Math.round(ETL_MAX_FILE_BYTES / (1024 * 1024))} MB.`
+        : err.message;
+    res.status(400).json({
+      error: {
+        code: "BAD_REQUEST",
+        message,
       },
     });
     return;

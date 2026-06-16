@@ -9,17 +9,8 @@ function isAllowedEtlFile(fileName: string): boolean {
   return ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-function formatImportSummary(data: {
-  message?: string;
-  totalRows?: number;
-  importedRows?: number;
-  skippedRows?: number;
-  failedRows?: number;
-}): string {
-  if (typeof data.totalRows === "number") {
-    return `Imported ${data.importedRows ?? 0} of ${data.totalRows} rows (${data.skippedRows ?? 0} skipped, ${data.failedRows ?? 0} failed).`;
-  }
-  return data.message ?? "Reports file uploaded successfully.";
+function formatSaveSummary(data: { message?: string }): string {
+  return data.message ?? "Report file saved. Use Extract to import report URLs.";
 }
 
 export async function uploadEtlReports(
@@ -45,10 +36,6 @@ export async function uploadEtlReports(
     });
     const data = (await res.json().catch(() => ({}))) as {
       message?: string;
-      totalRows?: number;
-      importedRows?: number;
-      skippedRows?: number;
-      failedRows?: number;
       error?: { message?: string };
     };
 
@@ -65,7 +52,7 @@ export async function uploadEtlReports(
 
     return {
       ok: true,
-      message: formatImportSummary(data),
+      message: formatSaveSummary(data),
     };
   } catch {
     return {

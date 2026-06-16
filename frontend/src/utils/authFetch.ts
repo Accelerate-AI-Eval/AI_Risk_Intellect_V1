@@ -10,6 +10,9 @@ export type AuthFetchInit = RequestInit & {
 };
 
 let sessionExpirySignOutPending = false;
+let idleSignOutPending = false;
+
+const IDLE_LOGOUT_MS = 15 * 60 * 1000;
 
 function signInHref(): string {
   const base = import.meta.env.BASE_URL ?? "/";
@@ -32,7 +35,7 @@ function redirectToSignIn(): void {
 }
 
 function scheduleSessionExpiredSignOut(): void {
-  if (sessionExpirySignOutPending) return;
+  if (sessionExpirySignOutPending || idleSignOutPending) return;
   sessionExpirySignOutPending = true;
 
   toast.warning("Session expired", {
@@ -48,6 +51,33 @@ function scheduleSessionExpiredSignOut(): void {
     },
   });
 }
+
+/** Signs the user out after a period of inactivity (see useIdleLogout). */
+export function scheduleIdleSignOut(): void {
+  if (idleSignOutPending || sessionExpirySignOutPending) return;
+  if (!sessionStorage.getItem("accessToken")) return;
+  idleSignOutPending = true;
+
+  void authFetch("/auth/logout", {
+    method: "POST",
+    skipAuthExpiredRedirect: true,
+  });
+
+  toast.warning("You were signed out due to inactivity.", {
+    className: "app-toast-session-expired",
+    autoClose: 3500,
+    closeOnClick: false,
+    draggable: false,
+    closeButton: false,
+    onClose: () => {
+      clearAuthSession();
+      redirectToSignIn();
+      idleSignOutPending = false;
+    },
+  });
+}
+
+export const IDLE_LOGOUT_TIMEOUT_MS = IDLE_LOGOUT_MS;
 
 /**
  * Fetch against the API, attaching Bearer access token when present.

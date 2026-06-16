@@ -155,10 +155,28 @@ function runPythonEtl(payload: Record<string, unknown>): Promise<PythonEtlImport
   return runPythonEtlHttp(payload);
 }
 
+/** Prefer on-disk path for large files to avoid huge base64 JSON payloads. */
+export async function pythonEtlImportFromPath(
+  absolutePath: string,
+  options: { filename: string },
+): Promise<PythonEtlImportResult> {
+  return runPythonEtl({
+    filename: options.filename,
+    file_path: absolutePath,
+  });
+}
+
 export async function pythonEtlImport(
   fileBytes: Buffer,
   options: { filename: string },
 ): Promise<PythonEtlImportResult> {
+  const usePathThreshold = 8 * 1024 * 1024;
+  if (fileBytes.length >= usePathThreshold) {
+    throw new Error(
+      "Large ETL files must be parsed from a stored file path. Use pythonEtlImportFromPath instead.",
+    );
+  }
+
   return runPythonEtl({
     filename: options.filename,
     file_base64: fileBytes.toString("base64"),

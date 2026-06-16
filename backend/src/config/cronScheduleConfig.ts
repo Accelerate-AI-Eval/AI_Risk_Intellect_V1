@@ -211,3 +211,76 @@ export function isWithinCronSchedule(
 ): boolean {
   return getCronScheduleSkipReason(schedule, now) === null;
 }
+
+function addDaysToDateString(dateStr: string, days: number): string {
+  const { year, month, day } = parseDateParts(dateStr);
+  const utc = new Date(Date.UTC(year, month - 1, day + days));
+  return utc.toISOString().slice(0, 10);
+}
+
+function weekdayForDateInTimezone(dateStr: string, timezone: string): number {
+  const { year, month, day } = parseDateParts(dateStr);
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return getZonedDateTimeParts(noonUtc, timezone).weekday;
+}
+
+function msUntilDateAtStartTime(
+  dateStr: string,
+  startTime: string,
+  timezone: string,
+  now: Date,
+): number {
+  const zoned = getZonedDateTimeParts(now, timezone);
+  const dayOffset = daysBetween(zoned.date, dateStr);
+  if (dayOffset < 0) return 0;
+
+  const startMin = timeToMinutes(startTime);
+  const nowMin = timeToMinutes(zoned.time);
+  if (dayOffset === 0) {
+    const deltaMin = startMin - nowMin;
+    return deltaMin > 0 ? deltaMin * 60_000 : 0;
+  }
+
+  const minsUntilMidnight = 24 * 60 - nowMin;
+  return (minsUntilMidnight + (dayOffset - 1) * 24 * 60 + startMin) * 60_000;
+}
+
+/** Milliseconds until the next cron run (local start time on the next matching cadence day). */
+export function msUntilNextCronScheduleRun(
+  schedule: CronScheduleConfig,
+  now: Date = new Date(),
+): number | null {
+  if (!schedule.active) return null;
+
+  const untilTodayStart = msUntilStartTimeToday(schedule, now);
+  if (untilTodayStart != null && untilTodayStart > 0) {
+    return untilTodayStart;
+  }
+
+  const timezone = normalizeTimezone(schedule.timezone ?? DEFAULT_CRON_TIMEZONE);
+  const zoned = getZonedDateTimeParts(now, timezone);
+  const ranToday =
+    matchesRepeatCadence(schedule, zoned.date, zoned.weekday) &&
+    timeToMinutes(zoned.time) >= timeToMinutes(schedule.startTime);
+
+  let probe = ranToday ? addDaysToDateString(zoned.date, 1) : zoned.date;
+
+  for (let i = 0; i < 400; i++) {
+    if (schedule.endsOn && probe > schedule.endsOn) return null;
+
+    const weekday = weekdayForDateInTimezone(probe, timezone);
+    if (matchesRepeatCadence(schedule, probe, weekday)) {
+      const ms = msUntilDateAtStartTime(
+        probe,
+        schedule.startTime,
+        timezone,
+        now,
+      );
+      if (ms > 0) return ms;
+    }
+
+    probe = addDaysToDateString(probe, 1);
+  }
+
+  return null;
+}

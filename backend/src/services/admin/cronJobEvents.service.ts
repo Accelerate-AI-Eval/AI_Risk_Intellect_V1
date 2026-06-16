@@ -1,7 +1,7 @@
 import { db } from "../../db/index.js";
 import { cronJobEvents } from "../../schema/cronJobs/cronJobEvents.js";
 
-export type CronJobEventType = "started" | "stopped";
+export type CronJobEventType = "started" | "stopped" | "scheduled" | "completed";
 
 export async function recordCronJobEvent(
   jobId: string,

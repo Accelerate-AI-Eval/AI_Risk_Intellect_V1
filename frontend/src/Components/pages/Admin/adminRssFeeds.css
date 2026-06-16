@@ -421,7 +421,7 @@
   gap: 0.35rem;
   width: 100%;
   min-height: 2.75rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.95rem 1rem;
   border: none;
   background: transparent;
   color: inherit;
@@ -503,6 +503,13 @@
   width: 10rem;
 }
 
+.adminPage__table--links .adminPage__nameCol {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 .adminPage__table--links .adminPage__colUrl {
   width: auto;
   min-width: 14rem;
@@ -522,6 +529,10 @@
 
 .adminPage__table--links .adminPage__colAdded {
   width: 6.5rem;
+}
+
+.adminPage__table--links .adminPage__colExtraction {
+  width: 13.5rem;
 }
 
 .adminPage__table--links .adminPage__colActions {
@@ -832,8 +843,70 @@
   white-space: nowrap;
 }
 
+.adminPage__extractionStatusCell {
+  min-width: 11.5rem;
+  overflow: visible;
+}
+
+.adminPage__extractionStatusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+  width: max-content;
+  max-width: 100%;
+  text-transform: none;
+  letter-spacing: normal;
+  border: 1px solid transparent;
+}
+
 .adminPage__extractionTimesCell {
-  min-width: 11rem;
+  min-width: 13.5rem;
+}
+
+.adminPage__extractionProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.adminPage__extractionProgressMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--adm-muted);
+  white-space: nowrap;
+}
+
+.adminPage__extractionProgressMeta--single {
+  justify-content: center;
+}
+
+.adminPage__discoveryProgressTrack--indeterminate {
+  overflow: hidden;
+}
+
+.adminPage__discoveryProgressFill--indeterminate {
+  width: 40%;
+  animation: adminPage__extractionProgressIndeterminate 1.35s ease-in-out infinite;
+}
+
+@keyframes adminPage__extractionProgressIndeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
 }
 
 .adminPage__extractionTimes {
@@ -1057,7 +1130,22 @@
   padding: 0.55rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--adm-border);
-  vertical-align: top;
+  vertical-align: middle;
+}
+
+.adminPage__itemsTable col.adminPage__itemsColIndex {
+  width: 3.2rem;
+}
+
+.adminPage__itemsTable col.adminPage__itemsColName {
+  width: 11rem;
+}
+
+.adminPage__itemsTable .adminPage__itemsNameCol {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .adminPage__itemsTable th {
@@ -1072,6 +1160,14 @@
 .adminPage__itemsTable th:first-child,
 .adminPage__itemsTable td:first-child {
   width: 3.2rem;
+}
+
+.adminPage__itemsTable .adminPage__itemTitle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--adm-text);
 }
 
 .adminPage__itemsTable tbody tr:hover td {
@@ -1223,6 +1319,13 @@ html:not(.app-theme-dark) .adminPage__executionDuration {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   gap: 0;
+}
+
+.adminPage__rssWorkspace .adminPage__extractionStatusPill {
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.72rem;
 }
 
 .adminPage__reasonCell {

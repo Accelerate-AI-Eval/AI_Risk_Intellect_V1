@@ -8,7 +8,9 @@ export type NotificationKind =
   | "report_upload_completed"
   | "report_upload_failed"
   | "cron_job_started"
-  | "cron_job_stopped";
+  | "cron_job_stopped"
+  | "cron_job_scheduled"
+  | "cron_job_completed";
 
 export type NotificationDto = {
   id: string;

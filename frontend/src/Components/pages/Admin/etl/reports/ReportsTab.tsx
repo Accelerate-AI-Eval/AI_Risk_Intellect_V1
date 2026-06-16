@@ -1,13 +1,26 @@
-import { Fragment, useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import {
   Archive,
   ChevronDown,
   ChevronRight,
   Database,
+  MoreHorizontal,
   Plus,
   RefreshCw,
   Search,
+  Upload,
+  Zap,
 } from "lucide-react";
 import { AdminDataTable } from "../../AdminDataTable";
 import { AdminSortableTh } from "../../AdminSortableTh";
@@ -29,8 +42,11 @@ import {
 } from "../../../../../utils/formatDate";
 import {
   archiveEtlReportUpload,
+  extractEtlReportUpload,
   fetchEtlReportUploadItems,
   fetchEtlReportUploads,
+  reuploadEtlReportUpload,
+  type EtlExtractionDisplayStatus,
   type EtlReportUploadItemRow,
   type EtlReportUploadRow,
 } from "../../../../../utils/etlReportsApi";
@@ -56,17 +72,79 @@ interface ReportsTabProps {
   onWorkerStop: () => void;
 }
 
-const TABLE_COL_SPAN = 7;
+const TABLE_COL_SPAN = 8;
 const TERMINAL_DISCOVERY_STATUSES = new Set(["EXECUTED", "SKIPPED", "FAILED"]);
 const RUNNING_DISCOVERY_STATUSES = new Set(["PENDING", "RUNNING"]);
 
 function itemCountForRow(row: EtlReportUploadRow): number {
-  return row.importedRows > 0 ? row.importedRows : row.totalRows;
+  if (row.status === "pending") return 0;
+  return row.importedRows;
+}
+
+function extractionStatusLabel(status: EtlExtractionDisplayStatus): string {
+  switch (status) {
+    case "pending":
+      return "Pending";
+    case "processing":
+      return "Processing";
+    case "completed":
+    case "partially_completed":
+      return "Completed";
+    case "skipped":
+      return "Skipped";
+    case "failed":
+      return "Failed";
+    default:
+      return status;
+  }
+}
+
+function extractionStatusPillClass(status: EtlExtractionDisplayStatus): string {
+  switch (status) {
+    case "completed":
+    case "partially_completed":
+      return "adminPage__statusPill--running";
+    case "processing":
+      return "adminPage__statusPill--pending";
+    case "skipped":
+    case "failed":
+    case "pending":
+    default:
+      return "adminPage__statusPill--stopped";
+  }
+}
+
+function uploadItemsEmptyMessage(row: EtlReportUploadRow): string {
+  if (row.status === "pending") {
+    return "Use Extract to import report URLs from the saved file.";
+  }
+  if (row.extractionStatus === "skipped") {
+    return "URLs are already present, so this file has been skipped.";
+  }
+  if (row.status === "failed") {
+    return "Extraction failed. Reupload the file or run Extract again.";
+  }
+  return "Use Extract to import report URLs from the saved file.";
 }
 
 function extractionEndedAt(row: EtlReportUploadRow): string | null {
-  if (row.status === "processing") return null;
+  if (row.status === "processing" || row.status === "pending") return null;
   return row.updatedAt;
+}
+
+function isUploadExtracting(
+  row: EtlReportUploadRow,
+  actionId: number | null,
+): boolean {
+  return row.status === "processing" || actionId === row.id;
+}
+
+function extractionProgressPercent(row: EtlReportUploadRow): number {
+  if (row.totalRows <= 0) return 0;
+  return Math.min(
+    100,
+    Math.round((row.importedRows / row.totalRows) * 100),
+  );
 }
 
 type UploadSortKey =
@@ -75,6 +153,7 @@ type UploadSortKey =
   | "items"
   | "discovery"
   | "added"
+  | "extractionStatus"
   | "extraction";
 
 function getUploadSortValue(
@@ -93,6 +172,8 @@ function getUploadSortValue(
       return progress.completed;
     case "added":
       return row.createdAt;
+    case "extractionStatus":
+      return extractionStatusLabel(row.extractionStatus);
     case "extraction": {
       const end = extractionEndedAt(row);
       if (!end) return null;
@@ -123,8 +204,26 @@ export function ReportsTab({
   const [uploadsLoading, setUploadsLoading] = useState(false);
   const [uploadsRefreshing, setUploadsRefreshing] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [reuploadTarget, setReuploadTarget] = useState<{
+    id: number;
+    suggestedName: string | null;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [actionId, setActionId] = useState<number | null>(null);
+  const [uploadRowMenuOpenId, setUploadRowMenuOpenId] = useState<number | null>(
+    null,
+  );
+  const [uploadRowMenuAnchor, setUploadRowMenuAnchor] = useState<{
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  } | null>(null);
+  const [uploadRowMenuPosition, setUploadRowMenuPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const uploadRowMenuRef = useRef<HTMLDivElement>(null);
   const [expandedUploadId, setExpandedUploadId] = useState<number | null>(null);
   const [uploadItemsById, setUploadItemsById] = useState<
     Record<number, EtlReportUploadItemRow[]>
@@ -234,6 +333,69 @@ export function ReportsTab({
 
   const uploadPageRows = uploadPager.pageItems ?? [];
 
+  const uploadRowMenuUpload = useMemo(
+    () => uploads.find((row) => row.id === uploadRowMenuOpenId) ?? null,
+    [uploads, uploadRowMenuOpenId],
+  );
+
+  const closeUploadRowMenu = useCallback(() => {
+    setUploadRowMenuOpenId(null);
+    setUploadRowMenuAnchor(null);
+    setUploadRowMenuPosition(null);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!uploadRowMenuOpenId || !uploadRowMenuAnchor || !uploadRowMenuRef.current) {
+      setUploadRowMenuPosition(null);
+      return;
+    }
+
+    const menu = uploadRowMenuRef.current;
+    const margin = 8;
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+
+    let top = uploadRowMenuAnchor.bottom + 4;
+    let left = uploadRowMenuAnchor.right - width;
+
+    if (left < margin) left = margin;
+    if (left + width > window.innerWidth - margin) {
+      left = Math.max(margin, window.innerWidth - width - margin);
+    }
+
+    if (top + height > window.innerHeight - margin) {
+      top = uploadRowMenuAnchor.top - height - 4;
+    }
+    if (top < margin) top = margin;
+
+    setUploadRowMenuPosition({ top, left });
+  }, [uploadRowMenuOpenId, uploadRowMenuAnchor]);
+
+  useEffect(() => {
+    if (uploadRowMenuOpenId == null) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      const wrap = document.querySelector(
+        `[data-etl-upload-row-menu="${uploadRowMenuOpenId}"]`,
+      );
+      const portal = document.querySelector(
+        `[data-etl-upload-row-menu-portal="${uploadRowMenuOpenId}"]`,
+      );
+      if (wrap?.contains(target) || portal?.contains(target)) return;
+      closeUploadRowMenu();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeUploadRowMenu();
+    };
+    window.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointer);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [uploadRowMenuOpenId, closeUploadRowMenu]);
+
   const loadReportsLogs = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
     if (silent) setLogsRefreshing(true);
@@ -252,15 +414,21 @@ export function ReportsTab({
     setLogRows(result.logs);
   }, []);
 
-  const loadUploads = useCallback(async (options?: { silent?: boolean }) => {
+  const loadUploads = useCallback(
+    async (options?: { silent?: boolean; background?: boolean }) => {
     const silent = options?.silent ?? false;
-    if (!silent) setUploadsLoading(true);
-    else setUploadsRefreshing(true);
+    const background = options?.background ?? false;
+    if (!background) {
+      if (!silent) setUploadsLoading(true);
+      else setUploadsRefreshing(true);
+    }
 
     const result = await fetchEtlReportUploads();
 
-    if (!silent) setUploadsLoading(false);
-    else setUploadsRefreshing(false);
+    if (!background) {
+      if (!silent) setUploadsLoading(false);
+      else setUploadsRefreshing(false);
+    }
 
     if (!result.ok) {
       toast.error(result.message, { autoClose: 3000 });
@@ -268,22 +436,30 @@ export function ReportsTab({
     }
 
     setUploads(result.uploads);
-  }, []);
+  },
+  []);
 
   useEffect(() => {
     void loadUploads();
     void loadReportsLogs();
   }, [loadUploads, loadReportsLogs]);
 
+  const hasExtractingUpload = useMemo(
+    () =>
+      actionId != null ||
+      uploads.some((row) => row.status === "processing"),
+    [actionId, uploads],
+  );
+
   useEffect(() => {
-    if (!uploads.some((row) => row.status === "processing")) return;
+    if (!hasExtractingUpload) return;
 
-    const timer = window.setInterval(() => {
-      void loadUploads({ silent: true });
-    }, 3000);
+    const interval = window.setInterval(() => {
+      void loadUploads({ background: true });
+    }, 2000);
 
-    return () => window.clearInterval(timer);
-  }, [uploads, loadUploads]);
+    return () => window.clearInterval(interval);
+  }, [hasExtractingUpload, loadUploads]);
 
   useEffect(() => {
     if (!runWarmup) return;
@@ -291,33 +467,13 @@ export function ReportsTab({
     return () => window.clearTimeout(timer);
   }, [runWarmup]);
 
-  useEffect(() => {
-    if (!workerApiRunning && workerStatus !== "starting") return;
-
-    void loadReportsLogs({ silent: true });
-
-    const pollMs =
-      hasActiveReportJobs || runWarmup || workerStatus === "starting"
-        ? 2000
-        : 7000;
-    const timer = window.setInterval(() => {
-      void loadReportsLogs({ silent: true });
-    }, pollMs);
-
-    return () => window.clearInterval(timer);
-  }, [
-    workerApiRunning,
-    workerStatus,
-    hasActiveReportJobs,
-    runWarmup,
-    loadReportsLogs,
-  ]);
-
-  useEffect(() => {
-    if (workerApiRunning || workerStatus === "starting") return;
-    void loadReportsLogs({ silent: true });
-    setRunWarmup(false);
-  }, [workerApiRunning, workerStatus, loadReportsLogs]);
+  const handleRefresh = useCallback(async () => {
+    await Promise.all([
+      loadUploads({ silent: true }),
+      loadReportsLogs({ silent: true }),
+    ]);
+    toast.success("Report uploads refreshed.", { autoClose: 2000 });
+  }, [loadUploads, loadReportsLogs]);
 
   async function handleUploadSubmit({
     suggestedName,
@@ -328,13 +484,27 @@ export function ReportsTab({
   }) {
     setUploading(true);
 
-    const result = await uploadEtlReports(file, suggestedName);
+    const result = reuploadTarget
+      ? await reuploadEtlReportUpload(reuploadTarget.id, file, suggestedName)
+      : await uploadEtlReports(file, suggestedName);
 
     setUploading(false);
 
     if (result.ok) {
       setUploadDialogOpen(false);
-      setUploadItemsById({});
+      setReuploadTarget(null);
+      if (reuploadTarget) {
+        setUploadItemsById((prev) => {
+          const next = { ...prev };
+          delete next[reuploadTarget.id];
+          return next;
+        });
+        if (expandedUploadId === reuploadTarget.id) {
+          setExpandedUploadId(null);
+        }
+      } else {
+        setUploadItemsById({});
+      }
       toast.success(result.message, { autoClose: 2800 });
       void loadUploads({ silent: true });
       return;
@@ -342,6 +512,47 @@ export function ReportsTab({
 
     toast.error(result.message, { autoClose: 3500 });
     void loadUploads({ silent: true });
+  }
+
+  async function handleExtractUpload(id: number) {
+    const upload = uploads.find((row) => row.id === id);
+    const uploadLabel =
+      upload?.suggestedName?.trim() || upload?.fileName || `upload #${id}`;
+    toast.info(`Extracting report URLs from ${uploadLabel}…`, {
+      autoClose: 3000,
+    });
+
+    setActionId(id);
+    try {
+      const result = await extractEtlReportUpload(id);
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 4000 });
+        return;
+      }
+      toast.success(result.message, { autoClose: 4500 });
+      setUploadItemsById((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      void loadUploads({ silent: true });
+      if (expandedUploadId === id) {
+        void loadUploadItems(id);
+      } else {
+        setExpandedUploadId(id);
+        void loadUploadItems(id);
+      }
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  function openReuploadDialog(upload: EtlReportUploadRow) {
+    setReuploadTarget({
+      id: upload.id,
+      suggestedName: upload.suggestedName,
+    });
+    setUploadDialogOpen(true);
   }
 
   async function handleArchiveUpload(id: number) {
@@ -400,8 +611,8 @@ export function ReportsTab({
             </h2>
             <p className="adminPage__cardHint">
               Import AI Incident Database report records from a CSV or Excel file.
-              Upload reports.csv (or .xlsx), then start the worker to queue and
-              ingest selected report URLs.
+              Upload reports.csv (or .xlsx), extract report URLs from each saved
+              file, then start the worker to queue and ingest selected URLs.
             </p>
           </div>
         </div>
@@ -440,10 +651,7 @@ export function ReportsTab({
                 <button
                   type="button"
                   className="usersPage__inviteBtn adminPage__rssRefreshBtn"
-                  onClick={() => {
-                    void loadUploads({ silent: true });
-                    void loadReportsLogs({ silent: true });
-                  }}
+                  onClick={() => void handleRefresh()}
                   disabled={
                     uploadsLoading || uploadsRefreshing || logsRefreshing
                   }
@@ -466,7 +674,10 @@ export function ReportsTab({
                 <button
                   type="button"
                   className="usersPage__inviteBtn adminPage__rssIngestBtn"
-                  onClick={() => setUploadDialogOpen(true)}
+                  onClick={() => {
+                    setReuploadTarget(null);
+                    setUploadDialogOpen(true);
+                  }}
                   disabled={uploading}
                   aria-busy={uploading}
                 >
@@ -507,6 +718,16 @@ export function ReportsTab({
           }}
         >
               <table className="adminPage__table adminPage__table--links">
+                <colgroup>
+                  <col className="adminPage__colId" />
+                  <col className="adminPage__colName" />
+                  <col className="adminPage__colItems" />
+                  <col className="adminPage__colDiscovery" />
+                  <col className="adminPage__colAdded" />
+                  <col className="adminPage__colExtraction" />
+                  <col className="adminPage__colStatus" />
+                  <col className="adminPage__colActions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <AdminSortableTh
@@ -525,6 +746,7 @@ export function ReportsTab({
                       onSort={(key) =>
                         setUploadSort((current) => nextTableSort(current, key))
                       }
+                      className="adminPage__nameCol"
                     />
                     <AdminSortableTh
                       label="Items"
@@ -536,7 +758,7 @@ export function ReportsTab({
                       className="adminPage__th--center"
                     />
                     <AdminSortableTh
-                      label="Discovery progress"
+                      label="Progress"
                       sortKey="discovery"
                       sort={uploadSort}
                       onSort={(key) =>
@@ -554,6 +776,15 @@ export function ReportsTab({
                     <AdminSortableTh
                       label="Extraction"
                       sortKey="extraction"
+                      sort={uploadSort}
+                      onSort={(key) =>
+                        setUploadSort((current) => nextTableSort(current, key))
+                      }
+                      className="adminPage__th--center"
+                    />
+                    <AdminSortableTh
+                      label="Status"
+                      sortKey="extractionStatus"
                       sort={uploadSort}
                       onSort={(key) =>
                         setUploadSort((current) => nextTableSort(current, key))
@@ -607,12 +838,14 @@ export function ReportsTab({
                               (progress.completed / progress.total) * 100,
                             )
                           : 0;
+                      const isExtracting = isUploadExtracting(row, actionId);
                       const extractionEnd = extractionEndedAt(row);
                       const extractionDurationMs =
                         extractionEnd != null
                           ? new Date(extractionEnd).getTime() -
                             new Date(row.createdAt).getTime()
                           : null;
+                      const extractionPercent = extractionProgressPercent(row);
                       const addedRelative = formatRelativeDate(row.createdAt);
                       const addedDate = formatDisplayDate(row.createdAt);
 
@@ -627,7 +860,7 @@ export function ReportsTab({
                                 #{row.id}
                               </span>
                             </td>
-                            <td className="adminPage__td adminPage__cellMuted">
+                            <td className="adminPage__td adminPage__cellMuted adminPage__nameCol">
                               {row.suggestedName?.trim() || "—"}
                             </td>
                             <td className="adminPage__td adminPage__th--center adminPage__itemsCell">
@@ -715,35 +948,114 @@ export function ReportsTab({
                               </div>
                             </td>
                             <td className="adminPage__td adminPage__th--center adminPage__extractionTimesCell">
-                              <div className="adminPage__extractionTimes">
-                                {/* <span title={row.createdAt}>
-                                  Start: {formatJobExecutedAt(row.createdAt)}
-                                </span>
-                                <span title={extractionEnd ?? undefined}>
-                                  End:{" "}
-                                  {extractionEnd
-                                    ? formatJobExecutedAt(extractionEnd)
-                                    : "In progress"}
-                                </span> */}
-                                {extractionDurationMs != null ? (
-                                  <span className="adminPage__cellMuted">
-                                    {formatDurationMs(extractionDurationMs)}
-                                  </span>
-                                ) : null}
-                              </div>
+                              {isExtracting ? (
+                                <div
+                                  className="adminPage__extractionProgress"
+                                  role="status"
+                                  aria-live="polite"
+                                  aria-label={
+                                    row.totalRows > 0
+                                      ? `Extracting report file, ${extractionPercent}% complete`
+                                      : "Parsing report file"
+                                  }
+                                >
+                                  <div className="adminPage__extractionProgressMeta adminPage__extractionProgressMeta--single">
+                                    {row.totalRows > 0 ? (
+                                      <span>{extractionPercent}%</span>
+                                    ) : (
+                                      <span>Parsing file…</span>
+                                    )}
+                                  </div>
+                                  <div
+                                    className={`adminPage__discoveryProgressTrack${
+                                      row.totalRows > 0
+                                        ? ""
+                                        : " adminPage__discoveryProgressTrack--indeterminate"
+                                    }`}
+                                    role="progressbar"
+                                    aria-valuemin={0}
+                                    aria-valuemax={
+                                      row.totalRows > 0 ? row.totalRows : undefined
+                                    }
+                                    aria-valuenow={
+                                      row.totalRows > 0
+                                        ? row.importedRows
+                                        : undefined
+                                    }
+                                  >
+                                    <span
+                                      className={`adminPage__discoveryProgressFill${
+                                        row.totalRows > 0
+                                          ? ""
+                                          : " adminPage__discoveryProgressFill--indeterminate"
+                                      }`}
+                                      style={
+                                        row.totalRows > 0
+                                          ? { width: `${extractionPercent}%` }
+                                          : undefined
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="adminPage__extractionTimes">
+                                  {extractionDurationMs != null ? (
+                                    <span className="adminPage__cellMuted">
+                                      {formatDurationMs(extractionDurationMs)}
+                                    </span>
+                                  ) : row.extractionStatus === "pending" ? (
+                                    <span className="adminPage__cellMuted">
+                                      Not extracted
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
                             </td>
-                            <td className="adminPage__td">
-                              <div className="adminPage__actions">
+                            <td className="adminPage__td adminPage__th--center adminPage__extractionStatusCell">
+                              <span
+                                role="status"
+                                className={`adminPage__extractionStatusPill ${extractionStatusPillClass(row.extractionStatus)}`}
+                                title={
+                                  row.errorMessage &&
+                                  row.extractionStatus === "failed"
+                                    ? row.errorMessage
+                                    : undefined
+                                }
+                              >
+                                {extractionStatusLabel(row.extractionStatus)}
+                              </span>
+                            </td>
+                            <td className="adminPage__td adminPage__td--actionsSticky">
+                              <div
+                                className="adminPage__rowMenuWrap"
+                                data-etl-upload-row-menu={row.id}
+                              >
                                 <button
                                   type="button"
-                                  className="adminPage__actionBtn adminPage__actionBtn--archive"
-                                  data-tooltip="Archive upload"
-                                  onClick={() => void handleArchiveUpload(row.id)}
+                                  className="adminPage__kebabBtn"
+                                  aria-haspopup="menu"
+                                  aria-expanded={uploadRowMenuOpenId === row.id}
+                                  aria-label={`Actions for upload #${row.id}`}
                                   disabled={busy || uploading}
-                                  aria-label="Archive upload"
+                                  onClick={(e) => {
+                                    const btn = e.currentTarget;
+                                    if (uploadRowMenuOpenId === row.id) {
+                                      closeUploadRowMenu();
+                                      return;
+                                    }
+                                    const rect = btn.getBoundingClientRect();
+                                    setUploadRowMenuPosition(null);
+                                    setUploadRowMenuAnchor({
+                                      top: rect.top,
+                                      bottom: rect.bottom,
+                                      left: rect.left,
+                                      right: rect.right,
+                                    });
+                                    setUploadRowMenuOpenId(row.id);
+                                  }}
                                 >
-                                  <Archive
-                                    size={16}
+                                  <MoreHorizontal
+                                    size={18}
                                     strokeWidth={2}
                                     aria-hidden
                                   />
@@ -760,10 +1072,12 @@ export function ReportsTab({
                                 <div
                                   className="adminPage__itemsPanel"
                                   role="region"
-                                  aria-label={`Report URLs for upload #${row.id}`}
+                                  aria-label={`Report URLs for ${row.suggestedName?.trim() || row.fileName || `upload #${row.id}`}`}
                                 >
                                   <p className="adminPage__itemsPanelTitle">
-                                    Report URLs for upload #{row.id}
+                                    {row.suggestedName?.trim() ||
+                                      row.fileName ||
+                                      `Upload #${row.id}`}
                                   </p>
                                   {itemsLoading ? (
                                     <p
@@ -777,39 +1091,67 @@ export function ReportsTab({
                                       className="adminPage__itemsPanelEmpty"
                                       role="status"
                                     >
-                                      No URLs found in this upload.
+                                      {uploadItemsEmptyMessage(row)}
                                     </p>
                                   ) : (
                                     <table className="adminPage__itemsTable">
+                                      <colgroup>
+                                        <col className="adminPage__itemsColIndex" />
+                                        <col className="adminPage__itemsColName" />
+                                        <col />
+                                      </colgroup>
                                       <thead>
                                         <tr>
                                           <th scope="col">#</th>
+                                          <th
+                                            scope="col"
+                                            className="adminPage__itemsNameCol"
+                                          >
+                                            Suggested name
+                                          </th>
                                           <th scope="col">Report URL</th>
                                         </tr>
                                       </thead>
                                       <tbody>
                                         {uploadItems.map((item) => (
-                                          <tr key={item.id}>
-                                            <td>
-                                              <span
-                                                className="adminPage__id"
-                                                title={`Row ${item.rowOrder}`}
-                                              >
-                                                #{item.rowOrder}
-                                              </span>
-                                            </td>
-                                            <td>
-                                              <a
-                                                href={item.url}
-                                                className="adminPage__cellUrl"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                title={item.title ?? item.url}
-                                              >
-                                                {item.url}
-                                              </a>
-                                            </td>
-                                          </tr>
+                                            <tr key={item.id}>
+                                              <td>
+                                                <span
+                                                  className="adminPage__id"
+                                                  title={`Row ${item.rowOrder}`}
+                                                >
+                                                  #{item.rowOrder}
+                                                </span>
+                                              </td>
+                                              <td className="adminPage__itemsNameCol">
+                                                <span
+                                                  className="adminPage__itemTitle"
+                                                  title={
+                                                    item.title?.trim() ||
+                                                    undefined
+                                                  }
+                                                >
+                                                  {item.title?.trim() || "—"}
+                                                </span>
+                                              </td>
+                                              <td>
+                                                {item.url ? (
+                                                  <a
+                                                    href={item.url}
+                                                    className="adminPage__cellUrl"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={item.url}
+                                                  >
+                                                    {item.url}
+                                                  </a>
+                                                ) : (
+                                                  <span className="adminPage__cellMuted">
+                                                    —
+                                                  </span>
+                                                )}
+                                              </td>
+                                            </tr>
                                         ))}
                                       </tbody>
                                     </table>
@@ -830,9 +1172,73 @@ export function ReportsTab({
       <ReportsUploadDialog
         open={uploadDialogOpen}
         uploading={uploading}
-        onClose={() => setUploadDialogOpen(false)}
+        reuploadTarget={reuploadTarget}
+        onClose={() => {
+          if (uploading) return;
+          setUploadDialogOpen(false);
+          setReuploadTarget(null);
+        }}
         onSubmit={(payload) => void handleUploadSubmit(payload)}
       />
+
+      {uploadRowMenuOpenId != null &&
+      uploadRowMenuAnchor &&
+      uploadRowMenuUpload
+        ? createPortal(
+            <div
+              ref={uploadRowMenuRef}
+              className="adminPage__rowMenu adminPage__rowMenu--portal"
+              role="menu"
+              aria-orientation="vertical"
+              data-etl-upload-row-menu-portal={uploadRowMenuOpenId}
+              style={{
+                top: uploadRowMenuPosition?.top ?? uploadRowMenuAnchor.bottom + 4,
+                left: uploadRowMenuPosition?.left ?? uploadRowMenuAnchor.right,
+                visibility: uploadRowMenuPosition ? "visible" : "hidden",
+              }}
+            >
+              <button
+                type="button"
+                className="adminPage__rowMenuItem adminPage__rowMenuItem--extract"
+                role="menuitem"
+                disabled={uploadRowMenuUpload.status === "processing"}
+                onClick={() => {
+                  closeUploadRowMenu();
+                  void handleExtractUpload(uploadRowMenuUpload.id);
+                }}
+              >
+                <Zap size={14} strokeWidth={2} aria-hidden />
+                Extract
+              </button>
+              <button
+                type="button"
+                className="adminPage__rowMenuItem"
+                role="menuitem"
+                disabled={uploadRowMenuUpload.status === "processing"}
+                onClick={() => {
+                  closeUploadRowMenu();
+                  openReuploadDialog(uploadRowMenuUpload);
+                }}
+              >
+                <Upload size={14} strokeWidth={2} aria-hidden />
+                Reupload
+              </button>
+              <button
+                type="button"
+                className="adminPage__rowMenuItem adminPage__rowMenuItem--danger"
+                role="menuitem"
+                onClick={() => {
+                  closeUploadRowMenu();
+                  void handleArchiveUpload(uploadRowMenuUpload.id);
+                }}
+              >
+                <Archive size={14} strokeWidth={2} aria-hidden />
+                Archive
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
       <ReportsStartDialog
         open={startDialogOpen}
         uploads={uploads}

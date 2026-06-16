@@ -134,3 +134,14 @@ export async function runOneJob(): Promise<boolean> {
   await processClaimedJob(job);
   return true;
 }
+
+/** True when at least one ingest job is waiting to run. */
+export async function hasPendingJobs(): Promise<boolean> {
+  const [row] = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(eq(jobs.status, "pending"))
+    .limit(1);
+
+  return row != null;
+}

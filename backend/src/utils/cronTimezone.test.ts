@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   getCronScheduleSkipReason,
   isWithinCronSchedule,
+  msUntilNextCronScheduleRun,
   msUntilStartTimeToday,
   type CronScheduleConfig,
 } from "../config/cronScheduleConfig.js";
@@ -152,5 +153,39 @@ describe("discovery loop sleep", () => {
       computeDiscoveryLoopSleepMs(intervalMs, 100, schedule, now),
       intervalMs - 100,
     );
+  });
+});
+
+describe("next cron schedule run", () => {
+  const dailySchedule: CronScheduleConfig = {
+    id: "rss-next",
+    startDate: "2026-06-11",
+    startTime: "10:39",
+    timezone: "Asia/Kolkata",
+    repeat: true,
+    repeatInterval: 1,
+    repeatUnit: "day",
+    repeatDays: [],
+    ingestLinkIds: [1],
+    endsOn: null,
+    active: true,
+  };
+
+  it("returns ms until today's start when before start time", () => {
+    assert.equal(
+      msUntilNextCronScheduleRun(
+        dailySchedule,
+        new Date("2026-06-11T05:08:00.000Z"),
+      ),
+      60_000,
+    );
+  });
+
+  it("returns ms until tomorrow after today's run time", () => {
+    const ms = msUntilNextCronScheduleRun(
+      dailySchedule,
+      new Date("2026-06-11T05:10:00.000Z"),
+    );
+    assert.ok(ms != null && ms > 20 * 60 * 60_000);
   });
 });

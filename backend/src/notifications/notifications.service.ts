@@ -35,6 +35,32 @@ function normalizeJobStatus(status: string): string {
   }
 }
 
+function resolveJobNotificationDetail(
+  kind: NotificationKind,
+  row: {
+    errorMessage: string | null;
+    source: string;
+    url: string;
+  },
+): string {
+  const note = row.errorMessage?.trim() || null;
+  if (note && (kind === "job_failed" || kind === "job_skipped")) {
+    return note;
+  }
+
+  const sourceLabel = formatJobSource(row.source);
+  const urlLabel = truncateUrl(row.url);
+
+  switch (kind) {
+    case "job_skipped":
+      return note ?? "Skipped during ingest (no detailed reason recorded).";
+    case "job_failed":
+      return note ?? "Ingest failed (no detailed reason recorded).";
+    default:
+      return `${sourceLabel} · ${urlLabel}`;
+  }
+}
+
 function mapJobNotification(row: {
   id: number;
   url: string;
@@ -44,8 +70,6 @@ function mapJobNotification(row: {
   updatedAt: Date;
 }): NotificationDto {
   const status = normalizeJobStatus(row.status);
-  const sourceLabel = formatJobSource(row.source);
-  const urlLabel = truncateUrl(row.url);
 
   let kind: NotificationKind;
   let title: string;
@@ -74,10 +98,7 @@ function mapJobNotification(row: {
       break;
   }
 
-  const detail =
-    kind === "job_failed" && row.errorMessage?.trim()
-      ? row.errorMessage.trim()
-      : `${sourceLabel} · ${urlLabel}`;
+  const detail = resolveJobNotificationDetail(kind, row);
 
   return {
     id: `job:${row.id}`,
@@ -107,7 +128,7 @@ function mapFeedExtractNotification(row: {
     title: "RSS feed extracted",
     message: `${row.itemCount} URL${row.itemCount === 1 ? "" : "s"} from ${label}`,
     createdAt: row.updatedAt.toISOString(),
-    href: "/admin",
+    href: "/controls",
   };
 }
 
@@ -131,30 +152,52 @@ function mapReportUploadNotification(row: {
       ? (row.errorMessage?.trim() || `${label} could not be imported.`)
       : `${label} · ${row.importedRows} of ${row.totalRows} row${row.totalRows === 1 ? "" : "s"} imported`,
     createdAt: row.updatedAt.toISOString(),
-    href: "/admin",
+    href: "/controls",
   };
 }
 
 function mapCronJobEventNotification(row: {
   id: number;
   jobId: string;
-  eventType: "started" | "stopped";
+  eventType: "started" | "stopped" | "scheduled" | "completed";
   message: string | null;
   createdAt: Date;
 }): NotificationDto {
-  const isStarted = row.eventType === "started";
+  const defaults: Record<
+    typeof row.eventType,
+    { kind: NotificationKind; title: string; fallback: string }
+  > = {
+    scheduled: {
+      kind: "cron_job_scheduled",
+      title: "Cron job scheduled",
+      fallback: "RSS feed discovery cron job was scheduled.",
+    },
+    completed: {
+      kind: "cron_job_completed",
+      title: "Cron job completed",
+      fallback: "Cron job is completed.",
+    },
+    started: {
+      kind: "cron_job_started",
+      title: "Cron job started",
+      fallback: "Cron job has been started.",
+    },
+    stopped: {
+      kind: "cron_job_stopped",
+      title: "Cron job stopped",
+      fallback: "RSS feed discovery cron job stopped.",
+    },
+  };
+
+  const meta = defaults[row.eventType];
 
   return {
     id: `cron_job:${row.id}:${row.eventType}`,
-    kind: isStarted ? "cron_job_started" : "cron_job_stopped",
-    title: isStarted ? "Cron job started" : "Cron job stopped",
-    message:
-      row.message?.trim() ||
-      (isStarted
-        ? "RSS feed discovery cron job started."
-        : "RSS feed discovery cron job stopped."),
+    kind: meta.kind,
+    title: meta.title,
+    message: row.message?.trim() || meta.fallback,
     createdAt: row.createdAt.toISOString(),
-    href: "/admin",
+    href: "/controls",
   };
 }
 

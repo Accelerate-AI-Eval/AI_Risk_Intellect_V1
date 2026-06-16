@@ -18,6 +18,10 @@ export function notificationKindClass(kind: NotificationKind): string {
       return "notifications__itemKind--extracted";
     case "cron_job_started":
       return "notifications__itemKind--running";
+    case "cron_job_scheduled":
+      return "notifications__itemKind--pending";
+    case "cron_job_completed":
+      return "notifications__itemKind--success";
     case "cron_job_stopped":
       return "notifications__itemKind--pending";
     default:

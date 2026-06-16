@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { retryJob } from "../../services/jobs/retryJob.service.js";
+import { ensureWorkerProcessRunning } from "../../services/admin/workerManager.service.js";
 
 export async function retryJobHandler(
   req: Request,
@@ -12,9 +13,12 @@ export async function retryJobHandler(
   }
 
   const job = await retryJob(jobId);
+  const { pid } = ensureWorkerProcessRunning();
+
   res.status(200).json({
     ok: true,
-    message: "Job requeued. Ensure the worker is running.",
+    message: "Job requeued. Worker service started to process it.",
     job,
+    pid,
   });
 }

@@ -20,6 +20,7 @@ from app.extraction.extract_utils import (
 )
 from app.llm.model_config import get_model_config, set_model
 from app.ingestion.errors import SkipIngest
+from app.etl.file_access import read_allowed_etl_file
 from app.etl.pipeline import prepare_etl_import
 from app.ingestion.pipeline import (
     prepare_html_ingest,
@@ -63,6 +64,7 @@ class SetLlmModelBody(BaseModel):
 class EtlImportBody(BaseModel):
     filename: str = Field(min_length=1)
     file_base64: str = Field(default="")
+    file_path: str = Field(default="")
 
 
 def _error_payload(error: str, message: str) -> dict[str, object]:
@@ -136,12 +138,21 @@ def put_llm_model_config(body: SetLlmModelBody) -> dict[str, object]:
         return _error_payload("InvalidModel", str(exc))
 
 
+def _load_etl_file_bytes(body: EtlImportBody) -> bytes:
+    if body.file_path.strip():
+        return read_allowed_etl_file(body.file_path)
+    try:
+        return base64.b64decode(body.file_base64 or "")
+    except Exception as exc:
+        raise ValueError(f"Invalid base64 file payload: {exc}") from exc
+
+
 @app.post("/etl/import")
 def etl_import(body: EtlImportBody) -> dict[str, object]:
     try:
-        file_bytes = base64.b64decode(body.file_base64 or "")
-    except Exception as exc:
-        return _error_payload("InvalidBase64", str(exc))
+        file_bytes = _load_etl_file_bytes(body)
+    except ValueError as exc:
+        return _error_payload("InvalidFile", str(exc))
 
     if not file_bytes:
         return _error_payload("EmptyFile", "uploaded file is empty")

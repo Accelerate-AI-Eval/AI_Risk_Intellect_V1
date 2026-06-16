@@ -8,7 +8,10 @@ import "../bootstrap.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createLogger } from "../logger/index.js";
-import { autoIngestLoop } from "./rssDiscovery.js";
+import {
+  autoIngestLoop,
+  CRON_LOOP_PLANNED_EXIT_CODE,
+} from "./rssDiscovery.js";
 import { workerState } from "./state.js";
 
 const log = createLogger("discovery-service");
@@ -39,8 +42,12 @@ async function discoveryLoop(): Promise<void> {
   workerState.discoveryStop = stopController;
   workerState.discoveryEnabled = true;
 
+  let plannedCronExit = false;
   try {
-    await autoIngestLoop(stopController.signal, cfgPath, { runOnce });
+    const result = await autoIngestLoop(stopController.signal, cfgPath, {
+      runOnce,
+    });
+    plannedCronExit = result.plannedCronExit;
   } catch (err) {
     if (stopRequested || stopController.signal.aborted) {
       log.info("[discovery-service] cancelled");
@@ -53,6 +60,9 @@ async function discoveryLoop(): Promise<void> {
   }
 
   log.info("[discovery-service] exiting");
+  if (plannedCronExit) {
+    process.exitCode = CRON_LOOP_PLANNED_EXIT_CODE;
+  }
 }
 
 log.info("[discovery-service] booting");

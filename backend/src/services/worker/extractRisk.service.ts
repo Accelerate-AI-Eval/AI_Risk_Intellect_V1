@@ -162,10 +162,12 @@ export async function extractRiskForArticle(
     return { outcome: "done", riskId: row!.id, created: true };
   } catch (err) {
     if (err instanceof StubExtractionError) {
+      const hasBedrockDetail = /bedrock error/i.test(err.message);
       return {
         outcome: "skipped",
-        reason:
-          `${err.message}. Start Python (npm run py:dev) with USE_BEDROCK=true or a working LOCAL_MODEL_ID.`,
+        reason: hasBedrockDetail
+          ? err.message
+          : `${err.message}. Start Python (npm run py:dev) with USE_BEDROCK=true or a working LOCAL_MODEL_ID.`,
       };
     }
     throw err;

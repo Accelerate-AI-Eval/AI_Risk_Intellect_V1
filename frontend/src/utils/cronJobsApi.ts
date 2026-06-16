@@ -22,6 +22,7 @@ export type CronJobRow = {
   description: string;
   schedule: CronSchedule;
   enabled: boolean;
+  running: boolean;
   serviceKey: "discovery" | null;
 };
 

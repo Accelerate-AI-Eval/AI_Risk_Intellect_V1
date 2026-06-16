@@ -14,15 +14,16 @@ import {
 import {
   getDiscoveryStatus,
   restartDiscoveryLoopProcess,
-  startDiscoveryLoopProcess,
+  scheduleNextCronDiscoveryRun,
   stopDiscoveryProcess,
 } from "./discoveryManager.service.js";
 import { createLogger } from "../../logger/index.js";
-import { ensureWorkerProcessRunning } from "./workerManager.service.js";
+import { recordCronJobEvent } from "./cronJobEvents.service.js";
+import { formatCronScheduledMessage } from "./cronNotificationMessages.js";
 
 const cronJobsLog = createLogger("cron-jobs");
 
-/** Start discovery + worker when a schedule is active in DB but the child died. */
+/** Schedule the next cron run after server boot (service stays stopped until run time). */
 async function ensureActiveCronDiscoveryRunning(): Promise<void> {
   const schedule = await loadActiveCronScheduleConfig();
   if (!schedule?.active || schedule.ingestLinkIds.length === 0) {
@@ -33,13 +34,12 @@ async function ensureActiveCronDiscoveryRunning(): Promise<void> {
   }
 
   try {
-    startDiscoveryLoopProcess();
-    ensureWorkerProcessRunning();
-    cronJobsLog.info("Auto-started discovery for active schedule", {
+    scheduleNextCronDiscoveryRun(schedule);
+    cronJobsLog.info("Scheduled next cron discovery run", {
       scheduleId: schedule.id,
     });
   } catch (err) {
-    cronJobsLog.error("Failed to auto-start discovery", { err });
+    cronJobsLog.error("Failed to schedule cron discovery", { err });
   }
 }
 
@@ -48,12 +48,14 @@ export type CronJobDefinition = {
   name: string;
   description: string;
   schedule: CronScheduleConfig;
+  /** Saved schedule is active in the database. */
   enabled: boolean;
+  /** Background discovery loop process is running (waits until the schedule window). */
+  running: boolean;
   serviceKey: "discovery" | null;
 };
 
 export async function listCronJobs(): Promise<CronJobDefinition[]> {
-  await ensureActiveCronDiscoveryRunning();
   const schedule = await sanitizeCronScheduleFeeds(RSS_CRON_SERVICE_ID);
   const discoveryRunning = getDiscoveryStatus().running;
 
@@ -64,7 +66,8 @@ export async function listCronJobs(): Promise<CronJobDefinition[]> {
       description:
         "Poll selected RSS feeds and enqueue extracted article URLs.",
       schedule,
-      enabled: discoveryRunning && schedule.active,
+      enabled: schedule.active,
+      running: discoveryRunning,
       serviceKey: "discovery",
     },
   ];
@@ -109,8 +112,14 @@ export async function saveCronJobSchedule(
     ...scheduleInput,
     ingestLinkIds: links.map((link) => link.id),
   });
+
+  await recordCronJobEvent(
+    schedule.id,
+    "scheduled",
+    formatCronScheduledMessage(schedule, links.length),
+  );
+
   restartDiscoveryLoopProcess();
-  ensureWorkerProcessRunning();
 
   const discoveryRunning = getDiscoveryStatus().running;
 
@@ -120,7 +129,8 @@ export async function saveCronJobSchedule(
     description:
       "Poll selected RSS feeds and enqueue extracted article URLs.",
     schedule,
-    enabled: discoveryRunning && schedule.active,
+    enabled: schedule.active,
+    running: discoveryRunning,
     serviceKey: "discovery",
   };
 }

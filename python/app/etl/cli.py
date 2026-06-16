@@ -10,6 +10,7 @@ from app.env_bootstrap import bootstrap_env
 
 bootstrap_env()
 
+from app.etl.file_access import read_allowed_etl_file
 from app.etl.pipeline import prepare_etl_import
 
 
@@ -21,12 +22,16 @@ def main() -> int:
         return 1
 
     filename = req.get("filename") or ""
+    file_path = (req.get("file_path") or "").strip()
     file_base64 = req.get("file_base64") or ""
 
     try:
-        file_bytes = base64.b64decode(file_base64)
+        if file_path:
+            file_bytes = read_allowed_etl_file(file_path)
+        else:
+            file_bytes = base64.b64decode(file_base64)
     except Exception as exc:
-        json.dump({"ok": False, "error": "InvalidBase64", "message": str(exc)}, sys.stdout)
+        json.dump({"ok": False, "error": "InvalidFile", "message": str(exc)}, sys.stdout)
         return 1
 
     if not file_bytes:

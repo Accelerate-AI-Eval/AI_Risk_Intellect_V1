@@ -21,7 +21,7 @@ export type ReportsStartDialogProps = {
 };
 
 function itemCountForUpload(row: EtlReportUploadRow): number {
-  return row.importedRows > 0 ? row.importedRows : row.totalRows;
+  return row.importedRows;
 }
 
 export function ReportsStartDialog({

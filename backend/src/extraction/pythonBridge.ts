@@ -54,6 +54,7 @@ type ExtractResponse =
       error: string;
       message: string;
       source_flag?: string;
+      object?: RiskExtractionObject;
       metrics?: PythonExtractMetrics;
     };
 
@@ -74,10 +75,18 @@ function pythonCommand(): string {
   );
 }
 
+function stubExtractionDetail(parsed: ExtractResponse & { ok: false }): string {
+  const stubReason = parsed.object?._stub_reason;
+  if (typeof stubReason === "string" && stubReason.trim()) {
+    return `${parsed.message}: ${stubReason.trim()}`;
+  }
+  return parsed.message;
+}
+
 function handleExtractResponse(parsed: ExtractResponse): PythonExtractResult {
   if (!parsed.ok) {
     if (parsed.error === "StubExtraction") {
-      throw new StubExtractionError(parsed.message);
+      throw new StubExtractionError(stubExtractionDetail(parsed));
     }
     throw new Error(parsed.message || parsed.error);
   }

@@ -1,5 +1,20 @@
 import { authFetch } from "./authFetch";
 
+export type EtlReportUploadItemExtractionStatus =
+  | "imported"
+  | "skipped_existing"
+  | "skipped_duplicate_in_file"
+  | "skipped_invalid"
+  | "failed";
+
+export type EtlExtractionDisplayStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "partially_completed"
+  | "skipped"
+  | "failed";
+
 export type EtlReportUploadItemRow = {
   id: number;
   uploadId: number;
@@ -7,6 +22,8 @@ export type EtlReportUploadItemRow = {
   objectId: string | null;
   url: string;
   title: string | null;
+  extractionStatus: EtlReportUploadItemExtractionStatus;
+  skipReason: string | null;
 };
 
 export type EtlReportUploadRow = {
@@ -14,7 +31,8 @@ export type EtlReportUploadRow = {
   suggestedName: string | null;
   reportFilePath: string;
   fileName: string;
-  status: "processing" | "completed" | "failed";
+  status: "pending" | "processing" | "completed" | "failed";
+  extractionStatus: EtlExtractionDisplayStatus;
   totalRows: number;
   importedRows: number;
   skippedRows: number;
@@ -127,6 +145,92 @@ export async function startEtlReportsRun(
     return {
       ok: false,
       message: "Network error while starting reports worker.",
+    };
+  }
+}
+
+export async function extractEtlReportUpload(
+  id: number,
+): Promise<
+  | {
+      ok: true;
+      message: string;
+      totalRows?: number;
+      importedRows?: number;
+      skippedRows?: number;
+      failedRows?: number;
+    }
+  | { ok: false; message: string }
+> {
+  try {
+    const res = await authFetch(`/admin/etl/reports/uploads/${id}/extract`, {
+      method: "POST",
+    });
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      message?: string;
+      totalRows?: number;
+      importedRows?: number;
+      skippedRows?: number;
+      failedRows?: number;
+    };
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not extract report URLs."),
+      };
+    }
+
+    return {
+      ok: true,
+      message: data.message ?? "Report URLs extracted.",
+      totalRows: data.totalRows,
+      importedRows: data.importedRows,
+      skippedRows: data.skippedRows,
+      failedRows: data.failedRows,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error while extracting report URLs.",
+    };
+  }
+}
+
+export async function reuploadEtlReportUpload(
+  id: number,
+  file: File,
+  suggestedName = "",
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const trimmedName = suggestedName.trim();
+  if (trimmedName) formData.append("suggestedName", trimmedName);
+
+  try {
+    const res = await authFetch(`/admin/etl/reports/uploads/${id}/reupload`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      message?: string;
+    };
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not reupload report file."),
+      };
+    }
+
+    return {
+      ok: true,
+      message: data.message ?? "Report file replaced.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error while reuploading report file.",
     };
   }
 }

@@ -10,6 +10,10 @@ import {
 import { HttpError } from "../../utils/httpError.js";
 import type { EtlImportSummary } from "../../etl/etlImport.types.js";
 import {
+  deriveEtlExtractionStatus,
+  type EtlExtractionDisplayStatus,
+} from "./etlExtractionStatus.js";
+import {
   deleteReportUploadFile,
   getReportUploadDisplayName,
 } from "./etlReportFileStorage.js";
@@ -21,6 +25,13 @@ export type EtlReportUploadItemDto = {
   objectId: string | null;
   url: string;
   title: string | null;
+  extractionStatus:
+    | "imported"
+    | "skipped_existing"
+    | "skipped_duplicate_in_file"
+    | "skipped_invalid"
+    | "failed";
+  skipReason: string | null;
 };
 
 export type EtlReportUploadDto = {
@@ -34,6 +45,7 @@ export type EtlReportUploadDto = {
   skippedRows: number;
   failedRows: number;
   errorMessage: string | null;
+  extractionStatus: EtlExtractionDisplayStatus;
   createdAt: string;
   updatedAt: string;
 };
@@ -50,6 +62,7 @@ function toDto(row: EtlReportUpload): EtlReportUploadDto {
     skippedRows: row.skippedRows,
     failedRows: row.failedRows,
     errorMessage: row.errorMessage ?? null,
+    extractionStatus: deriveEtlExtractionStatus(row),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -201,6 +214,24 @@ export async function listActiveReportUploads(): Promise<EtlReportUploadDto[]> {
   return rows.map(toDto);
 }
 
+export async function getActiveReportUploadById(
+  id: number,
+): Promise<EtlReportUpload | null> {
+  const [row] = await db
+    .select()
+    .from(etlReportUploads)
+    .where(
+      and(eq(etlReportUploads.id, id), eq(etlReportUploads.archived, false)),
+    )
+    .limit(1);
+
+  return row ?? null;
+}
+
+export async function clearReportRecordsForUpload(uploadId: number): Promise<void> {
+  await db.delete(aiidReports).where(eq(aiidReports.uploadId, uploadId));
+}
+
 export async function createReportUpload(input: {
   suggestedName?: string;
   reportFilePath: string;
@@ -212,7 +243,7 @@ export async function createReportUpload(input: {
       suggestedName: input.suggestedName?.trim() || null,
       reportFilePath: input.reportFilePath,
       fileSha256: input.fileSha256 ?? null,
-      status: "processing",
+      status: "pending",
     })
     .returning();
 
@@ -224,6 +255,9 @@ export async function updateReportUploadProgress(
   uploadId: number,
   patch: Partial<{
     status: EtlReportUploadStatus;
+    suggestedName: string | null;
+    reportFilePath: string;
+    fileSha256: string | null;
     totalRows: number;
     importedRows: number;
     skippedRows: number;
@@ -303,7 +337,7 @@ export async function listReportUploadItems(
     throw HttpError.notFound("Report upload not found.");
   }
 
-  const rows = await db
+  const reportRows = await db
     .select({
       id: aiidReports.id,
       objectId: aiidReports.objectId,
@@ -314,13 +348,15 @@ export async function listReportUploadItems(
     .where(eq(aiidReports.uploadId, uploadId))
     .orderBy(asc(aiidReports.id));
 
-  return rows.map((row, index) => ({
+  return reportRows.map((row, index) => ({
     id: row.id,
     uploadId,
     rowOrder: index + 1,
     objectId: row.objectId,
     url: row.url,
     title: row.title,
+    extractionStatus: "imported" as const,
+    skipReason: null,
   }));
 }
 

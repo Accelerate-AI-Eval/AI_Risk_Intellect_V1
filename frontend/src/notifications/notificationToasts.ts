@@ -4,32 +4,60 @@ import type { NotificationItem } from "./types";
 const RECENT_CRON_TOAST_MS = 30_000;
 let lastCronStartToastAt = 0;
 let lastCronStopToastAt = 0;
+let lastCronScheduledToastAt = 0;
+let lastCronCompletedToastAt = 0;
+
+function shouldShowCronToast(lastAt: number): boolean {
+  const now = Date.now();
+  if (now - lastAt < RECENT_CRON_TOAST_MS) return false;
+  return true;
+}
 
 export function toastCronJobStarted(message?: string): void {
-  const now = Date.now();
-  if (now - lastCronStartToastAt < RECENT_CRON_TOAST_MS) return;
-  lastCronStartToastAt = now;
-  toast.info(
-    message?.trim() || "RSS feed discovery cron job started.",
-    { autoClose: 4000 },
-  );
+  if (!shouldShowCronToast(lastCronStartToastAt)) return;
+  lastCronStartToastAt = Date.now();
+  toast.info(message?.trim() || "Cron job has been started.", {
+    autoClose: 4000,
+  });
 }
 
 export function toastCronJobStopped(message?: string): void {
-  const now = Date.now();
-  if (now - lastCronStopToastAt < RECENT_CRON_TOAST_MS) return;
-  lastCronStopToastAt = now;
+  if (!shouldShowCronToast(lastCronStopToastAt)) return;
+  lastCronStopToastAt = Date.now();
   toast.info(
     message?.trim() || "RSS feed discovery cron job stopped.",
     { autoClose: 4000 },
   );
 }
 
+export function toastCronJobScheduled(message?: string): void {
+  if (!shouldShowCronToast(lastCronScheduledToastAt)) return;
+  lastCronScheduledToastAt = Date.now();
+  toast.success(
+    message?.trim() || "RSS feed discovery cron job was scheduled.",
+    { autoClose: 4500 },
+  );
+}
+
+export function toastCronJobCompleted(message?: string): void {
+  if (!shouldShowCronToast(lastCronCompletedToastAt)) return;
+  lastCronCompletedToastAt = Date.now();
+  toast.success(message?.trim() || "Cron job is completed.", {
+    autoClose: 4500,
+  });
+}
+
 export function maybeToastNotification(item: NotificationItem): void {
   if (item.kind === "cron_job_started") {
-    toastCronJobStarted(item.message);
+    toastCronJobStarted("Cron job has been started.");
   }
   if (item.kind === "cron_job_stopped") {
     toastCronJobStopped(item.message);
+  }
+  if (item.kind === "cron_job_scheduled") {
+    toastCronJobScheduled(item.message);
+  }
+  if (item.kind === "cron_job_completed") {
+    toastCronJobCompleted("Cron job is completed.");
   }
 }

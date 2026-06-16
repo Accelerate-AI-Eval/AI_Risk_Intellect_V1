@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import csv
 import io
 import logging
 import re
@@ -10,6 +9,7 @@ from typing import Any, Iterator
 
 import pandas as pd
 
+from app.etl.csv_record_reader import read_csv_dataframe
 from app.etl.objectid import is_valid_object_id, normalize_object_id
 from app.risk_processing.description_utils import normalize_narrative_text
 
@@ -107,25 +107,21 @@ def _parse_tags(value: object) -> list[str] | None:
     return tags or None
 
 
-def _read_dataframe(file_bytes: bytes, filename: str) -> pd.DataFrame:
+def _read_dataframe(
+    file_bytes: bytes,
+    filename: str,
+) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
     ext = _extension(filename)
     buffer = io.BytesIO(file_bytes)
 
     if ext == ".csv":
-        return pd.read_csv(
-            buffer,
-            dtype=str,
-            keep_default_na=False,
-            quoting=csv.QUOTE_MINIMAL,
-            encoding="utf-8",
-            on_bad_lines="warn",
-        )
+        return read_csv_dataframe(file_bytes)
 
     if ext == ".xlsx":
-        return pd.read_excel(buffer, engine="openpyxl", dtype=str)
+        return pd.read_excel(buffer, engine="openpyxl", dtype=str), []
 
     if ext == ".xls":
-        return pd.read_excel(buffer, engine="xlrd", dtype=str)
+        return pd.read_excel(buffer, engine="xlrd", dtype=str), []
 
     raise ValueError(f"Unsupported file extension: {ext}")
 
@@ -199,8 +195,8 @@ def parse_import_file(
     *,
     chunk_size: int = 1000,
 ) -> dict[str, Any]:
-    df = _read_dataframe(file_bytes, filename)
-    if df.empty:
+    df, pre_skipped_rows = _read_dataframe(file_bytes, filename)
+    if df.empty and not pre_skipped_rows:
         return {
             "totalRows": 0,
             "records": [],
@@ -209,9 +205,9 @@ def parse_import_file(
         }
 
     column_map = _build_column_map(df.columns)
-    total_rows = len(df)
+    total_rows = len(df) + len(pre_skipped_rows)
     records: list[dict[str, Any]] = []
-    skipped_rows: list[dict[str, Any]] = []
+    skipped_rows: list[dict[str, Any]] = list(pre_skipped_rows)
     failed_rows: list[dict[str, Any]] = []
 
     row_offset = 0

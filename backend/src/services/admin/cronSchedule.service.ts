@@ -333,37 +333,26 @@ export async function deactivateActiveCronSchedule(): Promise<CronScheduleConfig
   return rowToConfig({ ...row, active: false }, ingestLinkIds);
 }
 
-/** Each save creates a new rss-N row and deactivates prior RSS cron schedules. */
+/** Update the active schedule in place when one exists; otherwise create a new rss-N row. */
 export async function saveCronScheduleConfig(
   input: SaveCronScheduleInput,
 ): Promise<CronScheduleConfig> {
-  const nextId = await nextRssCronJobId();
+  const activeRow = await loadActiveScheduleRowOnly();
+  const scheduleId =
+    activeRow?.id && activeRow.id !== RSS_CRON_PLACEHOLDER_ID
+      ? activeRow.id
+      : await nextRssCronJobId();
+
   await deactivateAllRssCronSchedules();
 
   const schedule = scheduleSchema.parse({
-    id: nextId,
+    id: scheduleId,
     ...input,
     endsOn: null,
     active: true,
   });
 
-  const now = new Date();
-  await db.insert(cronJobSchedules).values({
-    id: schedule.id,
-    startDate: schedule.startDate,
-    startTime: schedule.startTime,
-    timezone: schedule.timezone,
-    repeat: schedule.repeat,
-    repeatInterval: schedule.repeatInterval,
-    repeatUnit: schedule.repeatUnit as RepeatUnit,
-    repeatDays: schedule.repeatDays,
-    endsOn: schedule.endsOn,
-    active: schedule.active,
-    updatedAt: now,
-  });
-
-  await replaceScheduleFeeds(schedule.id, schedule.ingestLinkIds);
-  return schedule;
+  return writeCronScheduleConfig(schedule);
 }
 
 /** Remove junction rows for archived or missing feeds and deactivate when none remain. */
