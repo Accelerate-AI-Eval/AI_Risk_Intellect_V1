@@ -32,6 +32,7 @@ import {
   DEFAULT_API_STATUS,
   displayServiceStatus,
   readServiceApiStatus,
+  waitForWorkerRunning,
   waitForDiscoveryAndWorkerRunning,
   waitForServiceApiState,
   type ApiServiceState,
@@ -505,20 +506,22 @@ export function AdminPage() {
           apiStatus,
           pendingAction,
         )}
-        onScheduleSaved={async () => {
+        onScheduleSaved={async (job) => {
+          void loadServiceStatus();
+          if (!job.running) {
+            return;
+          }
           setPendingAction((pending) => ({
             ...pending,
-            discovery: "starting",
             worker: "starting",
           }));
-          const { discovery, worker } = await waitForDiscoveryAndWorkerRunning();
-          clearPending("discovery");
+          const workerUp = await waitForWorkerRunning(15_000);
           clearPending("worker");
           void loadServiceStatus();
-          if (!discovery || !worker) {
+          if (!workerUp) {
             toast.warning(
-              "Cron job saved, but discovery or worker has not reported running yet.",
-              { autoClose: 4000 },
+              "Discovery started, but the worker has not reported running yet. It may still be starting, or Python ingest may be unavailable.",
+              { autoClose: 5000 },
             );
           }
         }}

@@ -192,13 +192,86 @@ function mapCronJobEventNotification(row: {
   const meta = defaults[row.eventType];
 
   return {
-    id: `cron_job:${row.id}:${row.eventType}`,
+    id: `cron_job:${row.jobId}:${row.eventType}:${row.id}`,
     kind: meta.kind,
     title: meta.title,
     message: row.message?.trim() || meta.fallback,
     createdAt: row.createdAt.toISOString(),
     href: "/controls",
   };
+}
+
+function collapseCronNotifications(
+  notifications: NotificationDto[],
+): NotificationDto[] {
+  const latestCronByKey = new Map<string, NotificationDto>();
+  const nonCron: NotificationDto[] = [];
+
+  for (const item of notifications) {
+    if (
+      item.kind !== "cron_job_started" &&
+      item.kind !== "cron_job_completed" &&
+      item.kind !== "cron_job_stopped" &&
+      item.kind !== "cron_job_scheduled"
+    ) {
+      nonCron.push(item);
+      continue;
+    }
+
+    const match = /^cron_job:([^:]+):/.exec(item.id);
+    const jobId = match?.[1] ?? item.id;
+    const key = `${jobId}:${item.kind}`;
+    const existing = latestCronByKey.get(key);
+    if (
+      !existing ||
+      new Date(item.createdAt).getTime() >
+        new Date(existing.createdAt).getTime()
+    ) {
+      latestCronByKey.set(key, item);
+    }
+  }
+
+  return [...nonCron, ...latestCronByKey.values()];
+}
+
+const CRON_LIFECYCLE_EVENT_TYPES = [
+  "started",
+  "completed",
+  "stopped",
+  "scheduled",
+] as const;
+
+/** At most one notification per cron lifecycle type (latest row only). */
+async function loadLatestCronEventNotifications(
+  since: Date,
+): Promise<NotificationDto[]> {
+  const notifications: NotificationDto[] = [];
+
+  for (const eventType of CRON_LIFECYCLE_EVENT_TYPES) {
+    const [row] = await db
+      .select({
+        id: cronJobEvents.id,
+        jobId: cronJobEvents.jobId,
+        eventType: cronJobEvents.eventType,
+        message: cronJobEvents.message,
+        createdAt: cronJobEvents.createdAt,
+      })
+      .from(cronJobEvents)
+      .where(
+        and(
+          eq(cronJobEvents.eventType, eventType),
+          gte(cronJobEvents.createdAt, since),
+        ),
+      )
+      .orderBy(desc(cronJobEvents.createdAt))
+      .limit(1);
+
+    if (row) {
+      notifications.push(mapCronJobEventNotification(row));
+    }
+  }
+
+  return notifications;
 }
 
 export async function listNotifications(options?: {
@@ -288,24 +361,9 @@ export async function listNotifications(options?: {
     notifications.push(mapReportUploadNotification(row));
   }
 
-  const cronEventRows = await db
-    .select({
-      id: cronJobEvents.id,
-      jobId: cronJobEvents.jobId,
-      eventType: cronJobEvents.eventType,
-      message: cronJobEvents.message,
-      createdAt: cronJobEvents.createdAt,
-    })
-    .from(cronJobEvents)
-    .where(gte(cronJobEvents.createdAt, since))
-    .orderBy(desc(cronJobEvents.createdAt))
-    .limit(20);
+  notifications.push(...(await loadLatestCronEventNotifications(since)));
 
-  for (const row of cronEventRows) {
-    notifications.push(mapCronJobEventNotification(row));
-  }
-
-  return notifications
+  return collapseCronNotifications(notifications)
     .sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),

@@ -11,7 +11,7 @@
   --obs-input-border: rgba(148, 163, 184, 0.2);
   --obs-btn-border: rgba(148, 163, 184, 0.25);
   --obs-btn-hover: rgba(148, 163, 184, 0.12);
-  --obs-th-bg: rgba(0, 0, 0, 0.22);
+  --obs-th-bg: #0f172a;
   --obs-accent: var(--main-auth-button-color, #1cb0d4);
   --obs-section-accent: #7dd3fc;
 
@@ -53,7 +53,7 @@ html.app-theme-dark .observabilityPage {
   --obs-input-border: rgba(148, 163, 184, 0.2);
   --obs-btn-border: rgba(148, 163, 184, 0.25);
   --obs-btn-hover: rgba(148, 163, 184, 0.12);
-  --obs-th-bg: rgba(0, 0, 0, 0.22);
+  --obs-th-bg: #0f172a;
 }
 
 html.app-theme-dark .mainLayout__content.observabilityPage {

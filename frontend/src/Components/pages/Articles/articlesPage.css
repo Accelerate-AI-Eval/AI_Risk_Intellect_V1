@@ -160,7 +160,7 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--art-muted);
-  background: rgba(15, 23, 42, 0.35);
+  background: #0f172a;
   border-bottom: 1px solid var(--art-border);
   white-space: nowrap;
   position: sticky;

@@ -188,6 +188,134 @@ textarea.usersPage__textarea:focus {
   margin-top: 0.75rem;
 }
 
+.usersPage__uploadProgress {
+  margin-top: 0.75rem;
+}
+
+.usersPage__uploadProgressLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--main-text-muted, #64748b);
+  margin-bottom: 0.35rem;
+}
+
+.usersPage__uploadProgressTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.usersPage__uploadProgressBar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--main-auth-button-color, #1cb0d4);
+  transition: width 0.15s ease-out;
+}
+
+.usersPage__visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.usersPage__fileField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.usersPage__fileDrop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 7.5rem;
+  padding: 1rem 0.85rem;
+  border: 1.5px dashed rgba(28, 176, 212, 0.35);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--main-text-muted, #64748b);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.usersPage__fileDrop:hover:not(.usersPage__fileDrop--disabled) {
+  border-color: rgba(28, 176, 212, 0.55);
+  background: #f1f5f9;
+}
+
+.usersPage__fileDrop:focus-visible {
+  outline: none;
+  border-color: var(--main-auth-button-color, #1cb0d4);
+  box-shadow: var(--main-auth-focus-ring-shadow, 0 0 0 2px rgba(28, 176, 212, 0.35));
+}
+
+.usersPage__fileDrop--active {
+  border-color: var(--main-auth-button-color, #1cb0d4);
+  background: rgba(28, 176, 212, 0.06);
+}
+
+.usersPage__fileDrop--hasFile {
+  min-height: 6.75rem;
+}
+
+.usersPage__fileDrop--disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.usersPage__fileDropIcon {
+  color: var(--main-auth-button-color, #1cb0d4);
+}
+
+.usersPage__fileDropIcon--selected {
+  color: #0f766e;
+}
+
+.usersPage__fileDropPrompt {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--main-text-color, #1f2937);
+}
+
+.usersPage__fileDropName {
+  max-width: 100%;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--main-text-color, #1f2937);
+  word-break: break-word;
+}
+
+.usersPage__fileDropMeta {
+  font-size: 0.78rem;
+  color: var(--main-text-muted, #64748b);
+}
+
+.usersPage__fileDropHint,
+.usersPage__fileDropAction {
+  font-size: 0.78rem;
+  color: var(--main-text-muted, #64748b);
+}
+
+.usersPage__fileDropAction {
+  margin-top: 0.1rem;
+}
+
 .usersPage__btn {
   display: inline-flex;
   align-items: center;
@@ -1015,4 +1143,29 @@ html.app-theme-dark .usersPage__label--inline input[type="checkbox"] {
 
 html.app-theme-dark .usersPage__labelIcon {
   color: #94a3b8;
+}
+
+html.app-theme-dark .usersPage__fileDrop {
+  background: #0f172a;
+  border-color: rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+}
+
+html.app-theme-dark .usersPage__fileDrop:hover:not(.usersPage__fileDrop--disabled) {
+  background: #1e293b;
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
+html.app-theme-dark .usersPage__fileDrop--active {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+
+html.app-theme-dark .usersPage__fileDropPrompt,
+html.app-theme-dark .usersPage__fileDropName {
+  color: #f1f5f9;
+}
+
+html.app-theme-dark .usersPage__fileDropIcon--selected {
+  color: #5eead4;
 }

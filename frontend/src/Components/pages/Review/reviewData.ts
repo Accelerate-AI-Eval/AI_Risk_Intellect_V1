@@ -14,6 +14,17 @@ export type ReviewQueueItem = {
   ingestedAt: string;
 };
 
+export type DomainSelection =
+  | { mode: "taxonomy"; value: string }
+  | { mode: "custom"; value: string };
+
+export const CUSTOM_DOMAIN_OPTION = "__custom__";
+
+export function resolveSelectedDomain(selection: DomainSelection | undefined): string {
+  if (!selection) return "";
+  return selection.value.trim();
+}
+
 export function normalizeReviewQueueFromApi(raw: unknown): {
   items: ReviewQueueItem[];
   total: number;
@@ -33,7 +44,7 @@ export function normalizeReviewQueueFromApi(raw: unknown): {
     category: item.category ?? "—",
     reviewReason:
       item.reviewReason ??
-      "Domain could not be mapped to the risk_mappings catalog.",
+      "Extracted domain does not match any of the 7 risk taxonomy domains.",
     articleUrl: item.articleUrl ?? "",
     ingestedAt: item.ingestedAt ?? "",
   }));

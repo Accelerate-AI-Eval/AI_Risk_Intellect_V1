@@ -222,6 +222,68 @@
   line-height: 1.4;
 }
 
+.reviewPage__cardUrl {
+  margin: 0;
+  font-size: var(--rev-font-meta);
+  color: var(--rev-teal);
+  word-break: break-all;
+  line-height: 1.35;
+  text-decoration: none;
+}
+
+.reviewPage__cardUrl:hover {
+  text-decoration: underline;
+}
+
+.reviewPage__domainRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.65rem;
+}
+
+.reviewPage__domainLabel {
+  font-size: var(--rev-font-meta);
+  font-weight: 700;
+  color: var(--rev-muted);
+}
+
+.reviewPage__domainControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.reviewPage__domainSelect,
+.reviewPage__domainCustomInput {
+  min-height: 34px;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--rev-border);
+  background: rgba(30, 41, 59, 0.45);
+  color: var(--rev-text);
+  font: inherit;
+  font-size: var(--rev-font-small);
+  box-sizing: border-box;
+}
+
+.reviewPage__domainSelect {
+  min-width: min(100%, 18rem);
+  flex: 1 1 14rem;
+}
+
+.reviewPage__domainCustomInput {
+  min-width: min(100%, 14rem);
+  flex: 1 1 12rem;
+}
+
+.reviewPage__domainSelect:focus-visible,
+.reviewPage__domainCustomInput:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--rev-teal-glow);
+}
+
 .reviewPage__actions {
   display: flex;
   flex-wrap: wrap;
@@ -359,6 +421,17 @@ html:not(.app-theme-dark) .reviewPage__actionBtn--reject {
   border-color: #fca5a5;
 }
 
+html:not(.app-theme-dark) .reviewPage__domainSelect,
+html:not(.app-theme-dark) .reviewPage__domainCustomInput {
+  background: #fff;
+  border-color: #e2e8f0;
+  color: var(--rev-text);
+}
+
+html:not(.app-theme-dark) .reviewPage__cardUrl {
+  color: #0e7490;
+}
+
 html:not(.app-theme-dark) .reviewPage__moreBtn {
   background: #f8fafc;
   border-color: #e2e8f0;
@@ -368,4 +441,8 @@ html:not(.app-theme-dark) .reviewPage__moreBtn {
 html.app-theme-dark .reviewPage {
   --rev-surface: #0f172a;
   --rev-card: #1e293b;
+}
+
+html.app-theme-dark .reviewPage__feedbackSelect {
+  background-image: none;
 }

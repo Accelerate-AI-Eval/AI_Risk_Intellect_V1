@@ -49,7 +49,7 @@ export function toastCronJobCompleted(message?: string): void {
 
 export function maybeToastNotification(item: NotificationItem): void {
   if (item.kind === "cron_job_started") {
-    toastCronJobStarted("Cron job has been started.");
+    toastCronJobStarted(item.message);
   }
   if (item.kind === "cron_job_stopped") {
     toastCronJobStopped(item.message);
@@ -58,6 +58,6 @@ export function maybeToastNotification(item: NotificationItem): void {
     toastCronJobScheduled(item.message);
   }
   if (item.kind === "cron_job_completed") {
-    toastCronJobCompleted("Cron job is completed.");
+    toastCronJobCompleted(item.message);
   }
 }

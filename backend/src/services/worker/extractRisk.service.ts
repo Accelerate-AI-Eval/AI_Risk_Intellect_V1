@@ -9,7 +9,9 @@ import {
 } from "../../extraction/pythonBridge.js";
 import {
   findCatalogRiskMatches,
+  isDomainInTaxonomy,
   mergeCatalogMatchesIntoExtraction,
+  normalizeToCatalogDomain,
 } from "../risks/riskCatalogMatch.service.js";
 import { recordObservabilityMetrics } from "../observability/observability.service.js";
 import { withUsModelPrefix } from "../../utils/bedrockModelId.js";
@@ -116,8 +118,11 @@ export async function extractRiskForArticle(
 
     const risk = result.object.risk ?? {};
     const riskTitle = (risk.risk_title as string) || "Untitled risk";
-    const domains = (risk.domains as string) ?? null;
+    const rawDomain = String(risk.domains ?? "").trim();
+    const normalizedDomain = normalizeToCatalogDomain(rawDomain);
+    const domains = normalizedDomain ?? (rawDomain || null);
     const description = String(risk.description ?? "").trim();
+    const inTaxonomy = isDomainInTaxonomy(domains ?? "");
 
     const catalogMatches = await findCatalogRiskMatches({
       domain: domains ?? "",
@@ -129,9 +134,21 @@ export async function extractRiskForArticle(
     });
 
     const extractionJson = mergeCatalogMatchesIntoExtraction(
-      result.object as Record<string, unknown>,
+      {
+        ...(result.object as Record<string, unknown>),
+        risk: {
+          ...(risk as Record<string, unknown>),
+          ...(domains ? { domains } : {}),
+        },
+      },
       catalogMatches,
     );
+
+    if (!inTaxonomy) {
+      extractionJson.review_status = "pending";
+      extractionJson.review_reason =
+        "Extracted domain does not match any of the 7 risk taxonomy domains.";
+    }
 
     const [row] = await db
       .insert(risks)
@@ -162,13 +179,9 @@ export async function extractRiskForArticle(
     return { outcome: "done", riskId: row!.id, created: true };
   } catch (err) {
     if (err instanceof StubExtractionError) {
-      const hasBedrockDetail = /bedrock error/i.test(err.message);
-      return {
-        outcome: "skipped",
-        reason: hasBedrockDetail
-          ? err.message
-          : `${err.message}. Start Python (npm run py:dev) with USE_BEDROCK=true or a working LOCAL_MODEL_ID.`,
-      };
+      // StubExtractionError means Python responded; the LLM path ran but returned
+      // a fallback object (Bedrock/JSON failure, etc.). Do not append dev-setup hints.
+      return { outcome: "skipped", reason: err.message };
     }
     throw err;
   }

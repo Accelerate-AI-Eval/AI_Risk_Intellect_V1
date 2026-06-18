@@ -7,6 +7,7 @@ import {
   resolveBedrockModelId,
   type LlmModelOption as CatalogModelOption,
 } from "../../config/modelsCatalog.js";
+import { normalizeBedrockModelAlias } from "../../utils/bedrockModelId.js";
 import { upsertEnvFile } from "../../utils/envFile.js";
 import { backendRoot } from "./spawnBackendScript.js";
 
@@ -32,11 +33,11 @@ function activeBackend(): LlmBackend {
 function currentModelId(): string {
   const backend = activeBackend();
   if (backend === "bedrock") {
-    return (
+    const raw =
       process.env.BEDROCK_MODEL?.trim() ||
       process.env.BEDROCK_MODEL_ID?.trim() ||
-      ""
-    );
+      "";
+    return normalizeBedrockModelAlias(raw);
   }
   if (backend === "openai") {
     return process.env.OPENAI_MODEL?.trim() || "gpt-5-mini";

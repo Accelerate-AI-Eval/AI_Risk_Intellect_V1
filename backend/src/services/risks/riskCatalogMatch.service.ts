@@ -83,6 +83,18 @@ const CATALOG_DOMAINS = [
   "AI System Safety, Failures, and Limitations",
 ] as const;
 
+export type TaxonomyDomain = (typeof CATALOG_DOMAINS)[number];
+
+/** Canonical 7-domain risk taxonomy used for filtering and review. */
+export function listTaxonomyDomains(): readonly TaxonomyDomain[] {
+  return CATALOG_DOMAINS;
+}
+
+/** True when the extracted domain maps to one of the 7 taxonomy domains. */
+export function isDomainInTaxonomy(domain: string): boolean {
+  return normalizeToCatalogDomain(domain) !== null;
+}
+
 const STOP_WORDS = new Set([
   "the",
   "and",

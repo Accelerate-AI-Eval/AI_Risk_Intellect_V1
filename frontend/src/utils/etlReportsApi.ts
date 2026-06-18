@@ -1,4 +1,4 @@
-import { authFetch } from "./authFetch";
+import { authFetch, authFetchUpload, type UploadProgressHandler } from "./authFetch";
 
 export type EtlReportUploadItemExtractionStatus =
   | "imported"
@@ -201,6 +201,7 @@ export async function reuploadEtlReportUpload(
   id: number,
   file: File,
   suggestedName = "",
+  onProgress?: UploadProgressHandler,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
   const formData = new FormData();
   formData.append("file", file);
@@ -208,10 +209,11 @@ export async function reuploadEtlReportUpload(
   if (trimmedName) formData.append("suggestedName", trimmedName);
 
   try {
-    const res = await authFetch(`/admin/etl/reports/uploads/${id}/reupload`, {
-      method: "POST",
-      body: formData,
-    });
+    const res = await authFetchUpload(
+      `/admin/etl/reports/uploads/${id}/reupload`,
+      formData,
+      { onProgress },
+    );
     const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
       message?: string;
     };

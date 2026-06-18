@@ -38,11 +38,17 @@ export type ApproveReviewResult = {
   riskMappingId: number;
 };
 
+export type ApproveReviewOptions = {
+  /** Override domain from reviewer (taxonomy pick or custom). */
+  domain?: string;
+};
+
 /**
  * Approve a review-queue risk: insert into `risk_mappings` and mark the risk approved.
  */
 export async function approveReviewRisk(
   riskIdOrDisplayId: string,
+  options?: ApproveReviewOptions,
 ): Promise<ApproveReviewResult> {
   const uuid = await resolveRiskUuid(riskIdOrDisplayId);
   if (!uuid) {
@@ -76,10 +82,10 @@ export async function approveReviewRisk(
   const risk = (ext.risk ?? {}) as Record<string, unknown>;
   const analysis = (ext.analysis ?? {}) as Record<string, unknown>;
 
-  const domain = str(row.domains ?? risk.domains);
+  const domain = str(options?.domain ?? row.domains ?? risk.domains);
   if (!domain) {
     throw HttpError.unprocessable(
-      "Risk has no domain; cannot add to catalog.",
+      "Select a taxonomy domain or enter a custom domain before approving.",
     );
   }
 
@@ -126,6 +132,7 @@ export async function approveReviewRisk(
   await db
     .update(risks)
     .set({
+      domains: truncate(domain, 255),
       extractionJson: updatedExtraction,
       updatedAt: new Date(),
     })

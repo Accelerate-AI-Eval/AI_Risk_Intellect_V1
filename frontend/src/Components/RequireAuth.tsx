@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { NotificationsProvider } from "../notifications/NotificationsProvider";
 import { useIdleLogout } from "../utils/useIdleLogout";
 
 /**
@@ -15,5 +16,9 @@ export function RequireAuth() {
     return <Navigate to="/signin" state={{ from: location }} replace />;
   }
 
-  return <Outlet />;
+  return (
+    <NotificationsProvider>
+      <Outlet />
+    </NotificationsProvider>
+  );
 }

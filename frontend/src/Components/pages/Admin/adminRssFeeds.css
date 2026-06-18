@@ -686,7 +686,7 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--adm-muted);
-  background: rgba(0, 0, 0, 0.22);
+  background: #0f172a;
   border-bottom: 1px solid var(--adm-border);
   white-space: nowrap;
   text-align: left;
@@ -724,7 +724,7 @@
 
 .adminPage__table thead .adminPage__th--actionsSticky {
   z-index: 4;
-  background: rgba(0, 0, 0, 0.22);
+  background: #0f172a;
 }
 
 .adminPage__tableRow--archived .adminPage__td {
@@ -1333,6 +1333,97 @@ html:not(.app-theme-dark) .adminPage__executionDuration {
   white-space: normal;
   line-height: 1.35;
   font-size: 0.8125rem;
+}
+
+html.app-theme-dark .adminPage__kebabBtn {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+html.app-theme-dark .adminPage__kebabBtn:hover:not(:disabled) {
+  background: #475569;
+  color: #f1f5f9;
+  border-color: rgba(28, 176, 212, 0.35);
+}
+
+html.app-theme-dark .adminPage__kebabBtn[aria-expanded="true"] {
+  background: rgba(28, 176, 212, 0.2);
+}
+
+html.app-theme-dark .adminPage__actionBtn {
+  background: #334155;
+}
+
+html.app-theme-dark .adminPage__actionBtn--extract:hover:not(:disabled) {
+  background: rgba(34, 211, 238, 0.28);
+}
+
+html.app-theme-dark .adminPage__actionBtn--edit:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.28);
+}
+
+html.app-theme-dark .adminPage__actionBtn--archive:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.28);
+}
+
+html.app-theme-dark .adminPage__actionBtn--save:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.28);
+}
+
+html.app-theme-dark .adminPage__actionBtn--restore:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.28);
+}
+
+/* Portaled menus render on document.body — use explicit colors (not --adm-card). */
+html.app-theme-dark .adminPage__rowMenu,
+html.app-theme-dark .adminPage__rowMenu--portal {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.25);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.45);
+}
+
+html.app-theme-dark .adminPage__rowMenuItem {
+  color: #f1f5f9;
+}
+
+html.app-theme-dark .adminPage__rowMenuItem:hover:not(:disabled) {
+  background: rgba(28, 176, 212, 0.2);
+}
+
+html.app-theme-dark .adminPage__rowMenuItem--extract {
+  color: #22d3ee;
+}
+
+html.app-theme-dark .adminPage__rowMenuItem--extract:hover:not(:disabled) {
+  background: rgba(34, 211, 238, 0.14);
+  color: #67e8f9;
+}
+
+html.app-theme-dark .adminPage__rowMenuItem--restore {
+  color: #34d399;
+}
+
+html.app-theme-dark .adminPage__rowMenuItem--restore:hover:not(:disabled) {
+  background: rgba(52, 211, 153, 0.14);
+  color: #6ee7b7;
+}
+
+html.app-theme-dark .adminPage__rowMenuItem--danger {
+  color: #f87171;
+}
+
+html.app-theme-dark .adminPage__rowMenuItem--danger:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+}
+
+html.app-theme-dark .adminPage__table tbody tr:hover .adminPage__td {
+  background: #334155;
+}
+
+html.app-theme-dark .adminPage__table tbody tr:hover .adminPage__td--actionsSticky {
+  background: #334155;
 }
 
 html:not(.app-theme-dark) .adminPage__th {

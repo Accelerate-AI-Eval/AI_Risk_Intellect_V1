@@ -5,7 +5,8 @@ import { risks } from "../../schema/risks/risks.js";
 import { HttpError } from "../../utils/httpError.js";
 import {
   findCatalogRiskMatches,
-  isDomainMappedToCatalog,
+  isDomainInTaxonomy,
+  listTaxonomyDomains,
   mergeCatalogMatchesIntoExtraction,
   parseCatalogMatchesFromExtraction,
 } from "./riskCatalogMatch.service.js";
@@ -23,6 +24,26 @@ export type RiskListMetrics = {
   operational: number;
   business: number;
 };
+
+/** True when a risk belongs on the main list (taxonomy domain or reviewer-approved). */
+export function isRiskVisibleInMainList(input: {
+  domains: string | null;
+  extractionJson: unknown;
+}): boolean {
+  const ext = (input.extractionJson ?? {}) as {
+    risk?: Record<string, unknown>;
+    review_status?: string;
+  };
+  const reviewStatus = String(ext.review_status ?? "")
+    .trim()
+    .toLowerCase();
+  if (reviewStatus === "approved") return true;
+  if (reviewStatus === "rejected") return false;
+
+  const extractedRisk = ext.risk ?? {};
+  const domain = String(input.domains ?? extractedRisk.domains ?? "").trim();
+  return isDomainInTaxonomy(domain);
+}
 
 function countByPrimaryKey(rows: RiskDto[]): Pick<
   RiskListMetrics,
@@ -73,10 +94,17 @@ export async function listRisks(): Promise<{
     .innerJoin(articles, eq(risks.articleId, articles.id))
     .orderBy(desc(risks.createdAt));
 
-  const displayIdByRiskId = buildRiskDisplayIdMap(
-    rows.map((row) => ({ id: row.id, createdAt: row.createdAt })),
+  const visibleRows = rows.filter((row) =>
+    isRiskVisibleInMainList({
+      domains: row.domains,
+      extractionJson: row.extractionJson,
+    }),
   );
-  const mapped = rows.map((row) =>
+
+  const displayIdByRiskId = buildRiskDisplayIdMap(
+    visibleRows.map((row) => ({ id: row.id, createdAt: row.createdAt })),
+  );
+  const mapped = visibleRows.map((row) =>
     mapRiskRowToDto(row, displayIdByRiskId.get(row.id) ?? "R-?"),
   );
   const counts = countByPrimaryKey(mapped);
@@ -220,8 +248,7 @@ export async function listReviewQueueRisks(): Promise<{
     const extractedRisk = ext.risk ?? {};
     const domain = String(row.domains ?? extractedRisk.domains ?? "").trim();
 
-    const mapped = await isDomainMappedToCatalog(domain);
-    if (mapped) continue;
+    if (isDomainInTaxonomy(domain)) continue;
 
     const score =
       row.qualityScore ??
@@ -241,11 +268,15 @@ export async function listReviewQueueRisks(): Promise<{
       priority: reviewPriorityFromScore(score),
       category: [row.primaryRisk, domain].filter(Boolean).join(" · ") || "—",
       reviewReason:
-        "Domain could not be mapped to the risk_mappings catalog in the database.",
+        "Extracted domain does not match any of the 7 risk taxonomy domains.",
       articleUrl: row.articleUrl,
       ingestedAt: row.createdAt.toISOString(),
     });
   }
 
   return { items, total: items.length };
+}
+
+export function getTaxonomyDomains(): { domains: readonly string[] } {
+  return { domains: listTaxonomyDomains() };
 }

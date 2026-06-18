@@ -3,7 +3,18 @@
  * (e.g. us.anthropic.claude-haiku-4-5-20251001-v1:0).
  */
 
+/** Default / fallback Bedrock model — keep in sync with python/app/env_bootstrap.py */
+export const DEFAULT_BEDROCK_MODEL =
+  "us.anthropic.claude-3-sonnet-20240229-v1:0:200k";
+
 const BEDROCK_MODEL_ID_PATTERN = /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9.:-]*$/i;
+
+/** Pass through configured model id; use default when env is empty. */
+export function normalizeBedrockModelAlias(modelId: string): string {
+  const trimmed = modelId.trim();
+  if (!trimmed) return DEFAULT_BEDROCK_MODEL;
+  return trimmed;
+}
 
 export function stripUsModelPrefix(modelId: string): string {
   const trimmed = modelId.trim();

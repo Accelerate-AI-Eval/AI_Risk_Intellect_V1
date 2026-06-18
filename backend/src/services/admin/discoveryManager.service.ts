@@ -1,17 +1,19 @@
 import type { ChildProcess } from "node:child_process";
-import {
-  msUntilNextCronScheduleRun,
-  type CronScheduleConfig,
-} from "../../config/cronScheduleConfig.js";
+import type { CronScheduleConfig } from "../../config/cronScheduleConfig.js";
 import { createLogger } from "../../logger/index.js";
-import { CRON_LOOP_PLANNED_EXIT_CODE } from "../../workers/rssDiscovery.js";
+import { clampSetTimeoutMs } from "../../utils/timerUtils.js";
 import { workerState } from "../../workers/state.js";
 import {
   killChildProcess,
   spawnBackendScript,
 } from "./spawnBackendScript.js";
 import { ensureWorkerProcessRunning, getWorkerStatus } from "./workerManager.service.js";
-import { recordCronJobEvent } from "./cronJobEvents.service.js";
+import {
+  computeCronDiscoveryWaitMs,
+  getCronStartSkipReason,
+  recordCronJobEvent,
+  shouldStartScheduledCronRun,
+} from "./cronJobEvents.service.js";
 import {
   loadActiveCronScheduleConfig,
   loadActiveCronScheduleId,
@@ -19,8 +21,8 @@ import {
 
 const discoveryManagerLog = createLogger("discovery-manager");
 
-/** Start the loop process this long before the scheduled run so it can sleep until start time. */
-const CRON_START_WINDOW_MS = 2 * 60_000;
+/** Planned exit when a legacy loop child finishes one cron cycle (CLI / RUN_ONCE=false). */
+const CRON_LOOP_PLANNED_EXIT_CODE = 12;
 
 let suppressExitCronStopNotification = false;
 let scheduleNextCronRunPending = false;
@@ -33,61 +35,94 @@ export function clearCronLoopRestartTimer(): void {
   }
 }
 
-export function scheduleNextCronDiscoveryRun(
+async function tryStartScheduledCronDiscovery(
   schedule: CronScheduleConfig,
-): void {
-  clearCronLoopRestartTimer();
+): Promise<boolean> {
+  if (isRunning()) {
+    return false;
+  }
 
-  const delayMs = msUntilNextCronScheduleRun(schedule);
-  if (delayMs == null) {
-    discoveryManagerLog.info("No upcoming cron discovery run", {
+  const shouldStart = await shouldStartScheduledCronRun(schedule.id, schedule);
+  if (!shouldStart) {
+    const skipReason = await getCronStartSkipReason(schedule.id, schedule);
+    discoveryManagerLog.info("Skipping cron discovery launch", {
       scheduleId: schedule.id,
+      reason: skipReason ?? "unknown",
     });
-    return;
+    return false;
   }
 
-  if (delayMs <= CRON_START_WINDOW_MS) {
-    if (!isRunning()) {
-      startDiscoveryLoopProcess({ recordStartedEvent: false });
-      ensureWorkerProcessRunning();
-      discoveryManagerLog.info("Starting discovery for imminent cron run", {
-        scheduleId: schedule.id,
-        delayMs,
-      });
-    }
-    return;
-  }
-
-  const waitMs = Math.max(1_000, delayMs - CRON_START_WINDOW_MS);
-  discoveryManagerLog.info("Scheduled next cron discovery run", {
+  startCronScheduledDiscoveryProcess(schedule);
+  ensureWorkerProcessRunning();
+  discoveryManagerLog.info("Starting scheduled cron discovery run", {
     scheduleId: schedule.id,
-    waitMs,
-    nextRunInMs: delayMs,
+  });
+  return true;
+}
+
+const CRON_TIMER_POLL_MS = 60_000;
+
+function armCronDiscoveryTimer(scheduleId: string, delayMs: number): void {
+  const timerMs = clampSetTimeoutMs(
+    delayMs > CRON_TIMER_POLL_MS ? CRON_TIMER_POLL_MS : delayMs,
+    1_000,
+  );
+  discoveryManagerLog.info("Scheduled next cron discovery run", {
+    scheduleId,
+    waitMs: delayMs,
+    ...(timerMs < delayMs ? { timerChunkMs: timerMs } : {}),
   });
 
   cronLoopRestartTimer = setTimeout(() => {
     cronLoopRestartTimer = null;
-    void loadActiveCronScheduleConfig()
-      .then((active) => {
-        if (!active?.active || active.ingestLinkIds.length === 0) return;
-        if (isRunning()) return;
-        startDiscoveryLoopProcess({ recordStartedEvent: false });
-        ensureWorkerProcessRunning();
-      })
-      .catch((err) => {
-        discoveryManagerLog.error("Failed to start scheduled cron discovery", {
-          err,
-        });
-      });
-  }, waitMs);
+    scheduleCronDiscoveryAttempt();
+  }, timerMs);
 }
 
-function handleDiscoveryLoopExit(
-  wasLoopMode: boolean,
+function scheduleCronDiscoveryAttempt(): void {
+  void loadActiveCronScheduleConfig()
+    .then(async (active) => {
+      if (!active?.active || active.ingestLinkIds.length === 0) return;
+
+      const delayMs = await computeCronDiscoveryWaitMs(active.id, active);
+      if (delayMs == null) {
+        discoveryManagerLog.info("No upcoming cron discovery run", {
+          scheduleId: active.id,
+        });
+        return;
+      }
+
+      if (delayMs <= 0) {
+        const started = await tryStartScheduledCronDiscovery(active);
+        if (!started) {
+          const retryMs = await computeCronDiscoveryWaitMs(active.id, active);
+          if (retryMs != null && retryMs > 0) {
+            armCronDiscoveryTimer(active.id, retryMs);
+          }
+        }
+        return;
+      }
+
+      armCronDiscoveryTimer(active.id, delayMs);
+    })
+    .catch((err) => {
+      discoveryManagerLog.error("Failed to schedule cron discovery", { err });
+    });
+}
+
+export function scheduleNextCronDiscoveryRun(
+  schedule: CronScheduleConfig,
+): void {
+  clearCronLoopRestartTimer();
+  scheduleCronDiscoveryAttempt();
+}
+
+function handleDiscoveryScheduledExit(
+  wasScheduledMode: boolean,
   suppressedNotification: boolean,
   exitCode: number | null,
 ): void {
-  if (!wasLoopMode || suppressedNotification || scheduleNextCronRunPending) {
+  if (!wasScheduledMode || suppressedNotification || scheduleNextCronRunPending) {
     return;
   }
 
@@ -96,7 +131,7 @@ function handleDiscoveryLoopExit(
     .then((schedule) => {
       if (!schedule?.active || schedule.ingestLinkIds.length === 0) return;
       scheduleNextCronDiscoveryRun(schedule);
-      if (exitCode === CRON_LOOP_PLANNED_EXIT_CODE) {
+      if (exitCode === CRON_LOOP_PLANNED_EXIT_CODE || exitCode === 0) {
         discoveryManagerLog.info(
           "Cron discovery finished scheduled run; waiting until next occurrence",
           { scheduleId: schedule.id },
@@ -134,20 +169,34 @@ function attachDiscoveryChildHandlers(child: ChildProcess): void {
 
   child.on("error", (err) => {
     discoveryManagerLog.error("Child process error", { err });
-    const wasLoopMode = workerState.discoveryRunMode === "loop";
+    const runMode = workerState.discoveryRunMode;
+    const wasScheduledMode = runMode === "loop" || runMode === "cron";
     workerState.discoveryEnabled = false;
     workerState.discoveryRunMode = null;
     workerState.discoveryChild = null;
-    handleDiscoveryLoopExit(wasLoopMode, false, null);
+    handleDiscoveryScheduledExit(wasScheduledMode, false, null);
   });
 
   child.on("exit", (code) => {
-    const wasLoopMode = workerState.discoveryRunMode === "loop";
+    const runMode = workerState.discoveryRunMode;
+    const wasLoopMode = runMode === "loop";
+    const wasCronMode = runMode === "cron";
+    const wasScheduledMode = wasLoopMode || wasCronMode;
     const suppressed = suppressExitCronStopNotification;
     const plannedCronExit =
       wasLoopMode && code === CRON_LOOP_PLANNED_EXIT_CODE;
 
     if (wasLoopMode && !suppressed && !plannedCronExit) {
+      void loadActiveCronScheduleId().then((scheduleId) =>
+        recordCronJobEvent(
+          scheduleId,
+          "stopped",
+          "RSS feed discovery cron job stopped unexpectedly.",
+        ),
+      );
+    }
+
+    if (wasCronMode && !suppressed && code !== 0 && code != null) {
       void loadActiveCronScheduleId().then((scheduleId) =>
         recordCronJobEvent(
           scheduleId,
@@ -163,7 +212,34 @@ function attachDiscoveryChildHandlers(child: ChildProcess): void {
     workerState.discoveryChild = null;
     workerState.discoveryStop = null;
 
-    handleDiscoveryLoopExit(wasLoopMode, suppressed, code);
+    handleDiscoveryScheduledExit(wasScheduledMode, suppressed, code);
+  });
+}
+
+function attachEphemeralDiscoveryHandlers(child: ChildProcess): void {
+  child.stdout?.on("data", (chunk: Buffer) => {
+    const text = chunk.toString().trimEnd();
+    if (text) discoveryManagerLog.info(text);
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    const text = chunk.toString().trimEnd();
+    if (text) discoveryManagerLog.warn(text);
+  });
+  child.on("error", (err) => {
+    discoveryManagerLog.error("Manual discovery child error", { err });
+  });
+}
+
+function spawnManualDiscoveryProcess(options: {
+  ingestLinkIds: number[];
+  ingestLinkItemIds: number[];
+}): ChildProcess {
+  return spawnBackendScript("src/workers/discoveryService.ts", {
+    env: {
+      DISCOVERY_INGEST_LINK_IDS: options.ingestLinkIds.join(","),
+      DISCOVERY_INGEST_LINK_ITEM_IDS: options.ingestLinkItemIds.join(","),
+      RUN_ONCE: "true",
+    },
   });
 }
 
@@ -215,8 +291,36 @@ export function startDiscoveryLoopProcess(options?: {
   return { pid: child.pid };
 }
 
-/** Stop the cron loop child (if any) and reschedule the next run at the configured time. */
-export function restartDiscoveryLoopProcess(): { pid: number | null } {
+function startCronScheduledDiscoveryProcess(
+  schedule: CronScheduleConfig,
+): { pid: number } {
+  if (isRunning()) {
+    return { pid: workerState.discoveryChild!.pid! };
+  }
+
+  const child = spawnBackendScript("src/workers/discoveryService.ts", {
+    env: {
+      RUN_ONCE: "true",
+      CRON_SCHEDULED_RUN: "true",
+      DISCOVERY_INGEST_LINK_IDS: schedule.ingestLinkIds.join(","),
+    },
+  });
+
+  workerState.discoveryChild = child;
+  workerState.discoveryEnabled = true;
+  workerState.discoveryRunMode = "cron";
+
+  attachDiscoveryChildHandlers(child);
+
+  if (!child.pid) {
+    workerState.discoveryRunMode = null;
+    throw new Error("Failed to start scheduled cron discovery (no PID).");
+  }
+
+  return { pid: child.pid };
+}
+
+function stopActiveDiscoveryForReschedule(): void {
   clearCronLoopRestartTimer();
 
   if (isRunning()) {
@@ -231,36 +335,84 @@ export function restartDiscoveryLoopProcess(): { pid: number | null } {
       killChildProcess(child);
     }
   }
+}
 
-  void loadActiveCronScheduleConfig()
-    .then((schedule) => {
-      if (!schedule?.active || schedule.ingestLinkIds.length === 0) return;
-      scheduleNextCronDiscoveryRun(schedule);
-    })
-    .catch((err) => {
-      discoveryManagerLog.error("Failed to reschedule cron discovery", { err });
+async function rescheduleCronDiscoveryAfterSave(): Promise<void> {
+  const schedule = await loadActiveCronScheduleConfig();
+  if (!schedule?.active || schedule.ingestLinkIds.length === 0) return;
+
+  const delayMs = await computeCronDiscoveryWaitMs(schedule.id, schedule);
+  if (delayMs == null) {
+    discoveryManagerLog.info("No upcoming cron discovery run", {
+      scheduleId: schedule.id,
     });
+    return;
+  }
 
+  if (delayMs <= 0) {
+    const started = await tryStartScheduledCronDiscovery(schedule);
+    if (!started) {
+      const retryMs = await computeCronDiscoveryWaitMs(schedule.id, schedule);
+      if (retryMs != null && retryMs > 0) {
+        armCronDiscoveryTimer(schedule.id, retryMs);
+      }
+    }
+    return;
+  }
+
+  armCronDiscoveryTimer(schedule.id, delayMs);
+}
+
+/** Stop the cron loop child (if any) and reschedule the next run at the configured time. */
+export function restartDiscoveryLoopProcess(): { pid: number | null } {
+  stopActiveDiscoveryForReschedule();
+  void rescheduleCronDiscoveryAfterSave().catch((err) => {
+    discoveryManagerLog.error("Failed to reschedule cron discovery", { err });
+  });
   return { pid: getDiscoveryStatus().pid };
+}
+
+/** Await rescheduling so cron save responses reflect an immediate start when due. */
+export async function restartAndRescheduleCronDiscovery(): Promise<void> {
+  stopActiveDiscoveryForReschedule();
+  await rescheduleCronDiscoveryAfterSave();
 }
 
 export function startDiscoveryProcess(options: {
   ingestLinkIds?: number[];
   ingestLinkItemIds?: number[];
 }): { pid: number } {
-  if (isRunning()) {
-    return { pid: workerState.discoveryChild!.pid! };
-  }
-
   const ingestLinkIds = options.ingestLinkIds ?? [];
   const ingestLinkItemIds = options.ingestLinkItemIds ?? [];
 
-  const child = spawnBackendScript("src/workers/discoveryService.ts", {
-    env: {
-      DISCOVERY_INGEST_LINK_IDS: ingestLinkIds.join(","),
-      DISCOVERY_INGEST_LINK_ITEM_IDS: ingestLinkItemIds.join(","),
-      RUN_ONCE: "true",
-    },
+  if (isRunning() && workerState.discoveryRunMode === "once") {
+    return { pid: workerState.discoveryChild!.pid! };
+  }
+
+  // A scheduled cron run may be in progress; manual discovery still runs separately.
+  if (
+    isRunning() &&
+    (workerState.discoveryRunMode === "loop" ||
+      workerState.discoveryRunMode === "cron")
+  ) {
+    const child = spawnManualDiscoveryProcess({
+      ingestLinkIds,
+      ingestLinkItemIds,
+    });
+    attachEphemeralDiscoveryHandlers(child);
+    if (!child.pid) {
+      throw new Error("Failed to start manual discovery process (no PID).");
+    }
+    discoveryManagerLog.info(
+      "Started manual discovery alongside scheduled cron run",
+      { pid: child.pid },
+    );
+    return { pid: child.pid };
+  }
+
+  const child = spawnManualDiscoveryProcess({
+    ingestLinkIds,
+    ingestLinkItemIds,
   });
 
   workerState.discoveryChild = child;
@@ -297,6 +449,8 @@ export function stopDiscoveryProcess(): void {
         "RSS feed discovery cron job stopped.",
       ),
     );
+  } else if (workerState.discoveryRunMode === "cron") {
+    suppressExitCronStopNotification = true;
   }
 
   workerState.discoveryStop?.abort();

@@ -1,4 +1,4 @@
-/** Reference timezone for IST display in schedule summaries. */
+/** Reference timezone for persisted and executed cron schedules (IST, UTC+5:30). */
 export const CRON_SCHEDULE_TIMEZONE = "Asia/Kolkata";
 
 export type ZonedDateTimeParts = {
@@ -193,6 +193,153 @@ export function convertWallTimeBetweenZones(
 ): ZonedDateTimeParts {
   const instant = resolveZonedDateTime(startDate, startTime, fromTimezone);
   return getZonedDateTimeParts(instant, toTimezone);
+}
+
+function addDaysToDateString(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr
+    .split("-")
+    .map((part) => Number.parseInt(part, 10));
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function weekdayForDateInTimezone(dateStr: string, timezone: string): number {
+  const [year, month, day] = dateStr
+    .split("-")
+    .map((part) => Number.parseInt(part, 10));
+  const noonUtc = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return getZonedDateTimeParts(noonUtc, timezone).weekday;
+}
+
+function findWeekdayOnOrAfter(
+  startDate: string,
+  weekday: number,
+  timezone: string,
+): string {
+  let probe = startDate;
+  for (let i = 0; i < 7; i += 1) {
+    if (weekdayForDateInTimezone(probe, timezone) === weekday) {
+      return probe;
+    }
+    probe = addDaysToDateString(probe, 1);
+  }
+  return startDate;
+}
+
+export function convertRepeatDaysBetweenTimezones(
+  repeatDays: number[],
+  startDate: string,
+  startTime: string,
+  fromTimezone: string,
+  toTimezone: string,
+): number[] {
+  if (repeatDays.length === 0) return [];
+
+  const fromTz = isValidTimezone(fromTimezone) ? fromTimezone : "UTC";
+  const toTz = isValidTimezone(toTimezone) ? toTimezone : "UTC";
+  if (fromTz === toTz) return [...repeatDays].sort((a, b) => a - b);
+
+  const converted = new Set<number>();
+  for (const day of repeatDays) {
+    const refDate = findWeekdayOnOrAfter(startDate, day, fromTz);
+    const instant = resolveZonedDateTime(refDate, startTime, fromTz);
+    converted.add(getZonedDateTimeParts(instant, toTz).weekday);
+  }
+  return [...converted].sort((a, b) => a - b);
+}
+
+export type CronWallScheduleInput = {
+  startDate: string;
+  startTime: string;
+  timezone: string;
+  repeat: boolean;
+  repeatUnit: "day" | "week" | "month" | "year";
+  repeatDays: number[];
+};
+
+export function toExecutionSchedule<T extends CronWallScheduleInput>(
+  input: T,
+  executionTimezone: string = CRON_SCHEDULE_TIMEZONE,
+): T {
+  const userTimezone = isValidTimezone(input.timezone)
+    ? input.timezone
+    : browserTimezone();
+  const executionTz = isValidTimezone(executionTimezone)
+    ? executionTimezone
+    : CRON_SCHEDULE_TIMEZONE;
+  if (userTimezone === executionTz) {
+    return { ...input, timezone: executionTz };
+  }
+
+  const wall = convertWallTimeBetweenZones(
+    input.startDate,
+    input.startTime,
+    userTimezone,
+    executionTz,
+  );
+  const repeatDays =
+    input.repeat && input.repeatUnit === "week"
+      ? convertRepeatDaysBetweenTimezones(
+          input.repeatDays,
+          input.startDate,
+          input.startTime,
+          userTimezone,
+          executionTz,
+        )
+      : input.repeatDays;
+
+  return {
+    ...input,
+    startDate: wall.date,
+    startTime: wall.time,
+    timezone: executionTz,
+    repeatDays,
+  };
+}
+
+export function toUserSchedule<T extends CronWallScheduleInput>(
+  input: T,
+  userTimezone: string = browserTimezone(),
+  executionTimezone: string = CRON_SCHEDULE_TIMEZONE,
+): T {
+  const userTz = isValidTimezone(userTimezone) ? userTimezone : browserTimezone();
+  const storedTz = isValidTimezone(input.timezone) ? input.timezone : executionTimezone;
+  const executionTz = isValidTimezone(executionTimezone)
+    ? executionTimezone
+    : CRON_SCHEDULE_TIMEZONE;
+
+  const sourceTz =
+    storedTz === executionTz || storedTz === CRON_SCHEDULE_TIMEZONE
+      ? executionTz
+      : storedTz;
+
+  if (sourceTz === userTz) {
+    return { ...input, timezone: userTz };
+  }
+
+  const wall = convertWallTimeBetweenZones(
+    input.startDate,
+    input.startTime,
+    sourceTz,
+    userTz,
+  );
+  const repeatDays =
+    input.repeat && input.repeatUnit === "week"
+      ? convertRepeatDaysBetweenTimezones(
+          input.repeatDays,
+          input.startDate,
+          input.startTime,
+          sourceTz,
+          userTz,
+        )
+      : input.repeatDays;
+
+  return {
+    ...input,
+    startDate: wall.date,
+    startTime: wall.time,
+    timezone: userTz,
+    repeatDays,
+  };
 }
 
 function formatTimezoneLabel(timezone: string): string {

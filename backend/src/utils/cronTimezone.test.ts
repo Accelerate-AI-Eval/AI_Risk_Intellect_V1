@@ -8,7 +8,14 @@ import {
   type CronScheduleConfig,
 } from "../config/cronScheduleConfig.js";
 import { computeDiscoveryLoopSleepMs } from "../workers/rssDiscovery.js";
-import { getZonedDateTimeParts } from "./cronTimezone.js";
+import { MAX_SET_TIMEOUT_MS } from "./timerUtils.js";
+import {
+  convertWallTimeBetweenZones,
+  getZonedDateTimeParts,
+  resolveZonedDateTime,
+  toExecutionSchedule,
+  toUserSchedule,
+} from "./cronTimezone.js";
 
 describe("cron timezone helpers", () => {
   it("formats zoned date parts for America/New_York", () => {
@@ -154,6 +161,54 @@ describe("discovery loop sleep", () => {
       intervalMs - 100,
     );
   });
+
+  it("sleeps until the next run when today does not match the weekly cadence", () => {
+    const weeklySchedule: CronScheduleConfig = {
+      id: "rss-weekly",
+      startDate: "2026-06-11",
+      startTime: "10:39",
+      timezone: "Asia/Kolkata",
+      repeat: true,
+      repeatInterval: 1,
+      repeatUnit: "week",
+      repeatDays: [2],
+      ingestLinkIds: [1],
+      endsOn: null,
+      active: true,
+    };
+    const now = new Date("2026-06-11T05:09:00.000Z"); // Thu 10:39 IST
+    const sleepMs = computeDiscoveryLoopSleepMs(
+      intervalMs,
+      100,
+      weeklySchedule,
+      now,
+    );
+    assert.ok(sleepMs > 60_000);
+  });
+
+  it("caps long sleeps to the Node setTimeout limit", () => {
+    const monthlySchedule: CronScheduleConfig = {
+      id: "rss-monthly",
+      startDate: "2026-06-11",
+      startTime: "10:39",
+      timezone: "Asia/Kolkata",
+      repeat: true,
+      repeatInterval: 1,
+      repeatUnit: "month",
+      repeatDays: [],
+      ingestLinkIds: [1],
+      endsOn: null,
+      active: true,
+    };
+    const now = new Date("2026-06-12T05:09:00.000Z"); // day after monthly run day
+    const sleepMs = computeDiscoveryLoopSleepMs(
+      intervalMs,
+      100,
+      monthlySchedule,
+      now,
+    );
+    assert.equal(sleepMs, MAX_SET_TIMEOUT_MS);
+  });
 });
 
 describe("next cron schedule run", () => {
@@ -187,5 +242,89 @@ describe("next cron schedule run", () => {
       new Date("2026-06-11T05:10:00.000Z"),
     );
     assert.ok(ms != null && ms > 20 * 60 * 60_000);
+  });
+});
+
+describe("schedule timezone conversion", () => {
+  it("preserves the same instant when converting user time to IST", () => {
+    const user = {
+      startDate: "2026-06-10",
+      startTime: "10:30",
+      timezone: "America/New_York",
+      repeat: true,
+      repeatUnit: "week" as const,
+      repeatDays: [2],
+    };
+
+    const execution = toExecutionSchedule(user);
+    assert.equal(execution.timezone, "Asia/Kolkata");
+
+    const userInstant = resolveZonedDateTime(
+      user.startDate,
+      user.startTime,
+      user.timezone,
+    );
+    const executionInstant = resolveZonedDateTime(
+      execution.startDate,
+      execution.startTime,
+      execution.timezone,
+    );
+    assert.equal(userInstant.toISOString(), executionInstant.toISOString());
+  });
+
+  it("round-trips user schedule through execution timezone", () => {
+    const user = {
+      startDate: "2026-06-10",
+      startTime: "18:50",
+      timezone: "America/Los_Angeles",
+      repeat: true,
+      repeatUnit: "week" as const,
+      repeatDays: [1, 3, 5],
+    };
+
+    const execution = toExecutionSchedule(user);
+    const roundTrip = toUserSchedule(execution, user.timezone);
+
+    assert.equal(roundTrip.startDate, user.startDate);
+    assert.equal(roundTrip.startTime, user.startTime);
+    assert.deepEqual(roundTrip.repeatDays, user.repeatDays);
+  });
+
+  it("fires at the user-selected local time after conversion", () => {
+    const user = {
+      startDate: "2026-06-10",
+      startTime: "10:30",
+      timezone: "America/New_York",
+      repeat: false,
+      repeatInterval: 1,
+      repeatUnit: "week" as const,
+      repeatDays: [3],
+      ingestLinkIds: [1],
+      endsOn: null,
+      active: true,
+    };
+
+    const execution = toExecutionSchedule({
+      ...user,
+      repeatInterval: 1,
+      repeatUnit: "week",
+      repeatDays: user.repeatDays,
+    });
+
+    const schedule: CronScheduleConfig = {
+      id: "rss-tz",
+      ...execution,
+      repeat: false,
+      repeatInterval: 1,
+      repeatUnit: "week",
+      ingestLinkIds: [1],
+      endsOn: null,
+      active: true,
+    };
+
+    assert.equal(
+      isWithinCronSchedule(schedule, new Date("2026-06-10T14:30:00.000Z")),
+      true,
+    );
   });
 });

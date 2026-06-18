@@ -1,4 +1,4 @@
-import type { SaveCronScheduleInput } from "./cronJobsApi";
+import type { CronJobRow, SaveCronScheduleInput } from "./cronJobsApi";
 import {
   CRON_SCHEDULE_TIMEZONE,
   formatTimezoneOption,
@@ -96,4 +96,51 @@ export function formatCronScheduleSummary(
   }
 
   return `Occurs every ${every} on ${schedule.startDate.slice(5)} ${atTime}`;
+}
+
+function formatWaitDuration(ms: number): string {
+  if (ms <= 0) return "now";
+  const totalMinutes = Math.max(1, Math.round(ms / 60_000));
+  if (totalMinutes < 60) {
+    return `in ${totalMinutes} minute${totalMinutes === 1 ? "" : "s"}`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) {
+    return `in ${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  return `in ${hours}h ${minutes}m`;
+}
+
+export function formatCronSaveToastMessage(
+  feedCount: number,
+  schedule: Pick<
+    SaveCronScheduleInput,
+    | "startDate"
+    | "startTime"
+    | "timezone"
+    | "repeat"
+    | "repeatInterval"
+    | "repeatUnit"
+    | "repeatDays"
+  >,
+  job: Pick<CronJobRow, "running" | "nextRunWaitMs">,
+): string {
+  const summary = formatCronScheduleSummary(schedule);
+  const feeds = `${feedCount} feed${feedCount === 1 ? "" : "s"}`;
+
+  if (job.running) {
+    return `RSS discovery is running now for ${feeds}. ${summary}`;
+  }
+
+  const waitMs = job.nextRunWaitMs;
+  if (waitMs === 0) {
+    return `RSS discovery is starting for ${feeds}. ${summary}`;
+  }
+
+  if (waitMs != null && waitMs > 0) {
+    return `RSS discovery saved for ${feeds}. Next run ${formatWaitDuration(waitMs)}. ${summary}`;
+  }
+
+  return `RSS discovery saved for ${feeds}. ${summary} It runs automatically at the scheduled time (not immediately when you save).`;
 }

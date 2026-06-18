@@ -7,7 +7,10 @@ import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { PageHeader } from "../../Layout/PageHeader";
 import "../Users/usersPage.css";
 import {
+  CUSTOM_DOMAIN_OPTION,
   normalizeReviewQueueFromApi,
+  resolveSelectedDomain,
+  type DomainSelection,
   type ReviewQueueItem,
 } from "./reviewData";
 import "./reviewPage.css";
@@ -63,9 +66,31 @@ export function ReviewPage() {
     "idle" | "loading" | "error"
   >("idle");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [taxonomyDomains, setTaxonomyDomains] = useState<string[]>([]);
+  const [domainSelections, setDomainSelections] = useState<
+    Record<string, DomainSelection>
+  >({});
 
   useEffect(() => {
     setDocumentPageTitle("Human Review");
+  }, []);
+
+  const loadTaxonomyDomains = useCallback(async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) {
+      setTaxonomyDomains([]);
+      return;
+    }
+    try {
+      const res = await authFetch("/risks/taxonomy-domains");
+      if (!res.ok) return;
+      const data = (await res.json()) as { domains?: string[] };
+      setTaxonomyDomains(
+        (data.domains ?? []).filter((d) => typeof d === "string" && d.trim()),
+      );
+    } catch {
+      setTaxonomyDomains([]);
+    }
   }, []);
 
   const fid = (name: string) => `${baseId}-${name}`;
@@ -91,11 +116,24 @@ export function ReviewPage() {
       }
       const data = normalizeReviewQueueFromApi(await res.json());
       setQueue(data.items);
+      setDomainSelections((prev) => {
+        const next = { ...prev };
+        for (const item of data.items) {
+          if (!next[item.id]) {
+            next[item.id] = { mode: "taxonomy", value: "" };
+          }
+        }
+        return next;
+      });
       setQueueLoadState("idle");
     } catch {
       setQueueLoadState("error");
     }
   }, []);
+
+  useEffect(() => {
+    void loadTaxonomyDomains();
+  }, [loadTaxonomyDomains]);
 
   useEffect(() => {
     if (tab === "queue") {
@@ -155,6 +193,30 @@ export function ReviewPage() {
         ? "Search feedback samples"
         : "Search prompt versions";
 
+  const setDomainSelection = useCallback(
+    (itemId: string, selection: DomainSelection) => {
+      setDomainSelections((prev) => ({ ...prev, [itemId]: selection }));
+    },
+    [],
+  );
+
+  const handleDomainSelectChange = useCallback(
+    (itemId: string, value: string) => {
+      if (value === CUSTOM_DOMAIN_OPTION) {
+        setDomainSelection(itemId, { mode: "custom", value: "" });
+        return;
+      }
+      setDomainSelection(itemId, { mode: "taxonomy", value });
+    },
+    [setDomainSelection],
+  );
+
+  const handleCustomDomainChange = useCallback(
+    (itemId: string, value: string) => {
+      setDomainSelection(itemId, { mode: "custom", value });
+    },
+    [setDomainSelection],
+  );
   const openRisk = useCallback(
     (item: ReviewQueueItem) => {
       const id = item.displayId || item.id;
@@ -167,11 +229,23 @@ export function ReviewPage() {
     async (item: ReviewQueueItem) => {
       if (approvingId) return;
 
+      const domain = resolveSelectedDomain(domainSelections[item.id]);
+      if (!domain) {
+        toast.error("Select one of the 7 taxonomy domains or enter a custom domain.", {
+          autoClose: 4000,
+        });
+        return;
+      }
+
       setApprovingId(item.id);
       try {
         const res = await authFetch(
           `/risks/${encodeURIComponent(item.id)}/review/approve`,
-          { method: "POST" },
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain }),
+          },
         );
         const body = (await res.json().catch(() => ({}))) as {
           catalogRiskId?: string;
@@ -187,6 +261,11 @@ export function ReviewPage() {
         }
 
         setQueue((prev) => prev.filter((row) => row.id !== item.id));
+        setDomainSelections((prev) => {
+          const next = { ...prev };
+          delete next[item.id];
+          return next;
+        });
         toast.success(
           `Added to catalog as ${body.catalogRiskId ?? "new mapping"}.`,
           { autoClose: 3000 },
@@ -199,14 +278,14 @@ export function ReviewPage() {
         setApprovingId(null);
       }
     },
-    [approvingId],
+    [approvingId, domainSelections],
   );
 
   return (
     <main className="mainLayout__content reviewPage usersPage">
       <PageHeader
         title="Human Review"
-        subtitle="Risks with domains that do not map to the risk_mappings catalog appear here for manual review."
+        subtitle="URLs whose extracted risk domain does not match the 7-domain taxonomy appear here for manual review."
         actions={
           <button
             type="button"
@@ -291,11 +370,21 @@ export function ReviewPage() {
           ) : filteredQueue.length === 0 ? (
             <p className="reviewPage__panelHint">
               {queue.length === 0
-                ? "No risks need domain review — all extracted domains map to the catalog."
+                ? "No risks need domain review — all extracted domains match the 7-domain taxonomy."
                 : "No queue items match your search."}
             </p>
           ) : (
-            filteredQueue.map((item) => (
+            filteredQueue.map((item) => {
+              const selection = domainSelections[item.id] ?? {
+                mode: "taxonomy" as const,
+                value: "",
+              };
+              const selectValue =
+                selection.mode === "custom"
+                  ? CUSTOM_DOMAIN_OPTION
+                  : selection.value;
+
+              return (
               <article key={item.id} className="reviewPage__card">
                 <div className="reviewPage__cardMain">
                   <div className="reviewPage__cardMeta">
@@ -308,8 +397,60 @@ export function ReviewPage() {
                     </span>
                   </div>
                   <h2 className="reviewPage__cardTitle">{item.title}</h2>
-                  <p className="reviewPage__cardCategory">{item.category}</p>
+                  {item.articleUrl ? (
+                    <a
+                      className="reviewPage__cardUrl"
+                      href={item.articleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {item.articleUrl}
+                    </a>
+                  ) : null}
+                  <p className="reviewPage__cardCategory">
+                    Extracted domain: {item.domain || "—"}
+                  </p>
                   <p className="reviewPage__cardReason">{item.reviewReason}</p>
+                  <div className="reviewPage__domainRow">
+                    <label
+                      htmlFor={fid(`domain-${item.id}`)}
+                      className="reviewPage__domainLabel"
+                    >
+                      Assign domain
+                    </label>
+                    <div className="reviewPage__domainControls">
+                      <select
+                        id={fid(`domain-${item.id}`)}
+                        className="reviewPage__domainSelect"
+                        value={selectValue}
+                        onChange={(e) =>
+                          handleDomainSelectChange(item.id, e.target.value)
+                        }
+                      >
+                        <option value="">Choose a taxonomy domain…</option>
+                        {taxonomyDomains.map((domain) => (
+                          <option key={domain} value={domain}>
+                            {domain}
+                          </option>
+                        ))}
+                        <option value={CUSTOM_DOMAIN_OPTION}>
+                          Add new domain…
+                        </option>
+                      </select>
+                      {selection.mode === "custom" ? (
+                        <input
+                          type="text"
+                          className="reviewPage__domainCustomInput"
+                          placeholder="Enter custom domain name"
+                          value={selection.value}
+                          onChange={(e) =>
+                            handleCustomDomainChange(item.id, e.target.value)
+                          }
+                          aria-label={`Custom domain for ${item.displayId}`}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
                 <div className="reviewPage__actions">
                   <button
@@ -356,7 +497,8 @@ export function ReviewPage() {
                   </button>
                 </div>
               </article>
-            ))
+              );
+            })
           )}
         </section>
       ) : null}

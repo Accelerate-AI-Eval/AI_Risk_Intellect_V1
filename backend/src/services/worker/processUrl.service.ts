@@ -1,5 +1,10 @@
 import { extractTitleFromHtml } from "../../ingestion/extractText.js";
-import { looksLikeSoft404, SkipIngest } from "../../ingestion/filters.js";
+import {
+  detectBotBlockPage,
+  getExcludedNonAiTopicSkipReason,
+  looksLikeSoft404,
+  SkipIngest,
+} from "../../ingestion/filters.js";
 import {
   ArticleDuplicateError,
   applyIngestToArticle,
@@ -11,6 +16,7 @@ import {
 } from "../../ingestion/pythonBridge.js";
 import {
   fetchPageContentDetailed,
+  formatPageFetchSkipReason,
   validateUrl,
   UrlFetchError,
 } from "../../utils/fetchUtils.js";
@@ -39,7 +45,7 @@ export type ProcessUrlResult = ProcessUrlSuccess | ProcessUrlSkipped;
 export async function processUrlToDb(
   url: string,
   articleId: number,
-  options?: { title?: string; source?: "manual" | "rss" },
+  options?: { title?: string },
 ): Promise<ProcessUrlResult> {
   try {
     await validateUrl(url);
@@ -49,11 +55,19 @@ export async function processUrlToDb(
     return { outcome: "skipped", reason: msg };
   }
 
+  const excludedBeforeFetch = getExcludedNonAiTopicSkipReason({
+    url,
+    title: options?.title,
+  });
+  if (excludedBeforeFetch) {
+    return { outcome: "skipped", reason: excludedBeforeFetch };
+  }
+
   const fetched = await fetchPageContentDetailed(url);
   if (!fetched.ok) {
     return {
       outcome: "skipped",
-      reason: `fetch failed: ${fetched.reason}`,
+      reason: formatPageFetchSkipReason(fetched.reason),
     };
   }
 
@@ -64,14 +78,30 @@ export async function processUrlToDb(
     url;
 
   try {
-    const isManual = options?.source === "manual";
-
     if (page.kind === "pdf") {
-      const result = await pythonIngestPdf(page.bytes, {
+      let result;
+      try {
+        result = await pythonIngestPdf(page.bytes, {
+          url,
+          title,
+          skipAiCheck: true,
+        });
+      } catch (err) {
+        if (err instanceof SkipIngest) {
+          return { outcome: "skipped", reason: err.message };
+        }
+        throw err;
+      }
+
+      const excludedAfterExtract = getExcludedNonAiTopicSkipReason({
         url,
-        title,
-        skipAiCheck: isManual,
+        title: result.title || title,
+        text: result.text,
       });
+      if (excludedAfterExtract) {
+        return { outcome: "skipped", reason: excludedAfterExtract };
+      }
+
       const dup = await checkArticleDedupExcluding(
         { url, text: result.text },
         articleId,
@@ -102,15 +132,20 @@ export async function processUrlToDb(
       return { outcome: "skipped", reason: "empty html" };
     }
 
+    const botBlockBeforeExtract = detectBotBlockPage(html);
+    if (botBlockBeforeExtract) {
+      return { outcome: "skipped", reason: botBlockBeforeExtract };
+    }
+
     const pageTitle = page.title || extractTitleFromHtml(html) || title;
-    const minTextBytes = isManual ? 200 : 500;
+    const minTextBytes = 200;
 
     let text: string;
     try {
       const extracted = await pythonIngestHtml(html, {
         url,
         title: pageTitle,
-        skipAiCheck: isManual,
+        skipAiCheck: true,
       });
       text = extracted.text;
     } catch (err) {
@@ -120,13 +155,28 @@ export async function processUrlToDb(
       throw err;
     }
 
+    const excludedAfterExtract = getExcludedNonAiTopicSkipReason({
+      url,
+      title: pageTitle,
+      text,
+    });
+    if (excludedAfterExtract) {
+      return { outcome: "skipped", reason: excludedAfterExtract };
+    }
+
     if (
       looksLikeSoft404(html, 200, {
         extractedText: text,
         minTextBytes,
       })
     ) {
-      return { outcome: "skipped", reason: "soft-404 or too little text" };
+      const botBlockAfterExtract = detectBotBlockPage(html, {
+        extractedText: text,
+      });
+      return {
+        outcome: "skipped",
+        reason: botBlockAfterExtract ?? "soft-404 or too little text",
+      };
     }
 
     const dup = await checkArticleDedupExcluding({ url, text }, articleId);

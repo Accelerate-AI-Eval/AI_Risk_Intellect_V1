@@ -1,11 +1,11 @@
-import { jobSourceEnum } from "../../schema/jobs/jobs.js";
+type JobSource = "manual" | "rss" | "api" | "etl_reports";
 
-type JobSource = (typeof jobSourceEnum.enumValues)[number];
-
-/** RSS and ETL report URLs use the same ingest + risk pipeline as RSS discovery. */
-export function resolveIngestSource(
-  source: JobSource,
-): "manual" | "rss" {
-  if (source === "manual") return "manual";
-  return "rss";
+/**
+ * Legacy ingest pipeline selector. All job sources now share the same rules;
+ * kept for worker imports that still call this helper.
+ */
+export function resolveIngestSource(_source: JobSource): "manual" | "rss" {
+  return "manual";
 }
+
+export type { JobSource };

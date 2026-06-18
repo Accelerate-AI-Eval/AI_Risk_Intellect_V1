@@ -8,15 +8,19 @@ import {
 } from "./cronSchedule.service.js";
 import { resolveActiveIngestLinksByIds } from "./ingestLinks.service.js";
 import {
+  CRON_SCHEDULE_TIMEZONE,
   getZonedDateTimeParts,
   normalizeTimezone,
+  toExecutionSchedule,
 } from "../../utils/cronTimezone.js";
 import {
   getDiscoveryStatus,
-  restartDiscoveryLoopProcess,
+  restartAndRescheduleCronDiscovery,
   scheduleNextCronDiscoveryRun,
   stopDiscoveryProcess,
 } from "./discoveryManager.service.js";
+import { ensureWorkerProcessRunning } from "./workerManager.service.js";
+import { computeCronDiscoveryWaitMs } from "./cronJobEvents.service.js";
 import { createLogger } from "../../logger/index.js";
 import { recordCronJobEvent } from "./cronJobEvents.service.js";
 import { formatCronScheduledMessage } from "./cronNotificationMessages.js";
@@ -50,27 +54,44 @@ export type CronJobDefinition = {
   schedule: CronScheduleConfig;
   /** Saved schedule is active in the database. */
   enabled: boolean;
-  /** Background discovery loop process is running (waits until the schedule window). */
+  /** Background discovery process is running (not merely scheduled for later). */
   running: boolean;
+  /** Ms until the next discovery attempt; 0 when a run is due now. */
+  nextRunWaitMs: number | null;
   serviceKey: "discovery" | null;
 };
+
+async function cronJobNextRunWaitMs(
+  schedule: CronScheduleConfig,
+): Promise<number | null> {
+  if (!schedule.active || schedule.ingestLinkIds.length === 0) return null;
+  return computeCronDiscoveryWaitMs(schedule.id, schedule);
+}
+
+function toCronJobDefinition(
+  schedule: CronScheduleConfig,
+  discoveryRunning: boolean,
+  nextRunWaitMs: number | null,
+): CronJobDefinition {
+  return {
+    id: schedule.id,
+    name: "RSS feed discovery",
+    description:
+      "Poll selected RSS feeds and enqueue extracted article URLs.",
+    schedule,
+    enabled: schedule.active,
+    running: discoveryRunning,
+    nextRunWaitMs,
+    serviceKey: "discovery",
+  };
+}
 
 export async function listCronJobs(): Promise<CronJobDefinition[]> {
   const schedule = await sanitizeCronScheduleFeeds(RSS_CRON_SERVICE_ID);
   const discoveryRunning = getDiscoveryStatus().running;
+  const nextRunWaitMs = await cronJobNextRunWaitMs(schedule);
 
-  return [
-    {
-      id: schedule.id,
-      name: "RSS feed discovery",
-      description:
-        "Poll selected RSS feeds and enqueue extracted article URLs.",
-      schedule,
-      enabled: schedule.active,
-      running: discoveryRunning,
-      serviceKey: "discovery",
-    },
-  ];
+  return [toCronJobDefinition(schedule, discoveryRunning, nextRunWaitMs)];
 }
 
 export async function saveCronJobSchedule(
@@ -93,18 +114,18 @@ export async function saveCronJobSchedule(
     throw new Error("Select at least one RSS feed.");
   }
 
-  const timezone = normalizeTimezone(input.timezone);
-  const scheduleInput = {
-    ...input,
-    timezone,
-  };
-
-  const todayInScheduleTz = getZonedDateTimeParts(new Date(), timezone).date;
-  if (scheduleInput.startDate > todayInScheduleTz) {
+  const userTimezone = normalizeTimezone(input.timezone);
+  const todayInUserTz = getZonedDateTimeParts(new Date(), userTimezone).date;
+  if (input.startDate > todayInUserTz) {
     throw new Error(
-      `Start date must be on or before today (${todayInScheduleTz}) in ${timezone}.`,
+      `Start date must be on or before today (${todayInUserTz}) in ${userTimezone}.`,
     );
   }
+
+  const scheduleInput = toExecutionSchedule({
+    ...input,
+    timezone: userTimezone,
+  });
 
   const links = await resolveActiveIngestLinksByIds(scheduleInput.ingestLinkIds);
 
@@ -119,20 +140,15 @@ export async function saveCronJobSchedule(
     formatCronScheduledMessage(schedule, links.length),
   );
 
-  restartDiscoveryLoopProcess();
+  await restartAndRescheduleCronDiscovery();
+  ensureWorkerProcessRunning();
 
   const discoveryRunning = getDiscoveryStatus().running;
+  const nextRunWaitMs = discoveryRunning
+    ? null
+    : await cronJobNextRunWaitMs(schedule);
 
-  return {
-    id: schedule.id,
-    name: "RSS feed discovery",
-    description:
-      "Poll selected RSS feeds and enqueue extracted article URLs.",
-    schedule,
-    enabled: schedule.active,
-    running: discoveryRunning,
-    serviceKey: "discovery",
-  };
+  return toCronJobDefinition(schedule, discoveryRunning, nextRunWaitMs);
 }
 
 export async function resumeActiveCronJobServices(): Promise<void> {

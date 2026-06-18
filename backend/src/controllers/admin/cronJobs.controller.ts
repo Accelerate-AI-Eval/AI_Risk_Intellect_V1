@@ -29,7 +29,7 @@ export async function saveCronJobHandler(
     res.status(200).json({
       ok: true,
       message:
-        "Cron job saved. Discovery and worker services started to queue and process ingest jobs.",
+        "Cron job saved. Discovery runs on schedule; the worker starts when jobs are queued.",
       job,
       jobs: await listCronJobs(),
     });

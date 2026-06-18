@@ -223,7 +223,7 @@ const JOB_STATUS_HELP_BY_KEY: Record<string, StatusHelpItem> = {
   skipped: {
     status: "Skipped",
     description:
-      "Finished without storing content (duplicate URL, fetch failed, not AI-related, etc.).",
+      "Finished without storing content (duplicate URL, fetch failed, bot protection page, language not detected by bot, not AI-related, etc.).",
   },
   error: {
     status: "Error",
@@ -327,6 +327,48 @@ function jobHasIssueInfo(status: string): boolean {
   return s === "skipped" || s === "error";
 }
 
+/** Normalize legacy fetch/network skip reasons for the info panel. */
+function formatJobIssueMessage(message: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) return trimmed;
+
+  if (
+    trimmed.includes("blocked automated access") ||
+    trimmed.startsWith("Cannot resolve hostname") ||
+    trimmed.startsWith("Could not reach the site") ||
+    trimmed.startsWith("Could not fetch this URL") ||
+    trimmed.startsWith("Connection ") ||
+    trimmed.startsWith("The site did not respond") ||
+    trimmed.startsWith("The site returned an error") ||
+    trimmed.startsWith("SSL/TLS") ||
+    trimmed.startsWith("Temporary DNS")
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("timeout")) {
+    return "The site did not respond in time (connection timed out).";
+  }
+
+  if (/^fetch failed:\s*network error:\s*fetch failed$/i.test(trimmed)) {
+    return "Could not reach the site — connection failed (DNS, SSL, firewall, or the server may be down).";
+  }
+
+  if (trimmed.startsWith("fetch failed:")) {
+    return formatJobIssueMessage(trimmed.slice("fetch failed:".length).trim());
+  }
+
+  if (trimmed.startsWith("network error:")) {
+    const detail = trimmed.slice("network error:".length).trim();
+    if (!detail || detail.toLowerCase() === "fetch failed") {
+      return "Could not reach the site — connection failed (DNS, SSL, firewall, or the server may be down).";
+    }
+    return `Could not reach the site — ${detail}`;
+  }
+
+  return trimmed;
+}
+
 function JobErrorInfoIcon({
   jobId,
   status,
@@ -342,7 +384,7 @@ function JobErrorInfoIcon({
   const statusKey = status.toLowerCase();
   const hasIssue = jobHasIssueInfo(status);
   const body =
-    message.trim() ||
+    formatJobIssueMessage(message) ||
     (hasIssue ? JOB_ISSUE_DEFAULT_MESSAGE[statusKey] ?? "" : "");
 
   useEffect(() => {

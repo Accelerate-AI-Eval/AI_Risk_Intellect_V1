@@ -14,14 +14,19 @@ const KEEP_USERS = [
     fullName: "Administrator",
   },
   {
-    email: "test@work.com",
-    username: "Test",
-    fullName: "Test User",
+    email: "asad@accelerateai.io",
+    username: "Asad",
+    fullName: "Asad",
   },
 ] as const;
 
+/** Reference tables preserved during reset (e.g. catalog loaded via pg_restore). */
+const PRESERVED_TABLES = ["risk_mappings"] as const;
+
 async function truncateAllTables() {
-  await db.execute(sql`
+  const preservedTablesList = PRESERVED_TABLES.map((table) => `'${table}'`).join(", ");
+
+  await db.execute(sql.raw(`
     DO $$
     DECLARE r RECORD;
     BEGIN
@@ -29,6 +34,7 @@ async function truncateAllTables() {
         SELECT tablename
         FROM pg_tables
         WHERE schemaname = 'public'
+          AND tablename NOT IN (${preservedTablesList})
       ) LOOP
         EXECUTE format(
           'TRUNCATE TABLE %I RESTART IDENTITY CASCADE',
@@ -36,7 +42,7 @@ async function truncateAllTables() {
         );
       END LOOP;
     END $$;
-  `);
+  `));
 }
 
 async function seedUsers() {
@@ -55,7 +61,9 @@ async function seedUsers() {
 }
 
 async function main() {
-  console.log("Truncating all tables...");
+  console.log(
+    `Truncating all tables (preserving: ${PRESERVED_TABLES.join(", ")})...`,
+  );
   await truncateAllTables();
 
   console.log("Seeding users...");

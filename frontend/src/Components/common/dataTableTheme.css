@@ -80,7 +80,7 @@ html.app-theme-dark .articlesPage__th,
 html.app-theme-dark .jobsPage__th,
 html.app-theme-dark .riskPage__th,
 html.app-theme-dark .riskPage__th--sticky {
-  background: rgba(148, 163, 184, 0.08);
+  background: #0f172a;
   color: #94a3b8;
   border-bottom-color: rgba(148, 163, 184, 0.12);
 }
@@ -100,7 +100,7 @@ html.app-theme-dark .articlesPage__table tbody tr:hover,
 html.app-theme-dark .jobsPage__table tbody tr:hover,
 html.app-theme-dark .riskPage__table tbody tr:hover,
 html.app-theme-dark .observabilityPage__table tbody tr:hover {
-  background: rgba(148, 163, 184, 0.06);
+  background: #334155;
 }
 
 html.app-theme-dark .usersPage__table tbody tr:hover td,
@@ -109,7 +109,7 @@ html.app-theme-dark .jobsPage__table tbody tr:hover .jobsPage__td,
 html.app-theme-dark .riskPage__table tbody tr:hover .riskPage__td,
 html.app-theme-dark .riskPage__table tbody tr:hover .riskPage__td--sticky,
 html.app-theme-dark .observabilityPage__table tbody tr:hover td {
-  background-color: rgba(148, 163, 184, 0.06);
+  background-color: #334155;
 }
 
 html.app-theme-dark .usersPage__nameText {

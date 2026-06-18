@@ -10,7 +10,7 @@
   --risk-input-border: rgba(148, 163, 184, 0.2);
   --risk-btn-border: rgba(148, 163, 184, 0.25);
   --risk-btn-hover: rgba(148, 163, 184, 0.12);
-  --risk-th-bg: rgba(0, 0, 0, 0.22);
+  --risk-th-bg: #0f172a;
   --risk-id-color: var(--entity-id-color, #22d3ee);
 
   flex: 1;
@@ -602,7 +602,7 @@ html.app-theme-dark .riskPage {
   --risk-input-border: rgba(148, 163, 184, 0.2);
   --risk-btn-border: rgba(148, 163, 184, 0.25);
   --risk-btn-hover: rgba(148, 163, 184, 0.12);
-  --risk-th-bg: rgba(0, 0, 0, 0.22);
+  --risk-th-bg: #0f172a;
   --risk-id-color: var(--entity-id-color, #22d3ee);
 }
 
@@ -622,4 +622,12 @@ html.app-theme-dark .riskPage__searchInput::placeholder {
 
 html.app-theme-dark .riskPage__filter select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+}
+
+html.app-theme-dark .riskPage__actionBtn {
+  background: #334155;
+}
+
+html.app-theme-dark .riskPage__actionBtn--analysis:hover {
+  background: rgba(59, 130, 246, 0.28);
 }

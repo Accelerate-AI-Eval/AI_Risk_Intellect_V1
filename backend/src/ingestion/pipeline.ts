@@ -1,10 +1,14 @@
-import { extractFromHtml } from "./extractText.js";
 import {
-  classifyAiRelated,
+  detectBotBlockPage,
+  getExcludedNonAiTopicSkipReason,
   looksLikeSoft404,
   SkipIngest,
 } from "./filters.js";
-import { pythonIngestPdf, pythonIngestRaw } from "./pythonBridge.js";
+import {
+  pythonIngestHtml,
+  pythonIngestPdf,
+  pythonIngestRaw,
+} from "./pythonBridge.js";
 import {
   persistArticleWithJob,
   type PersistArticleResult,
@@ -29,16 +33,40 @@ export async function ingestHtml(
     throw new SkipIngest("empty html");
   }
 
-  const text = extractFromHtml(html);
-
-  if (looksLikeSoft404(html, 200, { extractedText: text })) {
-    throw new SkipIngest("soft-404 or too little text");
+  const excludedBeforeExtract = getExcludedNonAiTopicSkipReason({ url, title });
+  if (excludedBeforeExtract) {
+    throw new SkipIngest(excludedBeforeExtract);
   }
 
-  const [ok, details] = classifyAiRelated(text, { title, url });
-  if (!ok) {
+  const botBlockBeforeExtract = detectBotBlockPage(html);
+  if (botBlockBeforeExtract) {
+    throw new SkipIngest(botBlockBeforeExtract);
+  }
+
+  const minTextBytes = 200;
+
+  const extracted = await pythonIngestHtml(html, {
+    url,
+    title,
+    skipAiCheck: true,
+  });
+  const text = extracted.text;
+
+  const excludedAfterExtract = getExcludedNonAiTopicSkipReason({
+    url,
+    title,
+    text,
+  });
+  if (excludedAfterExtract) {
+    throw new SkipIngest(excludedAfterExtract);
+  }
+
+  if (looksLikeSoft404(html, 200, { extractedText: text, minTextBytes })) {
+    const botBlockAfterExtract = detectBotBlockPage(html, {
+      extractedText: text,
+    });
     throw new SkipIngest(
-      `not ai-related (inc=${details.include_hits}, exc=${details.exclude_hits}, thr=${details.threshold})`,
+      botBlockAfterExtract ?? "soft-404 or too little text",
     );
   }
 
@@ -46,7 +74,7 @@ export async function ingestHtml(
     text,
     html,
     url,
-    title: title || url,
+    title: extracted.title || title || url,
     source,
   });
 }
@@ -60,7 +88,16 @@ export async function ingestPdf(
   const title = options.title ?? "";
   const source = options.source ?? "manual";
 
-  const result = await pythonIngestPdf(pdfBytes, { url, title });
+  const excludedBeforeExtract = getExcludedNonAiTopicSkipReason({ url, title });
+  if (excludedBeforeExtract) {
+    throw new SkipIngest(excludedBeforeExtract);
+  }
+
+  const result = await pythonIngestPdf(pdfBytes, {
+    url,
+    title,
+    skipAiCheck: true,
+  });
 
   return persistArticleWithJob({
     text: result.text,
@@ -79,6 +116,11 @@ export async function ingestRawText(
   const url = options.url ?? "";
   const title = options.title ?? "";
   const source = options.source ?? "manual";
+
+  const excludedBeforeExtract = getExcludedNonAiTopicSkipReason({ url, title });
+  if (excludedBeforeExtract) {
+    throw new SkipIngest(excludedBeforeExtract);
+  }
 
   const result = await pythonIngestRaw(raw, { url, title });
 

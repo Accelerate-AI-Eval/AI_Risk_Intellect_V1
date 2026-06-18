@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3o1WaIvXJEKZ0zndVYEGeel1b7WNpPhqjXTmbroehByCOp9fLmtVuLDHdISkbB4
+\restrict GPr3NQ4XAaS9h4tOZIgYaho1rO6uUnbXUXfNGXFs0TZHgNrsDCbj0weyLqg2Zeg
 
 -- Dumped from database version 17.8
 -- Dumped by pg_dump version 17.8
@@ -29,13 +29,42 @@ CREATE SCHEMA drizzle;
 ALTER SCHEMA drizzle OWNER TO postgres;
 
 --
+-- Name: cron_job_event_type; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.cron_job_event_type AS ENUM (
+    'started',
+    'stopped',
+    'scheduled',
+    'completed'
+);
+
+
+ALTER TYPE public.cron_job_event_type OWNER TO postgres;
+
+--
+-- Name: cron_repeat_unit; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.cron_repeat_unit AS ENUM (
+    'day',
+    'week',
+    'month',
+    'year'
+);
+
+
+ALTER TYPE public.cron_repeat_unit OWNER TO postgres;
+
+--
 -- Name: job_source; Type: TYPE; Schema: public; Owner: postgres
 --
 
 CREATE TYPE public.job_source AS ENUM (
     'rss',
     'api',
-    'manual'
+    'manual',
+    'etl_reports'
 );
 
 
@@ -124,6 +153,96 @@ ALTER SEQUENCE drizzle.__drizzle_migrations_id_seq OWNED BY drizzle.__drizzle_mi
 
 
 --
+-- Name: aiid_reports; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.aiid_reports (
+    id integer NOT NULL,
+    object_id character varying(24) NOT NULL,
+    date_published timestamp with time zone,
+    report_number character varying(128),
+    source_domain character varying(512),
+    description text,
+    title text NOT NULL,
+    url character varying(2048) NOT NULL,
+    tags text[],
+    created_date timestamp with time zone,
+    imported_at timestamp with time zone DEFAULT now() NOT NULL,
+    upload_id integer
+);
+
+
+ALTER TABLE public.aiid_reports OWNER TO postgres;
+
+--
+-- Name: aiid_reports_new_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.aiid_reports_new_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.aiid_reports_new_id_seq OWNER TO postgres;
+
+--
+-- Name: aiid_reports_new_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.aiid_reports_new_id_seq OWNED BY public.aiid_reports.id;
+
+
+--
+-- Name: application_logs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.application_logs (
+    id integer NOT NULL,
+    level character varying(16) NOT NULL,
+    label character varying(64),
+    message text NOT NULL,
+    ip_address character varying(64),
+    user_agent text,
+    browser character varying(64),
+    browser_version character varying(32),
+    os character varying(64),
+    os_version character varying(32),
+    device character varying(128),
+    device_type character varying(16),
+    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.application_logs OWNER TO postgres;
+
+--
+-- Name: application_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.application_logs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.application_logs_id_seq OWNER TO postgres;
+
+--
+-- Name: application_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.application_logs_id_seq OWNED BY public.application_logs.id;
+
+
+--
 -- Name: articles; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -162,6 +281,162 @@ ALTER SEQUENCE public.articles_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.articles_id_seq OWNED BY public.articles.id;
+
+
+--
+-- Name: cron_job_events; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.cron_job_events (
+    id integer NOT NULL,
+    job_id character varying(64) NOT NULL,
+    event_type public.cron_job_event_type NOT NULL,
+    message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.cron_job_events OWNER TO postgres;
+
+--
+-- Name: cron_job_events_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.cron_job_events_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.cron_job_events_id_seq OWNER TO postgres;
+
+--
+-- Name: cron_job_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.cron_job_events_id_seq OWNED BY public.cron_job_events.id;
+
+
+--
+-- Name: cron_job_schedule_feeds; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.cron_job_schedule_feeds (
+    schedule_id character varying(64) NOT NULL,
+    ingest_link_id integer NOT NULL
+);
+
+
+ALTER TABLE public.cron_job_schedule_feeds OWNER TO postgres;
+
+--
+-- Name: cron_job_schedules; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.cron_job_schedules (
+    id character varying(64) NOT NULL,
+    start_date character varying(10) NOT NULL,
+    start_time character varying(5) NOT NULL,
+    repeat boolean DEFAULT true NOT NULL,
+    repeat_interval integer DEFAULT 1 NOT NULL,
+    repeat_unit public.cron_repeat_unit DEFAULT 'week'::public.cron_repeat_unit NOT NULL,
+    repeat_days integer[] DEFAULT '{}'::integer[] NOT NULL,
+    ends_on character varying(10),
+    active boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    timezone character varying(64) DEFAULT 'UTC'::character varying NOT NULL
+);
+
+
+ALTER TABLE public.cron_job_schedules OWNER TO postgres;
+
+--
+-- Name: etl_report_upload_items; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.etl_report_upload_items (
+    id integer NOT NULL,
+    upload_id integer NOT NULL,
+    row_order integer NOT NULL,
+    object_id character varying(24),
+    url character varying(2048) NOT NULL,
+    title text,
+    extraction_status character varying(32) NOT NULL,
+    skip_reason text
+);
+
+
+ALTER TABLE public.etl_report_upload_items OWNER TO postgres;
+
+--
+-- Name: etl_report_upload_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.etl_report_upload_items_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.etl_report_upload_items_id_seq OWNER TO postgres;
+
+--
+-- Name: etl_report_upload_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.etl_report_upload_items_id_seq OWNED BY public.etl_report_upload_items.id;
+
+
+--
+-- Name: etl_report_uploads; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.etl_report_uploads (
+    id integer NOT NULL,
+    suggested_name character varying(256),
+    report_file_path character varying(1024) NOT NULL,
+    status character varying(32) DEFAULT 'processing'::character varying NOT NULL,
+    total_rows integer DEFAULT 0 NOT NULL,
+    imported_rows integer DEFAULT 0 NOT NULL,
+    skipped_rows integer DEFAULT 0 NOT NULL,
+    failed_rows integer DEFAULT 0 NOT NULL,
+    error_message text,
+    archived boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    file_sha256 character varying(64)
+);
+
+
+ALTER TABLE public.etl_report_uploads OWNER TO postgres;
+
+--
+-- Name: etl_report_uploads_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.etl_report_uploads_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.etl_report_uploads_id_seq OWNER TO postgres;
+
+--
+-- Name: etl_report_uploads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.etl_report_uploads_id_seq OWNED BY public.etl_report_uploads.id;
 
 
 --
@@ -249,12 +524,13 @@ CREATE TABLE public.jobs (
     status public.job_status DEFAULT 'pending'::public.job_status NOT NULL,
     job_type public.job_type DEFAULT 'ingest'::public.job_type NOT NULL,
     source public.job_source DEFAULT 'manual'::public.job_source NOT NULL,
+    ingest_link_id integer,
+    ingest_link_item_id integer,
     tries integer DEFAULT 0 NOT NULL,
     error_message text,
+    started_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    ingest_link_id integer,
-    ingest_link_item_id integer
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -473,10 +749,45 @@ ALTER TABLE ONLY drizzle.__drizzle_migrations ALTER COLUMN id SET DEFAULT nextva
 
 
 --
+-- Name: aiid_reports id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.aiid_reports ALTER COLUMN id SET DEFAULT nextval('public.aiid_reports_new_id_seq'::regclass);
+
+
+--
+-- Name: application_logs id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.application_logs ALTER COLUMN id SET DEFAULT nextval('public.application_logs_id_seq'::regclass);
+
+
+--
 -- Name: articles id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.articles ALTER COLUMN id SET DEFAULT nextval('public.articles_id_seq'::regclass);
+
+
+--
+-- Name: cron_job_events id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cron_job_events ALTER COLUMN id SET DEFAULT nextval('public.cron_job_events_id_seq'::regclass);
+
+
+--
+-- Name: etl_report_upload_items id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.etl_report_upload_items ALTER COLUMN id SET DEFAULT nextval('public.etl_report_upload_items_id_seq'::regclass);
+
+
+--
+-- Name: etl_report_uploads id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.etl_report_uploads ALTER COLUMN id SET DEFAULT nextval('public.etl_report_uploads_id_seq'::regclass);
 
 
 --
@@ -539,6 +850,48 @@ COPY drizzle.__drizzle_migrations (id, hash, created_at) FROM stdin;
 19	9c596b039b56c21d3dfe2aac6dc705f8f65f2a317b37b83b94556643a8a15dfe	1780100000000
 20	b3db9b89bfad204fca55be048e149da5d3f2853d80c27ff08c7b5e7a81a8cb0c	1780200000000
 21	0754b8c5b422e828d2ce6d65a5cdddf9c1804cc6f712956d106eb95f57ef707d	1780300000000
+22	1463ffa9056b1f7d2fe6f04d7b93e47db5943edd68f9b778e55ef4452cf416b4	1780400000000
+23	06ac08ffb74737fcea6ac43a5690a7174654270ccfdfd569228de97d0a3e4b7f	1780500000000
+24	9ec21776bc6a770dcd379264c963f51c94bff7613ca99225a03892ff791ec50b	1780600000000
+25	06ac08ffb74737fcea6ac43a5690a7174654270ccfdfd569228de97d0a3e4b7f	1780700000000
+26	be1118c7df9b0d2be920103c986abe5daae2c7d1512eaf3a165607b288d8a05d	1780800000000
+27	c4df3a8b681597ede239627e1c13b6fd723f9ebeb40364be65eaba57ff9d50a3	1780900000000
+28	24f2ec1cb4df0a1bef3933bee09f510ffc5e470ba71b128b7e71e35a5927bbb6	1781000000000
+29	3a88ae681710dfb5e88195d0c33e04348b80a6ca1d62a20d140d2ee5571d5079	1781100000000
+30	ecc8f592fe10fb0b2c397c7042fb6d89e397629e9c798a33fe50e9211244089b	1781200000000
+31	c3fd02b64939f01f96872ff1903b36844c919046b9041e09e6ea5f7d228e0808	1781300000000
+32	278a570e437ce5a6fa0e07dc9332a0037ce311e3c03a1d66430da093776531f1	1781400000000
+33	36bd7b77b56779cecfb1a215409163534159a6e9dbb458d6e6bd78bceb7ba256	1781500000000
+34	c6a11816e4fe2ee5027696e2ce8399c79213044baff15416daed403b92e4b4c4	1781600000000
+35	02213440e6e1c96c528823347c2719906f22ac4115eb1e03a5c6014c0078588a	1781700000000
+36	6bb49573dbb68e96ce3cc1af3364bb02143a8f029f58e7dd9feaae5674f5c5a6	1781800000000
+37	c5d742737193ee73637a47a80accce4c149fefe74b849dc1dd5cdd3f47e063ba	1781900000000
+38	f07c75481dc8302f83b535bc399adfae911305688e9b57ec66c8749f28cdced1	1782000000000
+39	21b288fdcd9b58820477009b6e015e35f57b06733b862e4e83c796e517028efd	1782100000000
+44	f2224402d645f9233875252ba95f0163dc6e5742d386a0a143b039dec7f990f8	1782200000000
+45	d78fdd6b5aac9da7a3ff05d5db4df2003c0535c3fadf303c74e62dbd0d3f7c47	1782300000000
+\.
+
+
+--
+-- Data for Name: aiid_reports; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.aiid_reports (id, object_id, date_published, report_number, source_domain, description, title, url, tags, created_date, imported_at, upload_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: application_logs; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.application_logs (id, level, label, message, ip_address, user_agent, browser, browser_version, os, os_version, device, device_type, meta, created_at) FROM stdin;
+1	warn	http	GET /api/v1/jobs	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 22}	2026-06-18 14:33:12.214+05:30
+2	warn	http	POST /api/v1/auth/refresh	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 11}	2026-06-18 14:33:12.252+05:30
+3	warn	http	GET /api/v1/jobs	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 3}	2026-06-18 14:33:15.197+05:30
+4	warn	http	GET /api/v1/notifications	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 2}	2026-06-18 14:33:15.228+05:30
+5	warn	http	POST /api/v1/auth/refresh	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 2}	2026-06-18 14:33:16.16+05:30
+6	info	job	risk extract skipped	\N	\N	\N	\N	\N	\N	\N	\N	{"jobId": 1, "reason": "LLM returned stub/fallback extraction: 'charmap' codec can't encode characters in position 35-50: character maps to <undefined>"}	2026-06-18 14:33:19.662+05:30
 \.
 
 
@@ -547,6 +900,46 @@ COPY drizzle.__drizzle_migrations (id, hash, created_at) FROM stdin;
 --
 
 COPY public.articles (id, url, title, raw_text, html, sha256, risk_count, created_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: cron_job_events; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.cron_job_events (id, job_id, event_type, message, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: cron_job_schedule_feeds; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.cron_job_schedule_feeds (schedule_id, ingest_link_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: cron_job_schedules; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.cron_job_schedules (id, start_date, start_time, repeat, repeat_interval, repeat_unit, repeat_days, ends_on, active, created_at, updated_at, timezone) FROM stdin;
+\.
+
+
+--
+-- Data for Name: etl_report_upload_items; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.etl_report_upload_items (id, upload_id, row_order, object_id, url, title, extraction_status, skip_reason) FROM stdin;
+\.
+
+
+--
+-- Data for Name: etl_report_uploads; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.etl_report_uploads (id, suggested_name, report_file_path, status, total_rows, imported_rows, skipped_rows, failed_rows, error_message, archived, created_at, updated_at, file_sha256) FROM stdin;
 \.
 
 
@@ -570,7 +963,7 @@ COPY public.ingest_links (id, url, archived, created_at, updated_at, suggested_n
 -- Data for Name: jobs; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.jobs (id, article_id, url, status, job_type, source, tries, error_message, created_at, updated_at, ingest_link_id, ingest_link_item_id) FROM stdin;
+COPY public.jobs (id, article_id, url, status, job_type, source, ingest_link_id, ingest_link_item_id, tries, error_message, started_at, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -595,7 +988,6 @@ COPY public.password_reset_tokens (id, user_id, token_hash, expires_at, used_at,
 --
 
 COPY public.refresh_tokens (id, user_id, token_hash, user_agent, ip_address, revoked, replaced_by_id, expires_at, created_at, access_token_hash) FROM stdin;
-dfdac4e0-43e8-4064-8fc6-e5a2def6862f	0aba8015-a7eb-4986-9191-d4ef807a40f7	94acc6b6ad18d86730ff6b8e89900d02ef8009c7f33751e9c7ae516a558abe85	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:151.0) Gecko/20100101 Firefox/151.0	::ffff:127.0.0.1	f	\N	2026-06-09 14:39:09.076+05:30	2026-06-02 14:39:09.086188+05:30	179b3f7f2e6c7608ddafb1058de33084acbeaef36f15456af0acea80fd2ca66f
 \.
 
 
@@ -1876,7 +2268,8 @@ COPY public.user_profile_update_logs (id, target_user_id, updated_by_user_id, re
 --
 
 COPY public.users (id, email, username, password_hash, full_name, is_active, created_at, updated_at, account_status) FROM stdin;
-0aba8015-a7eb-4986-9191-d4ef807a40f7	admin@work.com	Admin	$2b$12$YJnYEIzb.WlycJlRfPPhPesys7wYJwwMcDKWwL73CdccHIAobi0Py	Administrator	t	2026-05-12 12:20:09.684943+05:30	2026-05-14 11:21:07.588+05:30	completed
+b4898e43-779a-402d-85d5-4f4d8cd3c5c8	admin@work.com	Admin	$2b$12$MIblIO3N5YSJ5WXBWmR6DOpmBgLbbnUJd21J4/i1TZxy7/02binXO	Administrator	t	2026-06-18 14:33:11.089368+05:30	2026-06-18 14:33:11.089368+05:30	completed
+a8b1cce0-e275-46eb-a491-b9af7355d7c3	asad@accelerateai.io	Asad	$2b$12$MIblIO3N5YSJ5WXBWmR6DOpmBgLbbnUJd21J4/i1TZxy7/02binXO	Asad	t	2026-06-18 14:33:11.105118+05:30	2026-06-18 14:33:11.105118+05:30	completed
 \.
 
 
@@ -1884,7 +2277,21 @@ COPY public.users (id, email, username, password_hash, full_name, is_active, cre
 -- Name: __drizzle_migrations_id_seq; Type: SEQUENCE SET; Schema: drizzle; Owner: postgres
 --
 
-SELECT pg_catalog.setval('drizzle.__drizzle_migrations_id_seq', 21, true);
+SELECT pg_catalog.setval('drizzle.__drizzle_migrations_id_seq', 45, true);
+
+
+--
+-- Name: aiid_reports_new_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.aiid_reports_new_id_seq', 1, false);
+
+
+--
+-- Name: application_logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.application_logs_id_seq', 6, true);
 
 
 --
@@ -1892,6 +2299,27 @@ SELECT pg_catalog.setval('drizzle.__drizzle_migrations_id_seq', 21, true);
 --
 
 SELECT pg_catalog.setval('public.articles_id_seq', 1, false);
+
+
+--
+-- Name: cron_job_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.cron_job_events_id_seq', 1, false);
+
+
+--
+-- Name: etl_report_upload_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.etl_report_upload_items_id_seq', 1, false);
+
+
+--
+-- Name: etl_report_uploads_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.etl_report_uploads_id_seq', 1, false);
 
 
 --
@@ -1926,7 +2354,7 @@ SELECT pg_catalog.setval('public.llm_observability_id_seq', 1, false);
 -- Name: risk_mappings_risk_mapping_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.risk_mappings_risk_mapping_id_seq', 1248, true);
+SELECT pg_catalog.setval('public.risk_mappings_risk_mapping_id_seq', 1, false);
 
 
 --
@@ -1935,6 +2363,22 @@ SELECT pg_catalog.setval('public.risk_mappings_risk_mapping_id_seq', 1248, true)
 
 ALTER TABLE ONLY drizzle.__drizzle_migrations
     ADD CONSTRAINT __drizzle_migrations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: aiid_reports aiid_reports_new_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.aiid_reports
+    ADD CONSTRAINT aiid_reports_new_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: application_logs application_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.application_logs
+    ADD CONSTRAINT application_logs_pkey PRIMARY KEY (id);
 
 
 --
@@ -1951,6 +2395,46 @@ ALTER TABLE ONLY public.articles
 
 ALTER TABLE ONLY public.articles
     ADD CONSTRAINT articles_url_unique UNIQUE (url);
+
+
+--
+-- Name: cron_job_events cron_job_events_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cron_job_events
+    ADD CONSTRAINT cron_job_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: cron_job_schedule_feeds cron_job_schedule_feeds_schedule_id_ingest_link_id_pk; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cron_job_schedule_feeds
+    ADD CONSTRAINT cron_job_schedule_feeds_schedule_id_ingest_link_id_pk PRIMARY KEY (schedule_id, ingest_link_id);
+
+
+--
+-- Name: cron_job_schedules cron_job_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cron_job_schedules
+    ADD CONSTRAINT cron_job_schedules_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_report_upload_items etl_report_upload_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.etl_report_upload_items
+    ADD CONSTRAINT etl_report_upload_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: etl_report_uploads etl_report_uploads_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.etl_report_uploads
+    ADD CONSTRAINT etl_report_uploads_pkey PRIMARY KEY (id);
 
 
 --
@@ -2074,6 +2558,76 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: aiid_reports_date_published_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX aiid_reports_date_published_idx ON public.aiid_reports USING btree (date_published);
+
+
+--
+-- Name: aiid_reports_imported_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX aiid_reports_imported_at_idx ON public.aiid_reports USING btree (imported_at);
+
+
+--
+-- Name: aiid_reports_object_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX aiid_reports_object_id_idx ON public.aiid_reports USING btree (object_id);
+
+
+--
+-- Name: aiid_reports_report_number_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX aiid_reports_report_number_idx ON public.aiid_reports USING btree (report_number);
+
+
+--
+-- Name: aiid_reports_upload_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX aiid_reports_upload_id_idx ON public.aiid_reports USING btree (upload_id);
+
+
+--
+-- Name: aiid_reports_url_unique_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE UNIQUE INDEX aiid_reports_url_unique_idx ON public.aiid_reports USING btree (url);
+
+
+--
+-- Name: application_logs_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX application_logs_created_at_idx ON public.application_logs USING btree (created_at);
+
+
+--
+-- Name: application_logs_ip_address_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX application_logs_ip_address_idx ON public.application_logs USING btree (ip_address);
+
+
+--
+-- Name: application_logs_label_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX application_logs_label_idx ON public.application_logs USING btree (label);
+
+
+--
+-- Name: application_logs_level_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX application_logs_level_idx ON public.application_logs USING btree (level);
+
+
+--
 -- Name: articles_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2092,6 +2646,55 @@ CREATE INDEX articles_sha256_idx ON public.articles USING btree (sha256);
 --
 
 CREATE INDEX articles_url_idx ON public.articles USING btree (url);
+
+
+--
+-- Name: cron_job_events_job_id_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX cron_job_events_job_id_created_at_idx ON public.cron_job_events USING btree (job_id, created_at);
+
+
+--
+-- Name: etl_report_upload_items_upload_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX etl_report_upload_items_upload_id_idx ON public.etl_report_upload_items USING btree (upload_id);
+
+
+--
+-- Name: etl_report_upload_items_upload_row_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX etl_report_upload_items_upload_row_idx ON public.etl_report_upload_items USING btree (upload_id, row_order);
+
+
+--
+-- Name: etl_report_uploads_archived_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX etl_report_uploads_archived_idx ON public.etl_report_uploads USING btree (archived);
+
+
+--
+-- Name: etl_report_uploads_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX etl_report_uploads_created_at_idx ON public.etl_report_uploads USING btree (created_at);
+
+
+--
+-- Name: etl_report_uploads_file_sha256_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX etl_report_uploads_file_sha256_idx ON public.etl_report_uploads USING btree (file_sha256);
+
+
+--
+-- Name: etl_report_uploads_status_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX etl_report_uploads_status_idx ON public.etl_report_uploads USING btree (status);
 
 
 --
@@ -2270,6 +2873,38 @@ CREATE INDEX users_username_idx ON public.users USING btree (username);
 
 
 --
+-- Name: aiid_reports aiid_reports_upload_id_etl_report_uploads_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.aiid_reports
+    ADD CONSTRAINT aiid_reports_upload_id_etl_report_uploads_id_fk FOREIGN KEY (upload_id) REFERENCES public.etl_report_uploads(id) ON DELETE SET NULL;
+
+
+--
+-- Name: cron_job_schedule_feeds cron_job_schedule_feeds_ingest_link_id_ingest_links_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cron_job_schedule_feeds
+    ADD CONSTRAINT cron_job_schedule_feeds_ingest_link_id_ingest_links_id_fk FOREIGN KEY (ingest_link_id) REFERENCES public.ingest_links(id) ON DELETE CASCADE;
+
+
+--
+-- Name: cron_job_schedule_feeds cron_job_schedule_feeds_schedule_id_cron_job_schedules_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.cron_job_schedule_feeds
+    ADD CONSTRAINT cron_job_schedule_feeds_schedule_id_cron_job_schedules_id_fk FOREIGN KEY (schedule_id) REFERENCES public.cron_job_schedules(id) ON DELETE CASCADE;
+
+
+--
+-- Name: etl_report_upload_items etl_report_upload_items_upload_id_etl_report_uploads_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.etl_report_upload_items
+    ADD CONSTRAINT etl_report_upload_items_upload_id_etl_report_uploads_id_fk FOREIGN KEY (upload_id) REFERENCES public.etl_report_uploads(id) ON DELETE CASCADE;
+
+
+--
 -- Name: ingest_link_items ingest_link_items_ingest_link_id_ingest_links_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2345,5 +2980,5 @@ ALTER TABLE ONLY public.user_profile_update_logs
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3o1WaIvXJEKZ0zndVYEGeel1b7WNpPhqjXTmbroehByCOp9fLmtVuLDHdISkbB4
+\unrestrict GPr3NQ4XAaS9h4tOZIgYaho1rO6uUnbXUXfNGXFs0TZHgNrsDCbj0weyLqg2Zeg
 

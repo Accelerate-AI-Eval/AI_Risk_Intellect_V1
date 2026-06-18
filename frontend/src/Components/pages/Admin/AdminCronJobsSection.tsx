@@ -32,7 +32,7 @@ import {
   fetchCronJobLogs,
   type CronFeedLogSummary,
 } from "../../../utils/cronLogsApi";
-import { formatCronScheduleSummary } from "../../../utils/cronScheduleSummary";
+import { formatCronSaveToastMessage, formatCronScheduleSummary } from "../../../utils/cronScheduleSummary";
 import {
   buildCronTimeSelectOptions,
   normalizeCronTime,
@@ -40,15 +40,17 @@ import {
 import {
   browserTimezone,
   clampStartDateForTimezone,
+  CRON_SCHEDULE_TIMEZONE,
   formatTimezoneOption,
   todayInTimezone,
+  toUserSchedule,
   weekdayInTimezone,
 } from "../../../utils/cronTimezones";
 import {
   toastCronJobScheduled,
   toastCronJobStopped,
 } from "../../../notifications/notificationToasts";
-import { useNotifications } from "../../../notifications/useNotifications";
+import { requestNotificationsReload } from "../../../notifications/notificationsReload";
 import { formatJobExecutedAt } from "../../../utils/formatDate";
 import {
   fetchIngestLinks,
@@ -66,7 +68,7 @@ import "../Users/usersPage.css";
 type AdminCronJobsSectionProps = {
   idPrefix: string;
   discoveryStatus: ServiceState;
-  onScheduleSaved?: () => void | Promise<void>;
+  onScheduleSaved?: (job: CronJobRow) => void | Promise<void>;
   onScheduleStopped?: () => void | Promise<void>;
 };
 
@@ -135,13 +137,11 @@ function feedMatchesSearch(feed: IngestLinkRow, search: string): boolean {
 
 function scheduleFromJob(job: CronJobRow | null): SaveCronScheduleInput {
   const schedule = job?.schedule;
-  const timezone = schedule?.timezone?.trim() || browserTimezone();
-  const savedStartDate = schedule?.startDate?.trim();
-  const savedStartTime = schedule?.startTime?.trim();
-  return {
-    startDate: savedStartDate || todayInTimezone(timezone),
-    startTime: normalizeCronTime(savedStartTime || "10:30"),
-    timezone,
+  const userTimezone = browserTimezone();
+  const base: SaveCronScheduleInput = {
+    startDate: todayInTimezone(userTimezone),
+    startTime: normalizeCronTime("10:30"),
+    timezone: userTimezone,
     repeat: schedule?.repeat ?? true,
     repeatInterval: schedule?.repeatInterval ?? 1,
     repeatUnit: schedule?.repeatUnit ?? "day",
@@ -150,6 +150,22 @@ function scheduleFromJob(job: CronJobRow | null): SaveCronScheduleInput {
       ? [...schedule.ingestLinkIds]
       : [],
   };
+
+  const savedStartDate = schedule?.startDate?.trim();
+  const savedStartTime = schedule?.startTime?.trim();
+  if (!savedStartDate || !savedStartTime) {
+    return base;
+  }
+
+  return toUserSchedule(
+    {
+      ...base,
+      startDate: savedStartDate,
+      startTime: normalizeCronTime(savedStartTime),
+      timezone: schedule?.timezone?.trim() || CRON_SCHEDULE_TIMEZONE,
+    },
+    userTimezone,
+  );
 }
 
 function normalizeScheduleForCompare(
@@ -186,7 +202,6 @@ export function AdminCronJobsSection({
   onScheduleSaved,
   onScheduleStopped,
 }: AdminCronJobsSectionProps) {
-  const { load: loadNotifications } = useNotifications();
   const [job, setJob] = useState<CronJobRow | null>(null);
   const [form, setForm] = useState<SaveCronScheduleInput>(scheduleFromJob(null));
   const [savedForm, setSavedForm] = useState<SaveCronScheduleInput>(
@@ -258,7 +273,7 @@ export function AdminCronJobsSection({
     scheduleActive,
   ]);
 
-  const scheduleTimezone = form.timezone || browserTimezone();
+  const scheduleTimezone = browserTimezone();
 
   const cronStatusLabel = useMemo(() => {
     if (!scheduleActive) {
@@ -446,24 +461,6 @@ export function AdminCronJobsSection({
     void loadCronLogs({ silent: true });
   }, [discoveryStatus, cronTab, loadCronLogs, loading]);
 
-  const cronJobRunning = useMemo(
-    () =>
-      cronLoopRunning ||
-      discoveryStatus === "running" ||
-      discoveryStatus === "starting",
-    [cronLoopRunning, discoveryStatus],
-  );
-
-  useEffect(() => {
-    if (!cronJobRunning) return;
-
-    const timer = window.setInterval(() => {
-      void loadNotifications({ silent: true });
-    }, 4_000);
-
-    return () => window.clearInterval(timer);
-  }, [cronJobRunning, loadNotifications]);
-
   const scheduledFeedIds = useMemo(
     () => job?.schedule?.ingestLinkIds ?? [],
     [job?.schedule?.ingestLinkIds],
@@ -538,7 +535,7 @@ export function AdminCronJobsSection({
       toast.error("Select at least one RSS feed.", { autoClose: 2800 });
       return;
     }
-    const timezone = form.timezone?.trim() || browserTimezone();
+    const timezone = browserTimezone();
     const today = todayInTimezone(timezone);
     if (form.startDate > today) {
       toast.error(
@@ -578,14 +575,18 @@ export function AdminCronJobsSection({
       setJob(result.job);
       setForm(nextForm);
       setSavedForm(nextForm);
-      await onScheduleSaved?.();
+      await onScheduleSaved?.(result.job);
       if (cronTab === "logs") {
         void loadCronLogs({ silent: true });
       }
       toastCronJobScheduled(
-        `RSS discovery scheduled for ${payload.ingestLinkIds.length} feed(s). ${formatCronScheduleSummary(payload)}`,
+        formatCronSaveToastMessage(
+          payload.ingestLinkIds.length,
+          payload,
+          result.job,
+        ),
       );
-      void loadNotifications({ silent: true });
+      void requestNotificationsReload({ silent: true });
     } catch {
       toast.error("Network error while saving cron job.", { autoClose: 3000 });
     } finally {
@@ -628,8 +629,9 @@ export function AdminCronJobsSection({
               Cron jobs
             </h2>
             <p className="adminPage__cardHint">
-              Schedule automated RSS discovery for selected feeds. Discovery and
-              worker services start automatically when you save.
+              Schedule automated RSS discovery for selected feeds. Discovery
+              runs at the scheduled time; the worker starts when jobs are
+              queued.
             </p>
           </div>
         </div>
@@ -1016,16 +1018,16 @@ export function AdminCronJobsSection({
                             ...current,
                             startDate: clampStartDateForTimezone(
                               e.target.value,
-                              current.timezone || browserTimezone(),
+                              browserTimezone(),
                             ),
                           }))
                         }
                       />
                     </div>
-                    <p className="adminPage__cronFieldHint">
+                    {/* <p className="adminPage__cronFieldHint">
                       Anchor date for repeat schedules. Saved value is kept when
                       you update feeds or recurrence.
-                    </p>
+                    </p> */}
                   </div>
 
                   <div className="adminPage__cronField">
@@ -1118,9 +1120,11 @@ export function AdminCronJobsSection({
                           )
                         : null}
                     </div>
-                    <p className="adminPage__cronFieldHint">
-                      {formatTimezoneOption(scheduleTimezone)}
-                    </p>
+                    {/* <p className="adminPage__cronFieldHint">
+                      Shown in {formatTimezoneOption(scheduleTimezone)}. Saved and
+                      run in {formatTimezoneOption(CRON_SCHEDULE_TIMEZONE)} at the
+                      same moment you choose here.
+                    </p> */}
                   </div>
                 </div>
               </div>

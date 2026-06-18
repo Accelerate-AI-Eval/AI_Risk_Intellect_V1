@@ -1,6 +1,6 @@
 import dns from "node:dns/promises";
 import { extractTitleFromHtml } from "../../ingestion/extractText.js";
-import { looksLikeSoft404 } from "../../ingestion/filters.js";
+import { detectBotBlockPage, looksLikeSoft404 } from "../../ingestion/filters.js";
 import { isBlockedResolvedIp } from "./ipAddress.js";
 
 const UA =
@@ -143,6 +143,133 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+type ErrnoLike = Error & { code?: string };
+
+/** Walk nested `error.cause` chains from Node/undici fetch failures. */
+function unwrapFetchError(err: unknown): unknown {
+  let current: unknown = err;
+  for (let depth = 0; depth < 6; depth += 1) {
+    if (
+      current instanceof Error &&
+      current.cause != null &&
+      current.cause !== current
+    ) {
+      current = current.cause;
+      continue;
+    }
+    break;
+  }
+  return current;
+}
+
+/**
+ * Turn low-level fetch/network errors into user-facing job skip messages.
+ */
+export function describeFetchNetworkError(err: unknown): string {
+  const root = unwrapFetchError(err);
+  const top = err instanceof Error ? err : new Error(String(err));
+  const rootErr = root instanceof Error ? root : top;
+  const code = (rootErr as ErrnoLike).code ?? (top as ErrnoLike).code;
+  const message = `${top.message} ${rootErr.message}`.trim();
+
+  if (top.name === "AbortError" || rootErr.name === "AbortError") {
+    return "The site did not respond in time (connection timed out).";
+  }
+
+  if (code === "ENOTFOUND" || /getaddrinfo ENOTFOUND/i.test(message)) {
+    const host = message.match(/ENOTFOUND\s+(\S+)/i)?.[1];
+    return host
+      ? `Cannot resolve hostname "${host}" (DNS lookup failed).`
+      : "Cannot resolve hostname (DNS lookup failed).";
+  }
+
+  if (code === "EAI_AGAIN") {
+    return "Temporary DNS failure — try again later.";
+  }
+
+  if (code === "ECONNREFUSED") {
+    return "Connection refused — the server is not accepting connections.";
+  }
+
+  if (
+    code === "ETIMEDOUT" ||
+    code === "UND_ERR_CONNECT_TIMEOUT" ||
+    code === "UND_ERR_HEADERS_TIMEOUT" ||
+    code === "UND_ERR_BODY_TIMEOUT"
+  ) {
+    return "Connection timed out — the server took too long to respond.";
+  }
+
+  if (code === "ECONNRESET" || code === "UND_ERR_SOCKET") {
+    return "Connection was reset by the server or network.";
+  }
+
+  if (
+    code === "CERT_HAS_EXPIRED" ||
+    code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" ||
+    code === "DEPTH_ZERO_SELF_SIGNED_CERT" ||
+    /certificate|cert_|ssl|tls/i.test(message)
+  ) {
+    return "SSL/TLS certificate error — could not establish a secure connection.";
+  }
+
+  if (code === "ERR_INVALID_URL") {
+    return "URL is not valid.";
+  }
+
+  const detail = rootErr.message.trim();
+  if (detail && detail.toLowerCase() !== "fetch failed") {
+    return `Could not reach the site — ${detail}`;
+  }
+
+  return "Could not reach the site — connection failed (DNS, SSL, firewall, or the server may be down).";
+}
+
+/** Normalize fetch-layer skip reasons for the Jobs info panel. */
+export function formatPageFetchSkipReason(reason: string): string {
+  const trimmed = reason.trim();
+  if (!trimmed) {
+    return "Could not fetch this URL.";
+  }
+
+  if (
+    trimmed.includes("blocked automated access") ||
+    trimmed.startsWith("Cannot resolve hostname") ||
+    trimmed.startsWith("Could not reach the site") ||
+    trimmed.startsWith("Connection ") ||
+    trimmed.startsWith("The site did not respond") ||
+    trimmed.startsWith("SSL/TLS") ||
+    trimmed.startsWith("Temporary DNS") ||
+    trimmed.startsWith("URL is not valid")
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("timeout")) {
+    return "The site did not respond in time (connection timed out).";
+  }
+
+  if (trimmed.startsWith("HTTP ")) {
+    return `The site returned an error (${trimmed}).`;
+  }
+
+  if (trimmed.startsWith("network error:")) {
+    const detail = trimmed.slice("network error:".length).trim();
+    if (!detail || detail.toLowerCase() === "fetch failed") {
+      return "Could not reach the site — connection failed (DNS, SSL, firewall, or the server may be down).";
+    }
+    return `Could not reach the site — ${detail}`;
+  }
+
+  if (trimmed.startsWith("fetch failed:")) {
+    return formatPageFetchSkipReason(
+      trimmed.slice("fetch failed:".length).trim(),
+    );
+  }
+
+  return `Could not fetch this URL — ${trimmed}`;
+}
+
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -206,9 +333,12 @@ export async function fetchHtml(
     return { html, extracted };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new UrlFetchError("URL did not respond in time.", "UNREACHABLE");
+      throw new UrlFetchError(
+        "The site did not respond in time (connection timed out).",
+        "UNREACHABLE",
+      );
     }
-    throw new UrlFetchError("Could not reach the URL.", "UNREACHABLE");
+    throw new UrlFetchError(describeFetchNetworkError(err), "UNREACHABLE");
   } finally {
     clearTimeout(timer);
   }
@@ -255,6 +385,11 @@ export async function fetchPageContentDetailed(
 
     const html = await getRes.text();
 
+    const botBlock = detectBotBlockPage(html, { httpStatus: getRes.status });
+    if (botBlock) {
+      return { ok: false, reason: botBlock };
+    }
+
     if ([404, 410, 451].includes(getRes.status)) {
       return { ok: false, reason: `HTTP ${getRes.status}` };
     }
@@ -280,10 +415,12 @@ export async function fetchPageContentDetailed(
     };
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      return { ok: false, reason: "timeout — site did not respond in time" };
+      return {
+        ok: false,
+        reason: "The site did not respond in time (connection timed out).",
+      };
     }
-    const msg = err instanceof Error ? err.message : String(err);
-    return { ok: false, reason: `network error: ${msg}` };
+    return { ok: false, reason: describeFetchNetworkError(err) };
   } finally {
     clearTimeout(timer);
   }

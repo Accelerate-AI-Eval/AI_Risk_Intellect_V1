@@ -41,14 +41,14 @@ class PdfIngestBody(BaseModel):
     url: str = ""
     title: str = ""
     pdf_base64: str = Field(default="")
-    skip_ai_check: bool = False
+    skip_ai_check: bool = True
 
 
 class HtmlIngestBody(BaseModel):
     url: str = ""
     title: str = ""
     html: str = ""
-    skip_ai_check: bool = False
+    skip_ai_check: bool = True
 
 
 class ExtractRiskBody(BaseModel):

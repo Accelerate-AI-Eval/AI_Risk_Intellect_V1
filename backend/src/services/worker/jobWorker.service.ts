@@ -7,7 +7,6 @@ import { articles } from "../../schema/articles/articles.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { extractRiskForArticle } from "./extractRisk.service.js";
 import { processUrlToDb } from "./processUrl.service.js";
-import { resolveIngestSource } from "./resolveIngestSource.js";
 
 export type ClaimedJob = {
   id: number;
@@ -85,16 +84,14 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   };
 
   try {
-    const source = resolveIngestSource(job.source);
     const [articleRow] = await db
       .select({ title: articles.title })
       .from(articles)
       .where(eq(articles.id, job.articleId))
       .limit(1);
 
-    log("ingest start", { url: job.url, source, jobSource: job.source });
+    log("ingest start", { url: job.url, jobSource: job.source });
     const ingest = await processUrlToDb(job.url, job.articleId, {
-      source,
       title: articleRow?.title ?? undefined,
     });
 

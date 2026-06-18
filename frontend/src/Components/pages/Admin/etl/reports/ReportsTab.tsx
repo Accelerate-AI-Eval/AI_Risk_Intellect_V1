@@ -209,6 +209,7 @@ export function ReportsTab({
     suggestedName: string | null;
   } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
   const [uploadRowMenuOpenId, setUploadRowMenuOpenId] = useState<number | null>(
     null,
@@ -483,12 +484,21 @@ export function ReportsTab({
     file: File;
   }) {
     setUploading(true);
+    setUploadProgress(0);
+
+    const onProgress = (percent: number) => setUploadProgress(percent);
 
     const result = reuploadTarget
-      ? await reuploadEtlReportUpload(reuploadTarget.id, file, suggestedName)
-      : await uploadEtlReports(file, suggestedName);
+      ? await reuploadEtlReportUpload(
+          reuploadTarget.id,
+          file,
+          suggestedName,
+          onProgress,
+        )
+      : await uploadEtlReports(file, suggestedName, onProgress);
 
     setUploading(false);
+    setUploadProgress(null);
 
     if (result.ok) {
       setUploadDialogOpen(false);
@@ -682,7 +692,7 @@ export function ReportsTab({
                   aria-busy={uploading}
                 >
                   <Plus size={18} strokeWidth={2} aria-hidden />
-                  Upload CSV
+                  Upload file
                 </button>
               </div>
               <div className="adminPage__dataTableToolbarSearch">
@@ -1172,6 +1182,7 @@ export function ReportsTab({
       <ReportsUploadDialog
         open={uploadDialogOpen}
         uploading={uploading}
+        uploadProgress={uploadProgress}
         reuploadTarget={reuploadTarget}
         onClose={() => {
           if (uploading) return;

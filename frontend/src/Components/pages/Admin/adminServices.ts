@@ -74,7 +74,12 @@ export async function readServiceApiStatus(): Promise<Record<
   ServiceKey,
   ApiServiceState
 > | null> {
-  const res = await authFetch("/admin/services/status");
+  let res: Response;
+  try {
+    res = await authFetch("/admin/services/status");
+  } catch {
+    return null;
+  }
   if (!res.ok) return null;
   const data = (await res.json()) as {
     services?: Record<string, { running?: boolean }>;
@@ -104,11 +109,16 @@ export async function waitForServiceApiState(
   return false;
 }
 
-/** After RSS discovery or cron save, both services should report running. */
+/** After RSS discovery or cron save, the worker should be up; discovery may stay idle until run time. */
+export async function waitForWorkerRunning(maxMs = 30_000): Promise<boolean> {
+  return waitForServiceApiState("worker", true, maxMs);
+}
+
+/** @deprecated Prefer waitForWorkerRunning — cron discovery is timer-driven, not always running. */
 export async function waitForDiscoveryAndWorkerRunning(
   maxMs = 30_000,
 ): Promise<{ discovery: boolean; worker: boolean }> {
-  const discovery = await waitForServiceApiState("discovery", true, maxMs);
-  const worker = await waitForServiceApiState("worker", true, maxMs);
+  const worker = await waitForWorkerRunning(maxMs);
+  const discovery = await waitForServiceApiState("discovery", true, 5_000);
   return { discovery, worker };
 }

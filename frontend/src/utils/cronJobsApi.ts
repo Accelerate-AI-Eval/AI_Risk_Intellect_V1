@@ -23,6 +23,8 @@ export type CronJobRow = {
   schedule: CronSchedule;
   enabled: boolean;
   running: boolean;
+  /** Ms until next discovery attempt; 0 = due now; null when already running. */
+  nextRunWaitMs?: number | null;
   serviceKey: "discovery" | null;
 };
 

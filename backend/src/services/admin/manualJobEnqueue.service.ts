@@ -1,27 +1,7 @@
 import { db } from "../../db/index.js";
 import { createArticleWithIngestJob } from "../../jobs/jobFactory.js";
 import { HttpError } from "../../utils/httpError.js";
-import {
-  normalizeUrl,
-  validateUrl,
-  UrlFetchError,
-} from "../../utils/fetchUtils.js";
-
-function mapUrlFetchError(err: UrlFetchError): HttpError {
-  switch (err.code) {
-    case "INVALID_URL":
-      return HttpError.badRequest(err.message);
-    case "SSRF_BLOCKED":
-    case "DNS_FAILED":
-      return HttpError.forbidden(err.message);
-    case "NOT_FOUND":
-      return HttpError.notFound(err.message);
-    case "UNREACHABLE":
-      return HttpError.serviceUnavailable(err.message);
-    default:
-      return HttpError.badRequest(err.message);
-  }
-}
+import { normalizeUrl } from "../../utils/fetchUtils.js";
 
 export type ManualJobEnqueueResult = {
   job: {
@@ -35,7 +15,10 @@ export type ManualJobEnqueueResult = {
   created: boolean;
 };
 
-/** Queue a manual ingest job for an article URL (Jobs → Enqueue). */
+/**
+ * Queue a manual ingest job for an article URL (Jobs → Enqueue).
+ * SSRF / fetch / topic filters run in the worker — same as RSS and ETL.
+ */
 export async function enqueueManualJobUrl(
   rawUrl: string,
 ): Promise<ManualJobEnqueueResult> {
@@ -44,13 +27,6 @@ export async function enqueueManualJobUrl(
     normalized = normalizeUrl(rawUrl);
   } catch {
     throw HttpError.badRequest("URL is not valid.");
-  }
-
-  try {
-    await validateUrl(normalized);
-  } catch (err) {
-    if (err instanceof UrlFetchError) throw mapUrlFetchError(err);
-    throw err;
   }
 
   const result = await db.transaction(async (tx) =>

@@ -60,6 +60,7 @@ def main() -> int:
             title=title,
             source_url=url,
         )
+        
         if _is_stub_object(obj) or source_flag == "stub":
             json.dump(
                 {

@@ -10,6 +10,7 @@ import logging
 from typing import Optional, Any, Dict
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from app.llm.json_parse import parse_llm_json
 from app.llm.repair import repair_extraction_obj
 
 logger = logging.getLogger("airisk")
@@ -71,20 +72,9 @@ def _first_balanced_json(s: str) -> Optional[str]:
 
 
 def _robust_json_load(raw: str, retries: int = 2) -> Dict[str, Any]:
-    s = _strip_code_fences(raw)
-    cand = _first_balanced_json(s) or s
-    last_err = None
-
-    for _ in range(retries + 1):
-        try:
-            return json.loads(cand)
-        except Exception as e:
-            last_err = e
-            # try removing trailing commas
-            cand = re.sub(r",\s*([}\]])", r"\1", cand)
-            cand = cand.replace("\ufeff", "").strip()
-
-    raise ValueError(f"Model did not return valid JSON: {last_err}")
+    """Backwards-compatible wrapper; delegates to parse_llm_json."""
+    del retries  # repair passes are handled inside parse_llm_json
+    return parse_llm_json(raw)
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +270,7 @@ def generate_json(
 
         add_generated_tokens(int(gen_only.numel()))
     except Exception:
+        # print("RAW LLM JSON TEXT from URL",decoded)
         pass
     decoded = _tokenizer.decode(gen_only, skip_special_tokens=True)
 

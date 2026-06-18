@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { stripUsModelPrefix, withUsModelPrefix } from "../utils/bedrockModelId.js";
+import {
+  normalizeBedrockModelAlias,
+  stripUsModelPrefix,
+  withUsModelPrefix,
+} from "../utils/bedrockModelId.js";
 import { backendRoot } from "../services/admin/spawnBackendScript.js";
 
 export type LlmModelOption = {
@@ -122,7 +126,8 @@ export function findCatalogOption(modelId: string): LlmModelOption | undefined {
 }
 
 export function resolveBedrockModelId(modelId: string): string {
-  const catalog = getCatalogModel(modelId);
-  const base = catalog?.modelId ?? modelId.trim();
+  const normalized = normalizeBedrockModelAlias(modelId);
+  const catalog = getCatalogModel(normalized);
+  const base = catalog?.modelId ?? normalized;
   return withUsModelPrefix(base);
 }

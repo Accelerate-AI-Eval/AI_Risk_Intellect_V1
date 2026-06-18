@@ -8,28 +8,13 @@ from pathlib import Path
 
 logger = logging.getLogger("airisk")
 
-DEFAULT_BEDROCK_MODEL = "claude-haiku-4-5"
-_LEGACY_BEDROCK_MARKERS = (
-    "claude-3-sonnet",
-    "20240229",
-    ":200k",
-)
+DEFAULT_BEDROCK_MODEL = "us.anthropic.claude-3-sonnet-20240229-v1:0:200k"
 
 
-def _normalize_bedrock_model(model_id: str) -> str:
+def normalize_bedrock_model(model_id: str) -> str:
     trimmed = model_id.strip()
     if not trimmed:
         return DEFAULT_BEDROCK_MODEL
-
-    lowered = trimmed.lower()
-    if any(marker in lowered for marker in _LEGACY_BEDROCK_MARKERS):
-        logger.warning(
-            "Replacing legacy Bedrock model %s with %s",
-            trimmed,
-            DEFAULT_BEDROCK_MODEL,
-        )
-        return DEFAULT_BEDROCK_MODEL
-
     return trimmed
 
 
@@ -41,7 +26,7 @@ def _normalize_bedrock_env() -> None:
         os.getenv("BEDROCK_MODEL", "").strip()
         or os.getenv("BEDROCK_MODEL_ID", "").strip()
     )
-    resolved = _normalize_bedrock_model(raw_model)
+    resolved = normalize_bedrock_model(raw_model)
     os.environ["BEDROCK_MODEL"] = resolved
     os.environ["BEDROCK_MODEL_ID"] = resolved
 

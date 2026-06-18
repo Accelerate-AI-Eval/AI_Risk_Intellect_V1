@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
+from app.env_bootstrap import normalize_bedrock_model
 from app.llm.bedrock_llm import BedrockLLM
 from app.llm.bedrock_model_id import strip_us_model_prefix, with_us_model_prefix
 
@@ -158,6 +159,7 @@ def _current_model_id() -> str:
 
 
 def _bedrock_model_id(model_id: str) -> str:
+    model_id = normalize_bedrock_model(model_id)
     catalog = _get_catalog_model(model_id)
     if catalog:
         return with_us_model_prefix(str(catalog["modelId"]))
@@ -213,7 +215,7 @@ def _disable_other_backends() -> None:
 
 
 def set_model(model_id: str) -> dict[str, Any]:
-    model_id = model_id.strip()
+    model_id = normalize_bedrock_model(model_id.strip())
     if not model_id:
         raise ValueError("modelId is required")
 

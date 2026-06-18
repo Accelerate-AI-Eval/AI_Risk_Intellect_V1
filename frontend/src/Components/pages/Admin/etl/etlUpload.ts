@@ -1,4 +1,7 @@
-import { authFetch } from "../../../../utils/authFetch";
+import {
+  authFetchUpload,
+  type UploadProgressHandler,
+} from "../../../../utils/authFetch";
 
 const REPORTS_UPLOAD_PATH = "/admin/etl/reports/upload";
 
@@ -16,6 +19,7 @@ function formatSaveSummary(data: { message?: string }): string {
 export async function uploadEtlReports(
   file: File,
   suggestedName = "",
+  onProgress?: UploadProgressHandler,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
   if (!isAllowedEtlFile(file.name)) {
     return {
@@ -30,9 +34,8 @@ export async function uploadEtlReports(
   if (trimmedName) formData.append("suggestedName", trimmedName);
 
   try {
-    const res = await authFetch(REPORTS_UPLOAD_PATH, {
-      method: "POST",
-      body: formData,
+    const res = await authFetchUpload(REPORTS_UPLOAD_PATH, formData, {
+      onProgress,
     });
     const data = (await res.json().catch(() => ({}))) as {
       message?: string;

@@ -735,7 +735,7 @@ html.app-theme-dark .jobsPage__searchInput {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--jobs-muted);
-  background: rgba(0, 0, 0, 0.22);
+  background: #0f172a;
   border-bottom: 1px solid var(--jobs-border);
   white-space: nowrap;
   position: sticky;
@@ -745,6 +745,28 @@ html.app-theme-dark .jobsPage__searchInput {
 
 html:not(.app-theme-dark) .jobsPage__th {
   background: #f1f5f9;
+}
+
+html.app-theme-dark .jobsPage__kebabBtn {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+html.app-theme-dark .jobsPage__kebabBtn:hover {
+  background: #475569;
+  color: #f1f5f9;
+}
+
+html.app-theme-dark .jobsPage__kebabBtn[aria-expanded="true"] {
+  background: rgba(28, 176, 212, 0.2);
+  border-color: var(--main-auth-button-color, #1cb0d4);
+  color: var(--main-auth-button-color, #1cb0d4);
+}
+
+html.app-theme-dark .jobsPage__rowMenu {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.25);
 }
 
 .jobsPage__th--left {

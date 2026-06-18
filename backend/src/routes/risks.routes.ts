@@ -6,6 +6,7 @@ import {
   getRiskByIdHandler,
   listReviewQueueHandler,
   listRisksHandler,
+  listTaxonomyDomainsHandler,
 } from "../controllers/risks/risks.controller.js";
 
 export const risksRouter: Router = Router();
@@ -15,6 +16,11 @@ risksRouter.get(
   "/review-queue",
   requireAuth,
   asyncHandler(listReviewQueueHandler),
+);
+risksRouter.get(
+  "/taxonomy-domains",
+  requireAuth,
+  asyncHandler(listTaxonomyDomainsHandler),
 );
 risksRouter.post(
   "/:id/review/approve",

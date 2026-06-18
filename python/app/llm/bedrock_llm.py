@@ -22,7 +22,11 @@ try:
 except ImportError:  # pragma: no cover - soft dep, fallback keeps old behavior
     _TENACITY_AVAILABLE = False
 
-from app.llm.bedrock_model_id import with_us_model_prefix
+from app.env_bootstrap import DEFAULT_BEDROCK_MODEL, normalize_bedrock_model
+from app.llm.bedrock_model_id import (
+    resolve_bedrock_invoke_model_id,
+    with_us_model_prefix,
+)
 
 logger = logging.getLogger("airisk")
 
@@ -79,17 +83,16 @@ class BedrockLLM:
     
     
     MODELS = {
-    "claude-haiku-4-5": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "claude-3-5-haiku": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+        "claude-haiku-4-5": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "claude-3-5-haiku": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
     }
 
-    # Fallback model used when the primary model throttles or errors past the
-    # retry budget. Kept deliberately to a cheaper, higher-quota Haiku tier.
-    FALLBACK_MODEL_KEY = "claude-3-5-haiku"
+    # Fallback when the primary model throttles, is rejected, or errors past retries.
+    FALLBACK_MODEL_ID = "us.anthropic.claude-3-sonnet-20240229-v1:0:200k"
 
     def __init__(
         self,
-        model_name: str = "claude-haiku-4-5",
+        model_name: str = DEFAULT_BEDROCK_MODEL,
         region_name: str = "us-east-1"
     ):
         """
@@ -99,15 +102,24 @@ class BedrockLLM:
             model_name: One of: claude-3-5-sonnet, claude-3-5-haiku, claude-3-haiku
             region_name: AWS region (default: us-east-1)
         """
-        self.model_name = model_name
-        if model_name in self.MODELS:
-            self.model_id = self.MODELS[model_name]
-        elif model_name and (":" in model_name or "." in model_name):
+        resolved_name = normalize_bedrock_model(model_name)
+        self.model_name = resolved_name
+        if resolved_name in self.MODELS:
+            self.model_id = resolve_bedrock_invoke_model_id(self.MODELS[resolved_name])
+        elif resolved_name and (":" in resolved_name or "." in resolved_name):
             # Full Bedrock model id from BEDROCK_MODEL / BEDROCK_MODEL_ID env
-            self.model_id = with_us_model_prefix(model_name)
+            self.model_id = resolve_bedrock_invoke_model_id(resolved_name)
         else:
-            self.model_id = self.MODELS["claude-haiku-4-5"]
-        self.fallback_model_id = self.MODELS[self.FALLBACK_MODEL_KEY]
+            self.model_id = resolve_bedrock_invoke_model_id(DEFAULT_BEDROCK_MODEL)
+        fallback = (
+            os.getenv("BEDROCK_FALLBACK_MODEL", "").strip()
+            or self.FALLBACK_MODEL_ID
+        )
+        self.fallback_model_id = resolve_bedrock_invoke_model_id(fallback)
+        # Last resort when configured primary/fallback resolve to the same rejected id.
+        self._tertiary_model_id = resolve_bedrock_invoke_model_id(
+            self.MODELS["claude-haiku-4-5"]
+        )
         self.region_name = region_name
 
         self.client = boto3.client(
@@ -136,6 +148,16 @@ class BedrockLLM:
         """
         primary = self.model_id
         fallback = self.fallback_model_id
+        tertiary = self._tertiary_model_id
+
+        def _invoke_candidates() -> list[str]:
+            seen: set[str] = set()
+            ordered: list[str] = []
+            for candidate in (primary, fallback, tertiary):
+                if candidate and candidate not in seen:
+                    seen.add(candidate)
+                    ordered.append(candidate)
+            return ordered
 
         def _call(model_id: str) -> dict:
             if _TENACITY_AVAILABLE:
@@ -160,19 +182,31 @@ class BedrockLLM:
             # tenacity missing — single shot, no retry
             return self._invoke(model_id, body)
 
-        try:
-            resp = _call(primary)
-            return json.loads(resp["body"].read()), primary
-        except ClientError as e:
-            if not _is_retryable_bedrock_error(e):
-                raise
-            logger.error(
-                "Bedrock primary model %s exhausted retries (%s) — failing over to %s",
-                primary, e.response["Error"].get("Code"), fallback)
-            _emit_emf("FallbackModelUsed", 1,
-                      dimensions={"Primary": primary, "Fallback": fallback})
-            resp = _call(fallback)
-            return json.loads(resp["body"].read()), fallback
+        last_error: ClientError | None = None
+        candidates = _invoke_candidates()
+        for index, model_id in enumerate(candidates):
+            try:
+                resp = _call(model_id)
+                return json.loads(resp["body"].read()), model_id
+            except ClientError as e:
+                last_error = e
+                if index >= len(candidates) - 1:
+                    break
+                logger.error(
+                    "Bedrock invoke failed on %s (%s) — trying %s",
+                    model_id,
+                    e.response.get("Error", {}).get("Code"),
+                    candidates[index + 1],
+                )
+                _emit_emf(
+                    "FallbackModelUsed",
+                    1,
+                    dimensions={"Primary": primary, "Fallback": candidates[index + 1]},
+                )
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Bedrock invoke failed with no model candidates")
     
     def generate_json(
         self,
@@ -259,7 +293,14 @@ SCHEMA:
 ARTICLE TEXT:
 {input_text}
 
-Extract the AI risk information and return ONLY valid JSON matching the schema above."""
+Extract the AI risk information and return ONLY valid JSON matching the schema above.
+
+JSON FORMATTING (strict — invalid JSON will be rejected):
+- Double quotes for all keys and string values
+- Colon after every key: "key": value
+- Comma after every value except the last in each {{ }} or [ ]
+- Escape quotes inside strings as \\"
+- No trailing commas, comments, markdown fences, or text outside the JSON object"""
         
         # Tool-use mode: when ENABLE_TOOL_USE=true (default false during
         # rollout), we expose 4 tools to the model so it can ground entities,
@@ -272,7 +313,7 @@ Extract the AI risk information and return ONLY valid JSON matching the schema a
         request_body = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": max_new_tokens,
-            "temperature": 0.3,
+            "temperature": 0.1,
             "system": _SYSTEM_PROMPT,
             "messages": [
                 {"role": "user", "content": user_prompt}
@@ -306,7 +347,11 @@ Extract the AI risk information and return ONLY valid JSON matching the schema a
                 if not response_body.get("content"):
                     raise ValueError("No content in Bedrock response")
                 generated_text = response_body["content"][0]["text"]
-                obj = self._robust_json_load(generated_text)
+                # print("RAW LLM JSON TEXT from bedrock",generated_text)
+                obj = self._parse_model_json(
+                    generated_text,
+                    request_body=request_body,
+                )
                 unknown_fields = []
 
             logger.info(
@@ -330,11 +375,20 @@ Extract the AI risk information and return ONLY valid JSON matching the schema a
             error_code = e.response["Error"]["Code"]
             error_message = e.response["Error"]["Message"]
             logger.error(f"❌ Bedrock API error [{error_code}]: {error_message}")
-            return self._create_fallback_object(input_text, f"Bedrock error: {error_code}")
+            detail = f"Bedrock error: {error_code}"
+            if error_code == "ValidationException":
+                detail = (
+                    "Bedrock error: invalid model identifier — check BEDROCK_MODEL_ID "
+                    f"(configured: {self.model_name}, invoke id: {self.model_id})"
+                )
+            return self._create_fallback_object(input_text, detail)
 
         except Exception as e:
             logger.error(f"❌ Bedrock generation failed: {e}")
-            return self._create_fallback_object(input_text, str(e))
+            detail = str(e)
+            if "json" in detail.lower() or "delimiter" in detail.lower():
+                detail = f"Bedrock returned invalid JSON: {detail}"
+            return self._create_fallback_object(input_text, detail)
 
     # ---------------------------------------------------------------
     # Tool-use loop and cost helper
@@ -406,7 +460,7 @@ Extract the AI risk information and return ONLY valid JSON matching the schema a
                 if not text_blocks:
                     raise ValueError("Bedrock returned no text and no tool_use")
                 generated_text = "\n".join(b.get("text", "") for b in text_blocks)
-                obj = self._robust_json_load(generated_text)
+                obj = self._parse_model_json(generated_text, request_body=request_body)
                 _emit_emf("ToolUseIterations", iteration + 1, unit="Count",
                           dimensions={"Model": model_used})
                 return obj, total_cost, unknown_fields
@@ -450,36 +504,106 @@ Extract the AI risk information and return ONLY valid JSON matching the schema a
         )
         text_blocks = [b for b in (resp.get("content") or []) if b.get("type") == "text"]
         generated_text = "\n".join(b.get("text", "") for b in text_blocks) or "{}"
-        obj = self._robust_json_load(generated_text)
+        obj = self._parse_model_json(generated_text, request_body=request_body)
         return obj, total_cost, unknown_fields
-    
-    def _robust_json_load(self, text: str) -> dict:
-        """
-        Attempt to extract JSON from text, handling markdown code blocks.
-        """
-        text = text.strip()
-        
-        # Remove markdown code fences if present
-        if text.startswith("```"):
-            lines = text.split("\n")
-            # Remove first line (```json or ```)
-            lines = lines[1:]
-            # Remove last line if it's ```
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            text = "\n".join(lines).strip()
-        
-        # Try to parse JSON
+
+    def _parse_model_json(
+        self,
+        generated_text: str,
+        request_body: dict | None = None,
+    ) -> dict:
+        """Parse model output; repair locally, then retry via Bedrock if needed."""
+        from app.llm.json_parse import json_error_message, parse_llm_json
+
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            # Try to find JSON object in text
-            start = text.find("{")
-            end = text.rfind("}") + 1
-            if start >= 0 and end > start:
-                return json.loads(text[start:end])
-            raise
-    
+            return parse_llm_json(generated_text)
+        except (json.JSONDecodeError, ValueError) as parse_err:
+            if not request_body:
+                raise
+            logger.warning(
+                "Bedrock JSON parse failed (%s) — requesting corrected JSON",
+                json_error_message(parse_err),
+            )
+            return self._retry_json_repair(
+                request_body,
+                generated_text,
+                json_error_message(parse_err),
+            )
+
+    def _retry_json_repair(
+        self,
+        request_body: dict,
+        bad_text: str,
+        error: str,
+    ) -> dict:
+        """Follow-up Bedrock call asking for valid JSON only."""
+        from app.llm.json_parse import json_error_message, parse_llm_json
+
+        repair_body = dict(request_body)
+        repair_body["temperature"] = 0.0
+        repair_body["messages"] = list(request_body["messages"]) + [
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": bad_text[:8000]}],
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Your previous response was not valid JSON ({error}). "
+                    "Return ONLY a corrected JSON object matching the schema. "
+                    "Rules: double-quoted keys and strings; comma after every "
+                    "value except the last in each object/array; colon after "
+                    "every key; escape internal quotes as \\\"; no markdown fences "
+                    "or commentary."
+                ),
+            },
+        ]
+        response_body, _ = self.invoke_with_retry(repair_body)
+        if not response_body.get("content"):
+            raise ValueError("No content in Bedrock JSON-repair response")
+        repaired_text = response_body["content"][0]["text"]
+        try:
+            return parse_llm_json(repaired_text)
+        except (json.JSONDecodeError, ValueError) as second_err:
+            logger.warning(
+                "Bedrock JSON repair pass failed (%s) — second repair attempt",
+                json_error_message(second_err),
+            )
+            return self._retry_json_repair_second(
+                repair_body,
+                repaired_text,
+                json_error_message(second_err),
+            )
+
+    def _retry_json_repair_second(
+        self,
+        prior_repair_body: dict,
+        bad_text: str,
+        error: str,
+    ) -> dict:
+        from app.llm.json_parse import json_error_message, parse_llm_json
+
+        repair_body = dict(prior_repair_body)
+        repair_body["messages"] = list(prior_repair_body["messages"]) + [
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": bad_text[:8000]}],
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Still invalid JSON ({error}). Output ONLY the fixed JSON object. "
+                    "Validate: every property has a colon; values are separated by "
+                    "commas; strings use double quotes; no trailing comma before } or ]."
+                ),
+            },
+        ]
+        response_body, _ = self.invoke_with_retry(repair_body)
+        if not response_body.get("content"):
+            raise ValueError("No content in Bedrock JSON-repair response")
+        repaired_text = response_body["content"][0]["text"]
+        return parse_llm_json(repaired_text)
+
     def _create_fallback_object(self, input_text: str, error_msg: str) -> dict:
         """Create a minimal valid object when extraction fails.
 
@@ -540,7 +664,7 @@ def get_bedrock_client(
             model_name
             or os.getenv("BEDROCK_MODEL", "").strip()
             or os.getenv("BEDROCK_MODEL_ID", "").strip()
-            or "claude-haiku-4-5"
+            or DEFAULT_BEDROCK_MODEL
         )
         region = (
             region_name

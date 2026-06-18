@@ -1,13 +1,12 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { NotificationsContext } from "./notificationsContext";
 import { fetchNotifications } from "./notificationsApi";
 import {
   getReadNotificationIds,
@@ -15,6 +14,11 @@ import {
   markNotificationRead,
 } from "./notificationStorage";
 import { maybeToastNotification } from "./notificationToasts";
+import {
+  hasToastedCronLifecycleEvent,
+  markCronLifecycleEventToasted,
+} from "./cronToastDedupe";
+import { registerNotificationsReload } from "./notificationsReload";
 import type { NotificationItem, NotificationKind } from "./types";
 
 const POLL_MS = 8_000;
@@ -25,20 +29,6 @@ const CRON_TOAST_KINDS: NotificationKind[] = [
   "cron_job_scheduled",
   "cron_job_completed",
 ];
-
-type NotificationsContextValue = {
-  items: NotificationItem[];
-  loading: boolean;
-  unreadCount: number;
-  readIds: Set<string>;
-  load: (options?: { silent?: boolean }) => Promise<void>;
-  markRead: (id: string) => void;
-  markAllRead: () => void;
-};
-
-const NotificationsContext = createContext<NotificationsContextValue | null>(
-  null,
-);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -69,6 +59,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     if (!toastPrimedRef.current) {
       for (const item of notifications) {
         toastedIdsRef.current.add(item.id);
+        if (CRON_TOAST_KINDS.includes(item.kind)) {
+          markCronLifecycleEventToasted(item);
+        }
       }
       toastPrimedRef.current = true;
       return;
@@ -78,18 +71,29 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (toastedIdsRef.current.has(item.id)) continue;
       toastedIdsRef.current.add(item.id);
       if (CRON_TOAST_KINDS.includes(item.kind)) {
+        if (hasToastedCronLifecycleEvent(item)) {
+          continue;
+        }
+        markCronLifecycleEventToasted(item);
         maybeToastNotification(item);
       }
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    const bootTimer = window.setTimeout(() => {
+      void load();
+    }, 0);
     const timer = window.setInterval(() => {
       void load({ silent: true });
     }, POLL_MS);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(bootTimer);
+      window.clearInterval(timer);
+    };
   }, [load]);
+
+  useEffect(() => registerNotificationsReload(load), [load]);
 
   const unreadCount = useMemo(
     () => items.filter((item) => !readIds.has(item.id)).length,
@@ -131,12 +135,4 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       {children}
     </NotificationsContext.Provider>
   );
-}
-
-export function useNotifications(): NotificationsContextValue {
-  const ctx = useContext(NotificationsContext);
-  if (!ctx) {
-    throw new Error("useNotifications must be used within NotificationsProvider");
-  }
-  return ctx;
 }

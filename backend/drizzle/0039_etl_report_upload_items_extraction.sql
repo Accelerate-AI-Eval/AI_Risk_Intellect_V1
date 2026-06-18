@@ -9,9 +9,13 @@ CREATE TABLE IF NOT EXISTS "etl_report_upload_items" (
 	"skip_reason" text
 );
 --> statement-breakpoint
-ALTER TABLE "etl_report_upload_items"
-  ADD CONSTRAINT "etl_report_upload_items_upload_id_etl_report_uploads_id_fk"
-  FOREIGN KEY ("upload_id") REFERENCES "etl_report_uploads"("id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+  ALTER TABLE "etl_report_upload_items"
+    ADD CONSTRAINT "etl_report_upload_items_upload_id_etl_report_uploads_id_fk"
+    FOREIGN KEY ("upload_id") REFERENCES "etl_report_uploads"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "etl_report_upload_items_upload_id_idx" ON "etl_report_upload_items" USING btree ("upload_id");
 --> statement-breakpoint

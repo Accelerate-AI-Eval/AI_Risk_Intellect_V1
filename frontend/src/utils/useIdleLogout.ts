@@ -4,8 +4,6 @@ import {
   scheduleIdleSignOut,
 } from "./authFetch";
 
-const IDLE_CHECK_MS = 30_000;
-
 const ACTIVITY_EVENTS = [
   "mousedown",
   "keydown",
@@ -15,42 +13,70 @@ const ACTIVITY_EVENTS = [
   "wheel",
 ] as const;
 
+const MOUSEMOVE_THROTTLE_MS = 1_000;
+
 /** Signs the user out after 15 minutes without user activity. */
 export function useIdleLogout(enabled: boolean): void {
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0);
+  const logoutTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (!enabled) return;
 
-    lastActivityRef.current = Date.now();
+    const clearLogoutTimer = () => {
+      if (logoutTimerRef.current !== undefined) {
+        window.clearTimeout(logoutTimerRef.current);
+        logoutTimerRef.current = undefined;
+      }
+    };
+
+    const scheduleLogoutAfterIdle = (delayMs = IDLE_LOGOUT_TIMEOUT_MS) => {
+      clearLogoutTimer();
+      logoutTimerRef.current = window.setTimeout(() => {
+        if (!sessionStorage.getItem("accessToken")) return;
+        scheduleIdleSignOut();
+      }, delayMs);
+    };
 
     const recordActivity = () => {
       lastActivityRef.current = Date.now();
-    };
-
-    const checkIdle = () => {
-      if (!sessionStorage.getItem("accessToken")) return;
-      if (Date.now() - lastActivityRef.current < IDLE_LOGOUT_TIMEOUT_MS) return;
-      scheduleIdleSignOut();
+      scheduleLogoutAfterIdle();
     };
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") checkIdle();
+      if (document.visibilityState !== "visible") return;
+      const idleMs = Date.now() - lastActivityRef.current;
+      if (idleMs >= IDLE_LOGOUT_TIMEOUT_MS) {
+        scheduleIdleSignOut();
+        return;
+      }
+      scheduleLogoutAfterIdle(IDLE_LOGOUT_TIMEOUT_MS - idleMs);
     };
+
+    let lastMouseMoveAt = 0;
+    const onMouseMove = () => {
+      const now = Date.now();
+      if (now - lastMouseMoveAt < MOUSEMOVE_THROTTLE_MS) return;
+      lastMouseMoveAt = now;
+      recordActivity();
+    };
+
+    lastActivityRef.current = Date.now();
+    scheduleLogoutAfterIdle();
 
     for (const event of ACTIVITY_EVENTS) {
       window.addEventListener(event, recordActivity, { passive: true });
     }
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
     document.addEventListener("visibilitychange", onVisibilityChange);
 
-    const intervalId = window.setInterval(checkIdle, IDLE_CHECK_MS);
-
     return () => {
+      clearLogoutTimer();
       for (const event of ACTIVITY_EVENTS) {
         window.removeEventListener(event, recordActivity);
       }
+      window.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.clearInterval(intervalId);
     };
   }, [enabled]);
 }

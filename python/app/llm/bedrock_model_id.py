@@ -9,6 +9,9 @@ _BEDROCK_MODEL_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Catalog ids like …:v1:0:200k are not valid for bedrock-runtime invoke_model.
+_INVOKE_CONTEXT_SUFFIX_RE = re.compile(r":(?:28|48|200)k$", re.IGNORECASE)
+
 
 def strip_us_model_prefix(model_id: str) -> str:
     trimmed = (model_id or "").strip()
@@ -33,3 +36,11 @@ def with_us_model_prefix(model_id: str) -> str:
     if is_bedrock_provider_model_id(trimmed):
         return f"us.{trimmed}"
     return trimmed
+
+
+def resolve_bedrock_invoke_model_id(model_id: str) -> str:
+    """Map env/catalog ids to a model id accepted by bedrock-runtime invoke_model."""
+    trimmed = with_us_model_prefix((model_id or "").strip())
+    if not trimmed:
+        return trimmed
+    return _INVOKE_CONTEXT_SUFFIX_RE.sub("", trimmed)

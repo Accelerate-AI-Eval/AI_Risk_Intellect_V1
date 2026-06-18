@@ -8,6 +8,13 @@ TASK:
 
 Return ONLY valid JSON. NO markdown, NO comments, NO explanation outside the JSON.
 
+JSON FORMATTING (strict):
+- Use double quotes for all keys and string values (not single quotes)
+- Every key must be followed by a colon: "key": value
+- Separate every pair with a comma; no trailing comma after the last item
+- Escape double quotes inside strings as \"
+- Do not put raw line breaks inside strings; use \n if needed
+
 === CLASSIFICATION TAXONOMY WITH KEYWORDS ===
 
 DOMAINS (Choose EXACTLY ONE):
