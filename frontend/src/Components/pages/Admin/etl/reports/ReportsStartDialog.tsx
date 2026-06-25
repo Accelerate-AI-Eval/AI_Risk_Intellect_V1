@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, CircleX, Play, X } from "lucide-react";
 import {
+  etlUploadItemReportId,
   fetchEtlReportUploadItems,
   type EtlReportUploadItemRow,
   type EtlReportUploadRow,
@@ -22,6 +23,10 @@ export type ReportsStartDialogProps = {
 
 function itemCountForUpload(row: EtlReportUploadRow): number {
   return row.importedRows;
+}
+
+function isRunnableUploadItem(item: EtlReportUploadItemRow): boolean {
+  return etlUploadItemReportId(item) != null;
 }
 
 export function ReportsStartDialog({
@@ -58,10 +63,28 @@ export function ReportsStartDialog({
     () => Object.values(itemsByUploadId).flat(),
     [itemsByUploadId],
   );
-  const allIds = useMemo(() => allItems.map((item) => item.id), [allItems]);
-  const itemUploadById = useMemo(
-    () => new Map(allItems.map((item) => [item.id, item.uploadId])),
+  const runnableItems = useMemo(
+    () => allItems.filter(isRunnableUploadItem),
     [allItems],
+  );
+  const allIds = useMemo(
+    () =>
+      runnableItems
+        .map((item) => etlUploadItemReportId(item))
+        .filter((id): id is number => id != null),
+    [runnableItems],
+  );
+  const itemUploadById = useMemo(
+    () =>
+      new Map(
+        runnableItems
+          .map((item) => {
+            const reportId = etlUploadItemReportId(item);
+            return reportId != null ? ([reportId, item.uploadId] as const) : null;
+          })
+          .filter((entry): entry is readonly [number, number] => entry != null),
+      ),
+    [runnableItems],
   );
   const allSelected =
     allIds.length > 0 && allIds.every((id) => selectedReportIds.has(id));
@@ -96,8 +119,9 @@ export function ReportsStartDialog({
         const selected = new Set<number>();
         for (const row of rows) {
           next[row.uploadId] = row.items;
-          for (const item of row.items) {
-            selected.add(item.id);
+          for (const item of next[row.uploadId]) {
+            const reportId = etlUploadItemReportId(item);
+            if (reportId != null) selected.add(reportId);
           }
         }
         setItemsByUploadId(next);
@@ -144,11 +168,15 @@ export function ReportsStartDialog({
 
   const toggleUpload = useCallback(
     (uploadId: number, checked: boolean) => {
-      const uploadItems = itemsByUploadId[uploadId] ?? [];
-      const uploadItemIds = uploadItems.map((item) => item.id);
+      const uploadItems = (itemsByUploadId[uploadId] ?? []).filter(
+        isRunnableUploadItem,
+      );
+      const uploadReportIds = uploadItems
+        .map((item) => etlUploadItemReportId(item))
+        .filter((id): id is number => id != null);
       setSelectedReportIds((prev) => {
         const next = new Set(prev);
-        for (const id of uploadItemIds) {
+        for (const id of uploadReportIds) {
           if (checked) {
             next.add(id);
           } else {
@@ -235,6 +263,11 @@ export function ReportsStartDialog({
             <p className="adminPage__discoveryDialogEmpty" role="status">
               No report URLs found in completed uploads.
             </p>
+          ) : runnableItems.length === 0 ? (
+            <p className="adminPage__discoveryDialogEmpty" role="status">
+              Report URLs were extracted but none are available to run (all
+              skipped or failed).
+            </p>
           ) : (
             <div className="adminPage__discoveryFeedListWrap">
               <label className="adminPage__discoveryFeedRow adminPage__discoveryFeedRow--all">
@@ -249,18 +282,23 @@ export function ReportsStartDialog({
                   All report URLs
                 </span>
                 <span className="adminPage__discoveryFeedCount">
-                  {selectedReportIds.size} of {allItems.length} selected
+                  {selectedReportIds.size} of {runnableItems.length} selected
                 </span>
               </label>
               <ul className="adminPage__discoveryFeedList" role="list">
                 {eligibleUploads.map((upload) => {
                   const uploadItems = itemsByUploadId[upload.id] ?? [];
-                  const selectedInUpload = uploadItems.filter((item) =>
-                    selectedReportIds.has(item.id),
-                  ).length;
+                  const runnableUploadItems =
+                    uploadItems.filter(isRunnableUploadItem);
+                  const selectedInUpload = runnableUploadItems.filter((item) => {
+                    const reportId = etlUploadItemReportId(item);
+                    return (
+                      reportId != null && selectedReportIds.has(reportId)
+                    );
+                  }).length;
                   const uploadChecked =
-                    uploadItems.length > 0 &&
-                    selectedInUpload === uploadItems.length;
+                    runnableUploadItems.length > 0 &&
+                    selectedInUpload === runnableUploadItems.length;
                   const uploadInputId = `${baseId}-upload-${upload.id}`;
                   const expanded = expandedUploadIds.has(upload.id);
                   const label =
@@ -282,7 +320,7 @@ export function ReportsStartDialog({
                             onChange={(e) =>
                               toggleUpload(upload.id, e.target.checked)
                             }
-                            disabled={starting || uploadItems.length === 0}
+                            disabled={starting || runnableUploadItems.length === 0}
                           />
                           <span className="adminPage__id">#{upload.id}</span>
                           <span
@@ -292,7 +330,7 @@ export function ReportsStartDialog({
                             {label}
                           </span>
                           <span className="adminPage__discoveryFeedCount">
-                            {selectedInUpload}/{uploadItems.length}
+                            {selectedInUpload}/{runnableUploadItems.length}
                           </span>
                         </label>
                         <button
@@ -316,8 +354,10 @@ export function ReportsStartDialog({
                       </div>
                       {uploadItems.length > 0 && expanded ? (
                         <ul className="adminPage__discoveryItemList">
-                          {uploadItems.map((item) => {
+                          {uploadItems.map((item, index) => {
                             const itemInputId = `${baseId}-item-${item.id}`;
+                            const reportId = etlUploadItemReportId(item);
+                            const runnable = reportId != null;
                             return (
                               <li key={item.id}>
                                 <label
@@ -327,18 +367,25 @@ export function ReportsStartDialog({
                                   <input
                                     id={itemInputId}
                                     type="checkbox"
-                                    checked={selectedReportIds.has(item.id)}
-                                    onChange={(e) =>
-                                      toggleOne(item.id, e.target.checked)
+                                    checked={
+                                      reportId != null &&
+                                      selectedReportIds.has(reportId)
                                     }
-                                    disabled={starting}
+                                    onChange={(e) => {
+                                      if (reportId == null) return;
+                                      toggleOne(reportId, e.target.checked);
+                                    }}
+                                    disabled={starting || !runnable}
                                   />
-                                  <span className="adminPage__id">
-                                    #{item.rowOrder}
+                                  <span
+                                    className="adminPage__id"
+                                    title={`Report URL ${index + 1}`}
+                                  >
+                                    #{index + 1}
                                   </span>
                                   <span
                                     className="adminPage__discoveryItemUrl"
-                                    title={item.title ?? item.url}
+                                    title={item.url}
                                   >
                                     {item.url}
                                   </span>

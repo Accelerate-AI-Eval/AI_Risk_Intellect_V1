@@ -38,8 +38,17 @@ function loadCatalogFile(): z.infer<typeof modelsFileSchema> {
   if (!fs.existsSync(modelsJsonPath)) {
     throw new Error(`models.json not found at ${modelsJsonPath}`);
   }
+
+  console.log(`[models.json] Reading catalog from ${modelsJsonPath}`);
   const raw = fs.readFileSync(modelsJsonPath, "utf8");
-  return modelsFileSchema.parse(JSON.parse(raw));
+  console.log("[models.json] Complete stored file contents:");
+  console.log(raw);
+
+  const parsed = modelsFileSchema.parse(JSON.parse(raw));
+  console.log(
+    `[models.json] Parsed ${parsed.models.length} model(s) from catalog file`,
+  );
+  return parsed;
 }
 
 /** Text-generation Bedrock models suitable for risk extraction. */
@@ -78,6 +87,10 @@ function buildCache(): void {
 
   cachedById = byId;
   cachedOptions = options;
+
+  console.log(
+    `[models.json] Built dropdown cache — ${options.length} text-generation option(s)`,
+  );
 }
 
 export function getCatalogModel(modelId: string): BedrockCatalogModel | undefined {

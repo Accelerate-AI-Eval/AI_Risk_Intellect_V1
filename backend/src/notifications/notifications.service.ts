@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { etlReportUploads } from "../schema/aiid/reportUploads.js";
 import { cronJobEvents } from "../schema/cronJobs/cronJobEvents.js";
+import { formatCronNotificationText } from "./formatCronNotificationText.js";
 import { ingestLinkItems } from "../schema/ingestLinks/ingestLinkItems.js";
 import { ingestLinks } from "../schema/ingestLinks/ingestLinks.js";
 import { jobs } from "../schema/jobs/jobs.js";
@@ -169,33 +170,37 @@ function mapCronJobEventNotification(row: {
   > = {
     scheduled: {
       kind: "cron_job_scheduled",
-      title: "Cron job scheduled",
-      fallback: "RSS feed discovery cron job was scheduled.",
+      title: "CRON job scheduled",
+      fallback: "RSS feed discovery CRON job was scheduled.",
     },
     completed: {
       kind: "cron_job_completed",
-      title: "Cron job completed",
-      fallback: "Cron job is completed.",
+      title: "CRON job completed",
+      fallback: "CRON job is completed.",
     },
     started: {
       kind: "cron_job_started",
-      title: "Cron job started",
-      fallback: "Cron job has been started.",
+      title: "CRON job started",
+      fallback: "CRON job has been started.",
     },
     stopped: {
       kind: "cron_job_stopped",
-      title: "Cron job stopped",
-      fallback: "RSS feed discovery cron job stopped.",
+      title: "CRON job stopped",
+      fallback: "RSS feed discovery CRON job stopped.",
     },
   };
 
   const meta = defaults[row.eventType];
 
+  const message = formatCronNotificationText(
+    row.message?.trim() || meta.fallback,
+  );
+
   return {
     id: `cron_job:${row.jobId}:${row.eventType}:${row.id}`,
     kind: meta.kind,
-    title: meta.title,
-    message: row.message?.trim() || meta.fallback,
+    title: formatCronNotificationText(meta.title),
+    message,
     createdAt: row.createdAt.toISOString(),
     href: "/controls",
   };

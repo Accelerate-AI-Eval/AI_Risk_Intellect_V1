@@ -43,7 +43,7 @@ export async function fetchCronJobLogs(): Promise<
     if (!res.ok) {
       return {
         ok: false,
-        message: errorMessage(data, "Could not load cron job logs."),
+        message: errorMessage(data, "Could not load CRON job logs."),
       };
     }
     return {
@@ -55,7 +55,7 @@ export async function fetchCronJobLogs(): Promise<
   } catch {
     return {
       ok: false,
-      message: "Network error while loading cron job logs.",
+      message: "Network error while loading CRON job logs.",
     };
   }
 }

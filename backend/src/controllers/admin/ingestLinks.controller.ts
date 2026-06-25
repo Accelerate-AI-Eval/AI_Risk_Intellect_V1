@@ -7,6 +7,7 @@ import {
   restoreIngestLink,
   updateIngestLink,
 } from "../../services/admin/ingestLinks.service.js";
+import { buildIngestLinkItemsExcel } from "../../services/admin/ingestLinkExport.service.js";
 import type { UpdateIngestLinkInput } from "../../validators/admin.validators.js";
 
 export async function listIngestLinksHandler(
@@ -39,6 +40,23 @@ export async function listIngestLinkItemsHandler(
   const id = Number(req.params.id);
   const items = await listIngestLinkItems(id);
   res.json({ items });
+}
+
+export async function exportIngestLinkItemsHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const id = Number(req.params.id);
+  const { buffer, fileName } = await buildIngestLinkItemsExcel(id);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+  );
+  res.send(buffer);
 }
 
 export async function extractIngestLinkHandler(

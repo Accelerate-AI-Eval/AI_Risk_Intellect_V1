@@ -100,6 +100,44 @@ def _coerce_int(x, default=0):
     except Exception:
         return default
 
+
+def _self_assessment_reasoning_present(self_assessment: dict) -> bool:
+    for key in (
+        "context_clarity_reasoning",
+        "keyword_reasoning",
+        "tagging_reasoning",
+        "evidence_reasoning",
+    ):
+        if str(self_assessment.get(key) or "").strip():
+            return True
+    return False
+
+
+def _sum_self_assessment_subscores(self_assessment: dict) -> int:
+    return (
+        _coerce_int(self_assessment.get("context_clarity_score"), 0)
+        + _coerce_int(self_assessment.get("keyword_score"), 0)
+        + _coerce_int(self_assessment.get("tagging_accuracy_score"), 0)
+        + _coerce_int(self_assessment.get("evidence_strength_score"), 0)
+    )
+
+
+def _apply_default_self_assessment_scores(self_assessment: dict) -> None:
+    self_assessment["context_clarity_score"] = 30
+    self_assessment["context_clarity_reasoning"] = "Default reasoning"
+    self_assessment["keyword_score"] = 10
+    self_assessment["keyword_reasoning"] = "Default keyword analysis"
+    self_assessment["tagging_accuracy_score"] = 15
+    self_assessment["tagging_reasoning"] = "Default tagging analysis"
+    self_assessment["evidence_strength_score"] = 10
+    self_assessment["evidence_reasoning"] = "Default evidence analysis"
+    self_assessment["evidence_strength_breakdown"] = {
+        "directness": 3,
+        "specificity": 3,
+        "taxonomy_alignment": 3,
+    }
+    self_assessment["total_score"] = min(100, _sum_self_assessment_subscores(self_assessment))
+
 def _clamp01(x, default=0.5):
     try:
         v = float(x)
@@ -300,6 +338,17 @@ def _repair_against_schema(obj: dict, source_text: str) -> dict:
             "specificity": 3,
             "taxonomy_alignment": 3
         }
+
+    sub_sum = _sum_self_assessment_subscores(self_assessment)
+    total = _coerce_int(self_assessment.get("total_score"), 0)
+    if (
+        total <= 0
+        and sub_sum <= 0
+        and not _self_assessment_reasoning_present(self_assessment)
+    ):
+        _apply_default_self_assessment_scores(self_assessment)
+    elif total <= 0 and sub_sum > 0:
+        self_assessment["total_score"] = min(100, sub_sum)
     
     # Fix confidence_level - must be 'high', 'medium', or 'low' (REQUIRED)
     confidence = self_assessment.get("confidence_level", "medium")

@@ -249,3 +249,64 @@ export async function archiveIngestLink(
     return { ok: false, message: "Network error while archiving link." };
   }
 }
+
+export function canExportIngestLink(_row: IngestLinkRow): boolean {
+  return true;
+}
+
+function parseContentDispositionFilename(
+  header: string | null,
+): string | null {
+  if (!header) return null;
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].trim());
+    } catch {
+      return utf8Match[1].trim();
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(header);
+  if (quoted?.[1]) return quoted[1].trim();
+  const plain = /filename=([^;]+)/i.exec(header);
+  return plain?.[1]?.trim().replace(/^"|"$/g, "") ?? null;
+}
+
+export async function exportIngestLinkItems(
+  ingestLinkId: number,
+): Promise<{ ok: true; fileName: string } | { ok: false; message: string }> {
+  try {
+    const res = await authFetch(`/admin/ingest-links/${ingestLinkId}/export`);
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as ApiErrorBody;
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not export feed URLs."),
+      };
+    }
+
+    const blob = await res.blob();
+    const fileName =
+      parseContentDispositionFilename(
+        res.headers.get("Content-Disposition"),
+      ) ?? `feed-urls-${ingestLinkId}.xlsx`;
+
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(objectUrl);
+
+    return { ok: true, fileName };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error while exporting feed URLs.",
+    };
+  }
+}

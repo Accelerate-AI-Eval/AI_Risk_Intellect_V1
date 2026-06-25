@@ -30,10 +30,7 @@ import { MetricSparkline } from "./MetricSparkline";
 import { PageHeader } from "../../Layout/PageHeader";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePolling } from "../../../utils/usePolling";
-import {
-  fetchDashboardStats,
-  type DashboardApiStats,
-} from "./dashboardData";
+import { fetchDashboardStats, type DashboardApiStats } from "./dashboardData";
 import "../Users/usersPage.css";
 import "../Jobs/jobsPage.css";
 import "./dashboardPage.css";
@@ -50,7 +47,12 @@ type MetricDef = {
 const METRIC_DEFS: MetricDef[] = [
   { key: "articles", title: "Total articles", accent: "blue", Icon: FileText },
   { key: "risks", title: "Risks mapped", accent: "orange", Icon: Shield },
-  { key: "success", title: "Success rate", accent: "green", Icon: CheckCircle2 },
+  {
+    key: "success",
+    title: "Success rate",
+    accent: "green",
+    Icon: CheckCircle2,
+  },
   { key: "activity", title: "24h activity", accent: "slate", Icon: Activity },
   { key: "avgTime", title: "Avg processing time", accent: "zinc", Icon: Clock },
   { key: "queue", title: "Pending queue", accent: "zinc", Icon: Zap },
@@ -76,7 +78,11 @@ function weeklyRiskHeatLevel(value: number): 0 | 1 | 2 | 3 | 4 {
   return 4;
 }
 
-function WeeklyRiskActivityHeatmap({ heatmap }: { heatmap: HeatmapRowInput[] }) {
+function WeeklyRiskActivityHeatmap({
+  heatmap,
+}: {
+  heatmap: HeatmapRowInput[];
+}) {
   const rows = useMemo(
     () =>
       heatmap.map((row) => ({
@@ -97,10 +103,7 @@ function WeeklyRiskActivityHeatmap({ heatmap }: { heatmap: HeatmapRowInput[] }) 
   }, [grandTotal, rows.length]);
 
   return (
-    <article
-      className="dashHeatmap"
-      aria-labelledby="dash-heatmap-title"
-    >
+    <article className="dashHeatmap" aria-labelledby="dash-heatmap-title">
       <header className="dashHeatmap__header">
         <h3 id="dash-heatmap-title" className="dashHeatmap__title">
           <CalendarDays
@@ -117,8 +120,7 @@ function WeeklyRiskActivityHeatmap({ heatmap }: { heatmap: HeatmapRowInput[] }) 
             <span className="dashHeatmap__statValue">{avgPerWeek}/week</span>
           </p>
           <p className="dashHeatmap__stat">
-            Total:{" "}
-            <span className="dashHeatmap__statValue">{grandTotal}</span>
+            Total: <span className="dashHeatmap__statValue">{grandTotal}</span>
           </p>
         </div>
       </header>
@@ -127,7 +129,10 @@ function WeeklyRiskActivityHeatmap({ heatmap }: { heatmap: HeatmapRowInput[] }) 
         <table className="dashHeatmap__table">
           <thead>
             <tr>
-              <th className="dashHeatmap__th dashHeatmap__th--corner" scope="col">
+              <th
+                className="dashHeatmap__th dashHeatmap__th--corner"
+                scope="col"
+              >
                 <span className="dashHeatmap__srOnly">Week</span>
               </th>
               {HEATMAP_DAY_LABELS.map((d, i) => (
@@ -135,7 +140,10 @@ function WeeklyRiskActivityHeatmap({ heatmap }: { heatmap: HeatmapRowInput[] }) 
                   {d}
                 </th>
               ))}
-              <th className="dashHeatmap__th dashHeatmap__th--total" scope="col">
+              <th
+                className="dashHeatmap__th dashHeatmap__th--total"
+                scope="col"
+              >
                 Total
               </th>
             </tr>
@@ -294,8 +302,7 @@ function SectorIndustryPanel({
           Sector &amp; industry analysis
         </h2>
         <p className="dashSector__total">
-          Total:{" "}
-          <span className="dashSector__totalValue">{total}</span> risks
+          Total: <span className="dashSector__totalValue">{total}</span> risks
         </p>
       </header>
 
@@ -338,18 +345,25 @@ function SectorIndustryPanel({
           return (
             <div key={col.key} className="dashSectorList">
               <h3 className="dashSectorList__title">
-                <span className={`dashSectorList__dot ${col.dotClass}`} aria-hidden />
+                <span
+                  className={`dashSectorList__dot ${col.dotClass}`}
+                  aria-hidden
+                />
                 {col.title}
               </h3>
               <div className="dashSectorList__body" role="status">
                 {items.length === 0 ? (
-                  <p className="dashSectorList__empty">No industries ranked yet.</p>
+                  <p className="dashSectorList__empty">
+                    No industries ranked yet.
+                  </p>
                 ) : (
                   <ul className="dashSectorList__items">
                     {items.map((item) => (
                       <li key={item.name} className="dashSectorList__item">
                         <span>{item.name}</span>
-                        <span className="dashSectorList__itemCount">{item.count}</span>
+                        <span className="dashSectorList__itemCount">
+                          {item.count}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -361,7 +375,12 @@ function SectorIndustryPanel({
       </div>
 
       <footer className="dashSector__foot">
-        <ExternalLink size={14} strokeWidth={2} className="dashSector__footIcon" aria-hidden />
+        <ExternalLink
+          size={14}
+          strokeWidth={2}
+          className="dashSector__footIcon"
+          aria-hidden
+        />
         <p>Click any industry for detailed deep dive analysis</p>
       </footer>
     </article>
@@ -454,7 +473,12 @@ function RiskSeverityDistributionCard({
       </div>
 
       <footer className="dashInsight__foot">
-        <Info size={14} strokeWidth={2} className="dashInsight__footIcon" aria-hidden />
+        <Info
+          size={14}
+          strokeWidth={2}
+          className="dashInsight__footIcon"
+          aria-hidden
+        />
         <p>
           Severity is determined by AI analysis of impact scale, financial
           implications, regulatory factors, affected entities, and urgency
@@ -795,7 +819,12 @@ function TopRiskCategoriesPanel({
                 <span className="dashRiskCat__stats">
                   <span className="dashRiskCat__pct">{cat.pct}%</span>
                   <span className="dashRiskCat__countWrap">
-                    <Link2 size={14} strokeWidth={2} className="dashRiskCat__linkIcon" aria-hidden />
+                    <Link2
+                      size={14}
+                      strokeWidth={2}
+                      className="dashRiskCat__linkIcon"
+                      aria-hidden
+                    />
                     <span className="dashRiskCat__count">{cat.count}</span>
                   </span>
                 </span>
@@ -945,7 +974,10 @@ export function DashboardPage() {
         }
       />
 
-      <section className="dashboardPage__section" aria-labelledby="dash-metrics-heading">
+      <section
+        className="dashboardPage__section"
+        aria-labelledby="dash-metrics-heading"
+      >
         <h2 id="dash-metrics-heading" className="dashboardPage__sectionTitle">
           <Target
             size={16}
@@ -968,34 +1000,38 @@ export function DashboardPage() {
                 className={`dashCard dashCard--${def.accent}`}
               >
                 <div className="dashCard__top">
-                  <span className="dashCard__label">{def.title}</span>
                   <span className="dashCard__iconWrap" aria-hidden>
                     <Icon size={18} strokeWidth={2} />
                   </span>
+                  <span className="dashCard__label">{def.title}</span>
                 </div>
                 <div className="dashCard__mid">
-                  <span className="dashCard__value">{m.value}</span>
+                  <div className="dashCard__midLeft">
+                    <span className="dashCard__value">{m.value}</span>
+                  </div>
                   <div className="dashCard__sparkWrap">
                     <MetricSparkline color={stroke} points={m.sparkPoints} />
                   </div>
                 </div>
-                <div
-                  className={`dashCard__change dashCard__change--${m.trend}`}
-                >
-                  {m.trend === "up" ? (
-                    <TrendingUp size={14} strokeWidth={2} aria-hidden />
-                  ) : m.trend === "down" ? (
-                    <TrendingDown size={14} strokeWidth={2} aria-hidden />
-                  ) : (
-                    <span className="dashCard__changeDash" aria-hidden>
-                      —
+                <div className="dashbord_last">
+                  <p className="dashCard__footer">{m.footer}</p>
+                  <div
+                    className={`dashCard__change dashCard__change--${m.trend}`}
+                  >
+                    {m.trend === "up" ? (
+                      <TrendingUp size={14} strokeWidth={2} aria-hidden />
+                    ) : m.trend === "down" ? (
+                      <TrendingDown size={14} strokeWidth={2} aria-hidden />
+                    ) : (
+                      <span className="dashCard__changeDash" aria-hidden>
+                        —
+                      </span>
+                    )}
+                    <span>
+                      {m.changePct} · {m.changeAbs}
                     </span>
-                  )}
-                  <span>
-                    {m.changePct} · {m.changeAbs}
-                  </span>
+                  </div>
                 </div>
-                <p className="dashCard__footer">{m.footer}</p>
               </article>
             );
           })}

@@ -71,7 +71,6 @@ function scheduleSessionExpiredSignOut(): void {
     autoClose: 3500,
     closeOnClick: false,
     draggable: false,
-    closeButton: false,
     onClose: () => {
       clearAuthSession();
       redirectToSignIn();
@@ -96,7 +95,6 @@ export function scheduleIdleSignOut(): void {
     autoClose: 3500,
     closeOnClick: false,
     draggable: false,
-    closeButton: false,
     onClose: () => {
       clearAuthSession();
       redirectToSignIn();

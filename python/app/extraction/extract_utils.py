@@ -359,6 +359,7 @@ def extract_with_auto_chunking(
         logger.info("EXTRACT: merging %d chunk results", len(objs))
         merged = merge_fn(objs)
         final = merged[0] if isinstance(merged, list) else merged
+        final = repair_extraction_obj(final, text, schema)
 
         final.setdefault("_meta", {})["chunked"] = {
             "used": True,

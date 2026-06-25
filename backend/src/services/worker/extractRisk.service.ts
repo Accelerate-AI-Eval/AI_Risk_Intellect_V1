@@ -11,9 +11,23 @@ import {
   findCatalogRiskMatches,
   isDomainInTaxonomy,
   mergeCatalogMatchesIntoExtraction,
-  normalizeToCatalogDomain,
+  resolveCatalogDomain,
 } from "../risks/riskCatalogMatch.service.js";
 import { recordObservabilityMetrics } from "../observability/observability.service.js";
+import {
+  NON_ENGLISH_REVIEW_REASON,
+  resolveQualityScore100,
+} from "../risks/riskQuality.js";
+import {
+  detectTextLanguage,
+  isEnglishLanguageCode,
+} from "../../utils/languageDetect.js";
+import { translateTextToEnglish } from "../../utils/translateTextToEnglish.js";
+import {
+  localizeArticleTitleForStorage,
+  persistEnglishArticleTitle,
+  resolveEnglishArticleTitle,
+} from "../../services/articles/articleTitleLocalization.js";
 import { withUsModelPrefix } from "../../utils/bedrockModelId.js";
 
 export type ExtractRiskResult =
@@ -35,9 +49,13 @@ function displayModelName(modelName: string): string {
 async function findExistingRiskForArticleModel(
   articleId: number,
   modelKey: string,
-): Promise<{ id: string; modelName: string | null } | null> {
+): Promise<{ id: string; modelName: string | null; qualityScore: number | null } | null> {
   const rows = await db
-    .select({ id: risks.id, modelName: risks.modelName })
+    .select({
+      id: risks.id,
+      modelName: risks.modelName,
+      qualityScore: risks.qualityScore,
+    })
     .from(risks)
     .where(eq(risks.articleId, articleId));
 
@@ -49,12 +67,173 @@ async function findExistingRiskForArticleModel(
   return null;
 }
 
-function qualityScoreFromObject(obj: RiskExtractionObject): number | null {
-  const score = obj.justification?.self_assessment?.total_score;
-  if (typeof score === "number" && Number.isFinite(score)) {
-    return Math.round(Math.max(0, Math.min(100, score)));
+async function applyEnglishLocalizedFields(input: {
+  riskTitle: string;
+  articleTitle: string | null;
+  articleText: string;
+  extractionJson: Record<string, unknown>;
+  resolvedModel: string;
+}): Promise<{ riskTitle: string; articleTitle: string | null }> {
+  let { riskTitle, articleTitle } = input;
+  const originalRiskTitle = riskTitle.trim() || "Untitled risk";
+  const translatedRiskTitle = await translateTextToEnglish(
+    originalRiskTitle,
+    input.resolvedModel,
+  );
+  if (translatedRiskTitle && translatedRiskTitle !== originalRiskTitle) {
+    input.extractionJson.original_risk_title = originalRiskTitle;
+    input.extractionJson.english_risk_title = translatedRiskTitle;
+    riskTitle = translatedRiskTitle;
+    const risk = input.extractionJson.risk;
+    if (risk && typeof risk === "object" && !Array.isArray(risk)) {
+      (risk as Record<string, unknown>).risk_title = translatedRiskTitle;
+    }
   }
-  return null;
+
+  const articleResolved = await resolveEnglishArticleTitle({
+    title: articleTitle,
+    rawText: input.articleText,
+    cachedEnglishTitle:
+      typeof input.extractionJson.english_article_title === "string"
+        ? input.extractionJson.english_article_title
+        : null,
+  });
+  if (articleResolved.title) {
+    const originalArticleTitle = articleTitle?.trim() ?? "";
+    if (
+      articleResolved.translated &&
+      originalArticleTitle &&
+      articleResolved.title !== originalArticleTitle
+    ) {
+      input.extractionJson.original_article_title = originalArticleTitle;
+      input.extractionJson.english_article_title = articleResolved.title;
+    }
+    articleTitle = articleResolved.title;
+  }
+
+  return { riskTitle, articleTitle };
+}
+
+async function buildPersistedExtraction(input: {
+  articleId: number;
+  articleText: string;
+  articleTitle: string | null;
+  result: Awaited<ReturnType<typeof pythonExtractRisk>>;
+  resolvedModel: string;
+}) {
+  const risk = input.result.object.risk ?? {};
+  let riskTitle = (risk.risk_title as string) || "Untitled risk";
+  const rawDomain = String(risk.domains ?? "").trim();
+  const description = String(risk.description ?? "").trim();
+  const domainResolution = resolveCatalogDomain({
+    llmDomain: rawDomain,
+    title: riskTitle,
+    description: description || riskTitle,
+    articleText: input.articleText,
+  });
+  const domains = domainResolution.domain ?? (rawDomain || null);
+  const inTaxonomy = isDomainInTaxonomy(domains ?? "");
+
+  const catalogMatches = await findCatalogRiskMatches({
+    domain: domains ?? "",
+    title: riskTitle,
+    description: description || riskTitle,
+    primaryRisk: (risk.primary_risk as string) ?? undefined,
+    secondaryRisk: (risk.secondary_risks as string) ?? undefined,
+    limit: 5,
+  });
+
+  const extractionJson = mergeCatalogMatchesIntoExtraction(
+    {
+      ...(input.result.object as Record<string, unknown>),
+      risk: {
+        ...(risk as Record<string, unknown>),
+        ...(domains ? { domains } : {}),
+      },
+      domain_resolution: {
+        llm_domain: domainResolution.llmDomain,
+        resolved_domain: domainResolution.domain,
+        method: domainResolution.method,
+        confidence: Math.round(domainResolution.confidence * 100),
+        definition_scores: domainResolution.definitionScores
+          .slice(0, 3)
+          .map((score) => ({
+            catalog_domain: score.catalogDomain,
+            aiq_name: score.aiqName,
+            score_percent: Math.round(score.score * 100),
+            keyword_hits: score.keywordHits,
+            matched_keywords: score.matchedKeywords.slice(0, 8),
+          })),
+      },
+    },
+    catalogMatches,
+  );
+
+  if (!inTaxonomy) {
+    extractionJson.review_status = "pending";
+    extractionJson.review_reason =
+      "Extracted domain does not match any of the 7 risk taxonomy domains.";
+  }
+
+  const sourceLanguage = await detectTextLanguage(input.articleText);
+  if (sourceLanguage) {
+    extractionJson.source_language = sourceLanguage;
+  }
+  let articleTitle = input.articleTitle;
+  if (sourceLanguage && !isEnglishLanguageCode(sourceLanguage)) {
+    extractionJson.is_non_english = true;
+    extractionJson.review_status = "pending";
+    const existingReason = String(extractionJson.review_reason ?? "").trim();
+    extractionJson.review_reason = existingReason
+      ? `${existingReason} ${NON_ENGLISH_REVIEW_REASON}`
+      : NON_ENGLISH_REVIEW_REASON;
+    const localized = await applyEnglishLocalizedFields({
+      riskTitle,
+      articleTitle: input.articleTitle,
+      articleText: input.articleText,
+      extractionJson,
+      resolvedModel: input.resolvedModel,
+    });
+    riskTitle = localized.riskTitle;
+    articleTitle = localized.articleTitle;
+  }
+
+  return {
+    riskTitle,
+    articleTitle,
+    domains,
+    primaryRisk: (risk.primary_risk as string) ?? null,
+    secondaryRisk: (risk.secondary_risks as string) ?? null,
+    sector: (risk.sector as string) ?? null,
+    industry: (risk.industry as string) ?? null,
+    intent: (risk.intent as string) ?? null,
+    qualityScore: qualityScoreFromObject(input.result.object),
+    extractionJson,
+    modelName: input.resolvedModel,
+    sourceFlag: input.result.sourceFlag,
+  };
+}
+
+function toRiskInsertValues(
+  persisted: Awaited<ReturnType<typeof buildPersistedExtraction>>,
+) {
+  const { articleTitle: _articleTitle, ...riskRow } = persisted;
+  return riskRow;
+}
+
+function qualityScoreFromObject(obj: RiskExtractionObject): number | null {
+  return resolveQualityScore100({
+    qualityScore: null,
+    extractionJson: obj,
+  });
+}
+
+async function persistTranslatedArticleTitle(
+  articleId: number,
+  _currentTitle: string | null,
+  nextTitle: string | null | undefined,
+): Promise<void> {
+  await persistEnglishArticleTitle(articleId, nextTitle ?? null);
 }
 
 /**
@@ -109,6 +288,37 @@ export async function extractRiskForArticle(
     });
 
     if (existing) {
+      const persisted = await buildPersistedExtraction({
+        articleId,
+        articleText: text,
+        articleTitle: article.title,
+        result,
+        resolvedModel,
+      });
+      const shouldRefreshStoredScore =
+        (existing.qualityScore == null || existing.qualityScore === 0) &&
+        persisted.qualityScore != null &&
+        persisted.qualityScore > 0;
+      const shouldRefreshNonEnglish = Boolean(
+        (persisted.extractionJson as { is_non_english?: boolean }).is_non_english,
+      );
+
+      if (shouldRefreshStoredScore || shouldRefreshNonEnglish) {
+        await db
+          .update(risks)
+          .set({
+            ...toRiskInsertValues(persisted),
+            updatedAt: new Date(),
+          })
+          .where(eq(risks.id, existing.id));
+      }
+
+      await persistTranslatedArticleTitle(
+        articleId,
+        article.title,
+        persisted.articleTitle,
+      );
+
       return {
         outcome: "done",
         riskId: existing.id,
@@ -116,57 +326,27 @@ export async function extractRiskForArticle(
       };
     }
 
-    const risk = result.object.risk ?? {};
-    const riskTitle = (risk.risk_title as string) || "Untitled risk";
-    const rawDomain = String(risk.domains ?? "").trim();
-    const normalizedDomain = normalizeToCatalogDomain(rawDomain);
-    const domains = normalizedDomain ?? (rawDomain || null);
-    const description = String(risk.description ?? "").trim();
-    const inTaxonomy = isDomainInTaxonomy(domains ?? "");
-
-    const catalogMatches = await findCatalogRiskMatches({
-      domain: domains ?? "",
-      title: riskTitle,
-      description: description || riskTitle,
-      primaryRisk: (risk.primary_risk as string) ?? undefined,
-      secondaryRisk: (risk.secondary_risks as string) ?? undefined,
-      limit: 5,
+    const persisted = await buildPersistedExtraction({
+      articleId,
+      articleText: text,
+      articleTitle: article.title,
+      result,
+      resolvedModel,
     });
-
-    const extractionJson = mergeCatalogMatchesIntoExtraction(
-      {
-        ...(result.object as Record<string, unknown>),
-        risk: {
-          ...(risk as Record<string, unknown>),
-          ...(domains ? { domains } : {}),
-        },
-      },
-      catalogMatches,
-    );
-
-    if (!inTaxonomy) {
-      extractionJson.review_status = "pending";
-      extractionJson.review_reason =
-        "Extracted domain does not match any of the 7 risk taxonomy domains.";
-    }
 
     const [row] = await db
       .insert(risks)
       .values({
         articleId: article.id,
-        riskTitle,
-        domains,
-        primaryRisk: (risk.primary_risk as string) ?? null,
-        secondaryRisk: (risk.secondary_risks as string) ?? null,
-        sector: (risk.sector as string) ?? null,
-        industry: (risk.industry as string) ?? null,
-        intent: (risk.intent as string) ?? null,
-        qualityScore: qualityScoreFromObject(result.object),
-        extractionJson,
-        modelName: resolvedModel,
-        sourceFlag: result.sourceFlag,
+        ...toRiskInsertValues(persisted),
       })
       .returning({ id: risks.id });
+
+    await persistTranslatedArticleTitle(
+      articleId,
+      article.title,
+      persisted.articleTitle,
+    );
 
     await db
       .update(articles)

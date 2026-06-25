@@ -44,8 +44,35 @@
   }
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
+}
+
+/* App shell: scroll only inside .mainLayout__scroll, not the browser document */
+html:has(.mainLayout),
+body:has(.mainLayout) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+#root:has(.mainLayout) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Auth pages: allow document scroll when the form is taller than the viewport */
+body:has(.authPage) {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 h1,

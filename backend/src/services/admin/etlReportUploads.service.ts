@@ -1,6 +1,10 @@
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { aiidReports } from "../../schema/aiid/reports.js";
+import {
+  etlReportUploadItems,
+  type EtlReportUploadItemStatus,
+} from "../../schema/aiid/reportUploadItems.js";
 import { normalizeUrl } from "../../utils/fetchUtils.js";
 import {
   etlReportUploads,
@@ -20,19 +24,64 @@ import {
 
 export type EtlReportUploadItemDto = {
   id: number;
+  /** aiid_reports.id when the URL was imported (null for skipped rows). */
+  reportId: number | null;
   uploadId: number;
   rowOrder: number;
   objectId: string | null;
   url: string;
   title: string | null;
-  extractionStatus:
-    | "imported"
-    | "skipped_existing"
-    | "skipped_duplicate_in_file"
-    | "skipped_invalid"
-    | "failed";
+  extractionStatus: EtlReportUploadItemStatus;
   skipReason: string | null;
 };
+
+const REPORT_ITEM_STATUS_RANK: Record<EtlReportUploadItemStatus, number> = {
+  imported: 0,
+  failed: 1,
+  skipped_existing: 2,
+  skipped_duplicate_in_file: 3,
+  skipped_invalid: 4,
+};
+
+function normalizeReportItemUrl(url: string): string | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    return normalizeUrl(trimmed);
+  } catch {
+    return trimmed.toLowerCase();
+  }
+}
+
+/** One row per URL for export/display (prefers imported over skipped duplicates). */
+export function uniqueReportUploadItemsByUrl(
+  items: EtlReportUploadItemDto[],
+): EtlReportUploadItemDto[] {
+  const byUrl = new Map<string, EtlReportUploadItemDto>();
+
+  for (const item of items) {
+    const key = normalizeReportItemUrl(item.url);
+    if (!key) continue;
+
+    const existing = byUrl.get(key);
+    if (!existing) {
+      byUrl.set(key, item);
+      continue;
+    }
+
+    const rank = REPORT_ITEM_STATUS_RANK[item.extractionStatus] ?? 99;
+    const existingRank =
+      REPORT_ITEM_STATUS_RANK[existing.extractionStatus] ?? 99;
+    if (
+      rank < existingRank ||
+      (rank === existingRank && item.rowOrder < existing.rowOrder)
+    ) {
+      byUrl.set(key, item);
+    }
+  }
+
+  return [...byUrl.values()].sort((a, b) => a.rowOrder - b.rowOrder);
+}
 
 export type EtlReportUploadDto = {
   id: number;
@@ -337,6 +386,7 @@ export async function listReportUploadItems(
     throw HttpError.notFound("Report upload not found.");
   }
 
+  // Only URLs actually stored for this upload (excludes skipped_existing / duplicates).
   const reportRows = await db
     .select({
       id: aiidReports.id,
@@ -350,6 +400,7 @@ export async function listReportUploadItems(
 
   return reportRows.map((row, index) => ({
     id: row.id,
+    reportId: row.id,
     uploadId,
     rowOrder: index + 1,
     objectId: row.objectId,

@@ -1,9 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { riskMappings } from "../../schema/riskMappings/riskMappings.js";
 import { risks } from "../../schema/risks/risks.js";
+import { users } from "../../schema/users/users.js";
 import { HttpError } from "../../utils/httpError.js";
-import { invalidateCatalogCache } from "./riskCatalogMatch.service.js";
 import { resolveRiskUuid } from "./riskResolve.js";
 
 function truncate(value: string | null | undefined, max: number): string | null {
@@ -13,42 +12,98 @@ function truncate(value: string | null | undefined, max: number): string | null 
   return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max - 1)}…`;
 }
 
-async function allocateNextCatalogRiskId(): Promise<string> {
-  const rows = await db
-    .select({ riskId: riskMappings.riskId })
-    .from(riskMappings);
-
-  let maxNum = 0;
-  for (const row of rows) {
-    const match = /^RISK-(\d+)$/i.exec((row.riskId ?? "").trim());
-    if (match) {
-      maxNum = Math.max(maxNum, Number.parseInt(match[1]!, 10));
-    }
-  }
-  return `RISK-${maxNum + 1}`;
-}
-
 function str(v: unknown, fallback = ""): string {
   if (v == null) return fallback;
   return String(v).trim();
 }
 
-export type ApproveReviewResult = {
-  catalogRiskId: string;
-  riskMappingId: number;
+export type ReviewerInfo = {
+  userId: string;
+  username: string;
+  email: string;
+  displayName: string;
 };
+
+export async function resolveReviewer(userId: string): Promise<ReviewerInfo> {
+  const [user] = await db
+    .select({
+      username: users.username,
+      email: users.email,
+      fullName: users.fullName,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  const username = user?.username ?? "";
+  const email = user?.email ?? "";
+  const displayName =
+    user?.fullName?.trim() || username || email || "Reviewer";
+
+  return { userId, username, email, displayName };
+}
+
+export type ApproveReviewResult = {
+  riskId: string;
+};
+
+export type ReviewClassification = "raw" | "structured";
 
 export type ApproveReviewOptions = {
-  /** Override domain from reviewer (taxonomy pick or custom). */
+  /** Optional domain override from reviewer. */
   domain?: string;
+  classification?: ReviewClassification;
+  feedback?: string;
+  reviewer: ReviewerInfo;
 };
 
+export type RejectReviewOptions = {
+  feedback: string;
+  classification?: ReviewClassification;
+  reviewer: ReviewerInfo;
+};
+
+function assertNotAlreadyApproved(reviewStatus: string): void {
+  if (reviewStatus === "approved") {
+    throw HttpError.conflict("This risk has already been moved to Risks.");
+  }
+}
+
+function assertCanReject(reviewStatus: string): void {
+  assertNotAlreadyApproved(reviewStatus);
+  if (reviewStatus === "rejected") {
+    throw HttpError.conflict("This risk has already been marked as Raw.");
+  }
+  if (reviewStatus === "classified") {
+    throw HttpError.conflict("This risk has already been marked as Structured.");
+  }
+}
+
+function assertCanClassify(reviewStatus: string): void {
+  assertNotAlreadyApproved(reviewStatus);
+  if (reviewStatus === "classified") {
+    throw HttpError.conflict("This risk has already been marked as Structured.");
+  }
+  if (reviewStatus === "rejected") {
+    throw HttpError.conflict("This risk has already been marked as Raw.");
+  }
+}
+
+function reviewerPayload(reviewer: ReviewerInfo): Record<string, string> {
+  return {
+    user_id: reviewer.userId,
+    username: reviewer.username,
+    email: reviewer.email,
+    display_name: reviewer.displayName,
+  };
+}
+
 /**
- * Approve a review-queue risk: insert into `risk_mappings` and mark the risk approved.
+ * Approve a review-queue risk: mark human-reviewed and visible on the Risks page.
  */
 export async function approveReviewRisk(
   riskIdOrDisplayId: string,
-  options?: ApproveReviewOptions,
+  options: ApproveReviewOptions,
 ): Promise<ApproveReviewResult> {
   const uuid = await resolveRiskUuid(riskIdOrDisplayId);
   if (!uuid) {
@@ -58,11 +113,7 @@ export async function approveReviewRisk(
   const [row] = await db
     .select({
       id: risks.id,
-      riskTitle: risks.riskTitle,
       domains: risks.domains,
-      primaryRisk: risks.primaryRisk,
-      secondaryRisk: risks.secondaryRisk,
-      intent: risks.intent,
       extractionJson: risks.extractionJson,
     })
     .from(risks)
@@ -75,71 +126,211 @@ export async function approveReviewRisk(
 
   const ext = (row.extractionJson ?? {}) as Record<string, unknown>;
   const reviewStatus = str(ext.review_status).toLowerCase();
-  if (reviewStatus === "approved") {
-    throw HttpError.conflict("This risk has already been approved.");
-  }
+  assertNotAlreadyApproved(reviewStatus);
 
   const risk = (ext.risk ?? {}) as Record<string, unknown>;
-  const analysis = (ext.analysis ?? {}) as Record<string, unknown>;
+  const domain = str(options.domain ?? row.domains ?? risk.domains);
 
-  const domain = str(options?.domain ?? row.domains ?? risk.domains);
-  if (!domain) {
-    throw HttpError.unprocessable(
-      "Select a taxonomy domain or enter a custom domain before approving.",
-    );
-  }
-
-  const catalogRiskId = await allocateNextCatalogRiskId();
-  const description = str(risk.description);
-  const executiveSummary =
-    str(analysis.risk_identified) ||
-    str(analysis.alignment_reasoning) ||
-    description.slice(0, 500);
-
-  const [inserted] = await db
-    .insert(riskMappings)
-    .values({
-      riskId: catalogRiskId,
-      riskTitle: truncate(row.riskTitle, 255),
-      domains: truncate(domain, 255),
-      description: description || null,
-      technicalDescription: description || null,
-      executiveSummary: executiveSummary || null,
-      attackVector: truncate(str(risk.attack_vector), 255),
-      observableIndicators: str(risk.observable_indicators) || null,
-      dataToIdentifyRisk: str(risk.data_to_identify_risk) || null,
-      evidenceSources: str(risk.evidence_sources) || null,
-      intent: truncate(str(row.intent ?? risk.intent), 255),
-      timing: truncate(str(risk.timing), 255),
-      riskTypeDetected: truncate(str(risk.risk_type_detected), 255),
-      primaryRisk: truncate(str(row.primaryRisk ?? risk.primary_risk), 255),
-      secondaryRisks: truncate(str(row.secondaryRisk ?? risk.secondary_risks), 255),
-    })
-    .returning({
-      riskMappingId: riskMappings.riskMappingId,
-      riskId: riskMappings.riskId,
-    });
-
-  invalidateCatalogCache();
-
+  const feedback = options.feedback?.trim();
+  const reviewedAt = new Date().toISOString();
   const updatedExtraction: Record<string, unknown> = {
     ...ext,
     review_status: "approved",
-    catalog_risk_id: catalogRiskId,
-    approved_at: new Date().toISOString(),
+    review_classification: options.classification ?? "structured",
+    approved_at: reviewedAt,
+    reviewed_at: reviewedAt,
+    reviewed_by: reviewerPayload(options.reviewer),
+    review_feedback: feedback || str(ext.review_feedback),
   };
 
   await db
     .update(risks)
     .set({
-      domains: truncate(domain, 255),
+      ...(domain ? { domains: truncate(domain, 255) } : {}),
       extractionJson: updatedExtraction,
       updatedAt: new Date(),
     })
     .where(eq(risks.id, uuid));
 
-  return {
-    catalogRiskId: inserted!.riskId ?? catalogRiskId,
-    riskMappingId: inserted!.riskMappingId,
+  return { riskId: uuid };
+}
+
+/**
+ * Reject a review-queue item: not a valid risk; store reviewer feedback.
+ */
+export async function rejectReviewRisk(
+  riskIdOrDisplayId: string,
+  options: RejectReviewOptions,
+): Promise<void> {
+  const feedback = options.feedback.trim();
+  if (!feedback) {
+    throw HttpError.unprocessable("Feedback is required when rejecting a risk.");
+  }
+
+  const uuid = await resolveRiskUuid(riskIdOrDisplayId);
+  if (!uuid) {
+    throw HttpError.notFound("Risk not found.");
+  }
+
+  const [row] = await db
+    .select({
+      id: risks.id,
+      extractionJson: risks.extractionJson,
+    })
+    .from(risks)
+    .where(eq(risks.id, uuid))
+    .limit(1);
+
+  if (!row) {
+    throw HttpError.notFound("Risk not found.");
+  }
+
+  const ext = (row.extractionJson ?? {}) as Record<string, unknown>;
+  const reviewStatus = str(ext.review_status).toLowerCase();
+  assertCanReject(reviewStatus);
+
+  const reviewedAt = new Date().toISOString();
+  const updatedExtraction: Record<string, unknown> = {
+    ...ext,
+    review_status: "rejected",
+    review_classification: options.classification ?? "raw",
+    review_feedback: feedback,
+    rejected_at: reviewedAt,
+    reviewed_at: reviewedAt,
+    reviewed_by: reviewerPayload(options.reviewer),
   };
+
+  await db
+    .update(risks)
+    .set({
+      extractionJson: updatedExtraction,
+      updatedAt: new Date(),
+    })
+    .where(eq(risks.id, uuid));
+}
+
+export type ClassifyReviewOptions = {
+  feedback: string;
+  reviewer: ReviewerInfo;
+};
+
+/**
+ * Mark a review-queue item as structured without moving it to the Risks page.
+ */
+export async function classifyReviewRisk(
+  riskIdOrDisplayId: string,
+  options: ClassifyReviewOptions,
+): Promise<void> {
+  const feedback = options.feedback.trim();
+  if (!feedback) {
+    throw HttpError.unprocessable(
+      "Feedback is required when saving a structured review.",
+    );
+  }
+
+  const uuid = await resolveRiskUuid(riskIdOrDisplayId);
+  if (!uuid) {
+    throw HttpError.notFound("Risk not found.");
+  }
+
+  const [row] = await db
+    .select({
+      id: risks.id,
+      extractionJson: risks.extractionJson,
+    })
+    .from(risks)
+    .where(eq(risks.id, uuid))
+    .limit(1);
+
+  if (!row) {
+    throw HttpError.notFound("Risk not found.");
+  }
+
+  const ext = (row.extractionJson ?? {}) as Record<string, unknown>;
+  const reviewStatus = str(ext.review_status).toLowerCase();
+  assertCanClassify(reviewStatus);
+
+  const reviewedAt = new Date().toISOString();
+  const updatedExtraction: Record<string, unknown> = {
+    ...ext,
+    review_status: "classified",
+    review_classification: "structured",
+    review_feedback: feedback,
+    classified_at: reviewedAt,
+    reviewed_at: reviewedAt,
+    reviewed_by: reviewerPayload(options.reviewer),
+  };
+
+  await db
+    .update(risks)
+    .set({
+      extractionJson: updatedExtraction,
+      updatedAt: new Date(),
+    })
+    .where(eq(risks.id, uuid));
+}
+
+export type UpdateReviewFeedbackOptions = {
+  feedback: string;
+  reviewer: ReviewerInfo;
+};
+
+/**
+ * Update feedback text on an existing review (raw or structured, not yet on Risks).
+ */
+export async function updateReviewFeedback(
+  riskIdOrDisplayId: string,
+  options: UpdateReviewFeedbackOptions,
+): Promise<void> {
+  const feedback = options.feedback.trim();
+  if (!feedback) {
+    throw HttpError.unprocessable("Feedback is required.");
+  }
+
+  const uuid = await resolveRiskUuid(riskIdOrDisplayId);
+  if (!uuid) {
+    throw HttpError.notFound("Risk not found.");
+  }
+
+  const [row] = await db
+    .select({
+      id: risks.id,
+      extractionJson: risks.extractionJson,
+    })
+    .from(risks)
+    .where(eq(risks.id, uuid))
+    .limit(1);
+
+  if (!row) {
+    throw HttpError.notFound("Risk not found.");
+  }
+
+  const ext = (row.extractionJson ?? {}) as Record<string, unknown>;
+  const reviewStatus = str(ext.review_status).toLowerCase();
+
+  if (reviewStatus === "approved") {
+    throw HttpError.conflict("Cannot edit feedback for items already on Risks.");
+  }
+
+  if (reviewStatus !== "rejected" && reviewStatus !== "classified") {
+    throw HttpError.unprocessable(
+      "Feedback can only be edited after a review has been saved.",
+    );
+  }
+
+  const reviewedAt = new Date().toISOString();
+  const updatedExtraction: Record<string, unknown> = {
+    ...ext,
+    review_feedback: feedback,
+    reviewed_at: reviewedAt,
+    reviewed_by: reviewerPayload(options.reviewer),
+  };
+
+  await db
+    .update(risks)
+    .set({
+      extractionJson: updatedExtraction,
+      updatedAt: new Date(),
+    })
+    .where(eq(risks.id, uuid));
 }

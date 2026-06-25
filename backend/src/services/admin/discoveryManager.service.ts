@@ -191,7 +191,7 @@ function attachDiscoveryChildHandlers(child: ChildProcess): void {
         recordCronJobEvent(
           scheduleId,
           "stopped",
-          "RSS feed discovery cron job stopped unexpectedly.",
+          "RSS feed discovery CRON job stopped unexpectedly.",
         ),
       );
     }
@@ -201,7 +201,7 @@ function attachDiscoveryChildHandlers(child: ChildProcess): void {
         recordCronJobEvent(
           scheduleId,
           "stopped",
-          "RSS feed discovery cron job stopped unexpectedly.",
+          "RSS feed discovery CRON job stopped unexpectedly.",
         ),
       );
     }
@@ -283,7 +283,7 @@ export function startDiscoveryLoopProcess(options?: {
       recordCronJobEvent(
         scheduleId,
         "started",
-        "RSS feed discovery cron job started.",
+        "RSS feed discovery CRON job started.",
       ),
     );
   }
@@ -446,7 +446,7 @@ export function stopDiscoveryProcess(): void {
       recordCronJobEvent(
         scheduleId,
         "stopped",
-        "RSS feed discovery cron job stopped.",
+        "RSS feed discovery CRON job stopped.",
       ),
     );
   } else if (workerState.discoveryRunMode === "cron") {

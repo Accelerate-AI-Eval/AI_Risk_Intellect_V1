@@ -10,7 +10,9 @@ import {
 } from "../../services/admin/ingestLinks.service.js";
 import {
   getLlmModelConfig,
+  invokeLlmModel,
   setLlmModel,
+  validateLlmModel,
 } from "../../services/admin/llmModelConfig.service.js";
 import {
   ensureWorkerProcessRunning,
@@ -29,7 +31,7 @@ function discoveryStartMessage(
       : `Discovery enqueued extracted URLs for ${feedLabel}.`;
   return `${discoveryPart} Worker service started to process ingest jobs.`;
 }
-import type { SetLlmModelInput, StartDiscoveryInput } from "../../validators/admin.validators.js";
+import type { SetLlmModelInput, StartDiscoveryInput, InvokeLlmModelInput } from "../../validators/admin.validators.js";
 
 export async function getServicesStatusHandler(
   _req: Request,
@@ -121,6 +123,30 @@ export async function getLlmModelHandler(
   res: Response,
 ): Promise<void> {
   res.status(200).json({ ok: true, ...getLlmModelConfig() });
+}
+
+export async function testLlmModelHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { modelId } = req.body as SetLlmModelInput;
+  const result = await validateLlmModel(modelId);
+  res.status(result.success ? 200 : 400).json(result);
+}
+
+export async function invokeLlmModelHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { modelId, prompt, maxTokens, temperature } =
+    req.body as InvokeLlmModelInput;
+  const result = await invokeLlmModel({
+    modelId,
+    prompt,
+    maxTokens,
+    temperature,
+  });
+  res.status(result.success ? 200 : 400).json(result);
 }
 
 export async function setLlmModelHandler(

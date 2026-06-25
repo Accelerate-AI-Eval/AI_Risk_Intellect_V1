@@ -9,7 +9,13 @@ import {
 } from "../../config/modelsCatalog.js";
 import { normalizeBedrockModelAlias } from "../../utils/bedrockModelId.js";
 import { upsertEnvFile } from "../../utils/envFile.js";
+import { invokeBedrockModelTest, invokeBedrockModelPrompt } from "./bedrockModelTest.service.js";
 import { backendRoot } from "./spawnBackendScript.js";
+import {
+  buildModelFulfillmentResponse,
+  printModelFulfillmentToTerminal,
+  type ModelFulfillmentResponse,
+} from "../../utils/modelFulfillmentResponse.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envLocalPath = path.join(backendRoot, ".env.local");
@@ -185,6 +191,121 @@ export function getLlmModelConfig(): LlmModelConfig {
     options: listOptions(),
     pythonSynced: false,
     requiresPythonRestart: backend === "local",
+  };
+}
+
+export type LlmModelValidationResult = {
+  success: boolean;
+  message: string;
+  modelId?: string;
+  invokeModelId?: string;
+  response?: string;
+  latencyMs?: number;
+  fulfillmentResponse?: ModelFulfillmentResponse;
+};
+
+export type LlmModelInvokeResult = {
+  success: boolean;
+  message: string;
+  modelId?: string;
+  invokeModelId?: string;
+  prompt?: string;
+  response?: string;
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+  };
+  latencyMs?: number;
+  fulfillmentResponse?: ModelFulfillmentResponse;
+};
+
+export async function invokeLlmModel(input: {
+  modelId: string;
+  prompt: string;
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<LlmModelInvokeResult> {
+  const trimmed = input.modelId.trim();
+  if (!trimmed) {
+    return { success: false, message: "This model is not supported" };
+  }
+
+  const catalogOption = findOption(trimmed);
+  if (
+    !catalogOption &&
+    activeBackend() === "bedrock" &&
+    !isBedrockModel(trimmed)
+  ) {
+    return { success: false, message: "This model is not supported" };
+  }
+
+  try {
+    envUpdatesForModel(trimmed);
+  } catch {
+    return { success: false, message: "This model is not supported" };
+  }
+
+  const backend =
+    catalogOption?.backend ?? (isBedrockModel(trimmed) ? "bedrock" : activeBackend());
+  if (backend === "bedrock" || isBedrockModel(trimmed)) {
+    return invokeBedrockModelPrompt(input);
+  }
+
+  return {
+    success: false,
+    message: "Custom prompt invoke is only supported for Bedrock models.",
+  };
+}
+
+export async function validateLlmModel(
+  modelId: string,
+): Promise<LlmModelValidationResult> {
+  const trimmed = modelId.trim();
+  if (!trimmed) {
+    return {
+      success: false,
+      message: "This model is not supported",
+    };
+  }
+
+  const catalogOption = findOption(trimmed);
+  if (
+    !catalogOption &&
+    activeBackend() === "bedrock" &&
+    !isBedrockModel(trimmed)
+  ) {
+    return {
+      success: false,
+      message: "This model is not supported",
+    };
+  }
+
+  try {
+    envUpdatesForModel(trimmed);
+  } catch {
+    return {
+      success: false,
+      message: "This model is not supported",
+    };
+  }
+
+  const backend = catalogOption?.backend ?? (isBedrockModel(trimmed) ? "bedrock" : activeBackend());
+  if (backend === "bedrock" || isBedrockModel(trimmed)) {
+    return invokeBedrockModelTest(trimmed);
+  }
+
+  const fulfillmentResponse = buildModelFulfillmentResponse({
+    success: true,
+    text: "Model works",
+    modelId: trimmed,
+  });
+  printModelFulfillmentToTerminal("LLM model test", fulfillmentResponse);
+  return {
+    success: true,
+    message: "Model works",
+    modelId: trimmed,
+    fulfillmentResponse,
   };
 }
 

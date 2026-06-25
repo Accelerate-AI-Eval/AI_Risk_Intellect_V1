@@ -19,6 +19,7 @@ from app.extraction.extract_utils import (
     load_risk_schema,
 )
 from app.llm.model_config import get_model_config, set_model
+from app.llm.model_invoke import invoke_bedrock_model, test_bedrock_model
 from app.ingestion.errors import SkipIngest
 from app.etl.file_access import read_allowed_etl_file
 from app.etl.pipeline import prepare_etl_import
@@ -59,6 +60,13 @@ class ExtractRiskBody(BaseModel):
 
 class SetLlmModelBody(BaseModel):
     modelId: str = Field(min_length=1)
+
+
+class InvokeLlmModelBody(BaseModel):
+    modelId: str = Field(min_length=1)
+    prompt: str = Field(min_length=1, max_length=16_000)
+    maxTokens: int | None = Field(default=None, ge=16, le=4096)
+    temperature: float | None = Field(default=None, ge=0, le=1)
 
 
 class EtlImportBody(BaseModel):
@@ -136,6 +144,23 @@ def put_llm_model_config(body: SetLlmModelBody) -> dict[str, object]:
         return {"ok": True, **config}
     except ValueError as exc:
         return _error_payload("InvalidModel", str(exc))
+
+
+@app.post("/config/llm-model/test")
+def post_llm_model_test(body: SetLlmModelBody) -> dict[str, object]:
+    result = test_bedrock_model(body.modelId)
+    return {"ok": result.get("success", False), **result}
+
+
+@app.post("/config/llm-model/invoke")
+def post_llm_model_invoke(body: InvokeLlmModelBody) -> dict[str, object]:
+    result = invoke_bedrock_model(
+        model_id=body.modelId,
+        prompt=body.prompt,
+        max_tokens=body.maxTokens,
+        temperature=body.temperature,
+    )
+    return {"ok": result.get("success", False), **result}
 
 
 def _load_etl_file_bytes(body: EtlImportBody) -> bytes:

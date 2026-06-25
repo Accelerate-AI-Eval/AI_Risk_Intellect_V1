@@ -92,7 +92,7 @@ export async function recordCronJobEvent(
 /** Record cron run start once per schedule (not per RSS feed link). */
 export async function recordCronRunStarted(
   jobId: string,
-  message = "RSS feed discovery cron job started.",
+  message = "RSS feed discovery CRON job started.",
 ): Promise<void> {
   await recordCronJobEvent(jobId, "started", message);
 }

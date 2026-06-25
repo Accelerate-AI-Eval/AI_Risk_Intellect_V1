@@ -1,9 +1,0 @@
-{
-  "name": "ai-risk-python-ingest",
-  "private": true,
-  "scripts": {
-    "dev": "node scripts/run.mjs",
-    "start": "node scripts/run.mjs",
-    "install": "node scripts/ensure-venv.mjs"
-  }
-}

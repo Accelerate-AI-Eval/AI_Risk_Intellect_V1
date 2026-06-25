@@ -9,6 +9,15 @@ export type CatalogRiskMatch = {
   matchSummary: string;
 };
 
+export type HumanReviewInfo = {
+  status: "pending" | "approved" | "rejected" | "classified" | null;
+  classification?: "raw" | "structured" | null;
+  reviewedBy: string | null;
+  reviewedByUsername: string | null;
+  reviewedAt: string | null;
+  feedback: string | null;
+};
+
 export type RiskDetail = {
   id: string;
   /** Sequential display id from API (R-1, R-01, R-10, …). */
@@ -61,6 +70,7 @@ export type RiskDetail = {
     breakdown: EvidenceBreakdownItem[];
   };
   modelName?: string | null;
+  humanReview?: HumanReviewInfo;
 };
 
 export type EvidenceBreakdownItem = {
@@ -469,6 +479,14 @@ export function normalizeRisksFromApi(raw: unknown): {
       breakdown: r.evidence?.breakdown ?? [],
     },
     modelName: r.modelName ?? null,
+    humanReview: {
+      status: r.humanReview?.status ?? null,
+      classification: r.humanReview?.classification ?? null,
+      reviewedBy: r.humanReview?.reviewedBy ?? null,
+      reviewedByUsername: r.humanReview?.reviewedByUsername ?? null,
+      reviewedAt: r.humanReview?.reviewedAt ?? null,
+      feedback: r.humanReview?.feedback ?? null,
+    },
   }));
 
   return {

@@ -27,19 +27,34 @@
   font-size: 0.875rem;
 }
 
-.riskDetailPage__stickyBar {
+.riskDetailPage__stickyHeader {
   position: sticky;
   top: 0;
   z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: -0.25rem 0 0.5rem;
+  padding: 0.5rem 0 0.85rem;
+  background: var(--risk-surface);
+  box-shadow: 0 1px 0 var(--risk-border);
+}
+
+.riskDetailPage__stickyBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.25rem 2rem;
   min-height: 2.75rem;
-  margin: -0.25rem 0 0.25rem;
-  padding: 0.5rem 0 0.75rem;
-  background: var(--risk-surface);
-  box-shadow: 0 1px 0 var(--risk-border);
+}
+
+.riskDetailPage__stickyTabs.riskDetail__tabBar {
+  padding: 0;
+}
+
+.riskDetail--page .riskDetail__body {
+  overflow-y: visible;
+  padding-top: 0;
 }
 
 .riskDetailPage__meta {
@@ -320,6 +335,10 @@ html.app-theme-dark .riskDetailPage {
 }
 
 @media (max-width: 900px) {
+  .riskDetailPage__stickyHeader {
+    gap: 0.65rem;
+  }
+
   .riskDetailPage__stickyBar {
     flex-wrap: wrap;
     align-items: flex-start;

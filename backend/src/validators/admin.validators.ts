@@ -37,6 +37,19 @@ export const setLlmModelSchema = z.object({
 
 export type SetLlmModelInput = z.infer<typeof setLlmModelSchema>;
 
+export const invokeLlmModelSchema = z.object({
+  modelId: z.string().trim().min(1, "Model is required.").max(256),
+  prompt: z
+    .string()
+    .trim()
+    .min(1, "Prompt is required.")
+    .max(16_000, "Prompt is too long."),
+  maxTokens: z.coerce.number().int().min(16).max(4096).optional(),
+  temperature: z.coerce.number().min(0).max(1).optional(),
+});
+
+export type InvokeLlmModelInput = z.infer<typeof invokeLlmModelSchema>;
+
 export const ingestLinkIdSchema = z.object({
   id: z.coerce.number().int().positive(),
 });

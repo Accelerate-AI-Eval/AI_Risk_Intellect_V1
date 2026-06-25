@@ -27,11 +27,14 @@
     "discovery:once": "cross-env RUN_ONCE=true tsx src/workers/discoveryService.ts",
     "worker": "tsx src/workers/jobWorker.ts",
     "workflow:check": "tsx src/scripts/workflowCheck.ts",
+    "models:refresh": "tsx scripts/refreshBedrockCatalog.ts",
     "py:install": "npm --prefix ../python run install",
     "install:all": "npm install && npm run py:install",
     "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock": "^3.985.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.985.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -46,6 +49,7 @@
     "rss-parser": "^3.13.0",
     "ua-parser-js": "^2.0.10",
     "winston": "^3.19.0",
+    "xlsx": "^0.18.5",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },

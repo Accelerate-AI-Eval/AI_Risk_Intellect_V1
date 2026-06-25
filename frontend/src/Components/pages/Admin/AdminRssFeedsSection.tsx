@@ -16,6 +16,7 @@ import {
   CircleX,
   ChevronDown,
   ChevronRight,
+  Download,
   FilterX,
   Link2,
   MoreHorizontal,
@@ -37,7 +38,9 @@ import {
 } from "../../../utils/discoveryLogsApi";
 import {
   archiveIngestLink,
+  canExportIngestLink,
   extractIngestLink,
+  exportIngestLinkItems,
   fetchIngestLinkItems,
   fetchIngestLinks,
   restoreIngestLink,
@@ -215,6 +218,7 @@ export function AdminRssFeedsSection({
   const [linkRows, setLinkRows] = useState<IngestLinkRow[]>([]);
   const [linksLoading, setLinksLoading] = useState(false);
   const [linkActionId, setLinkActionId] = useState<number | null>(null);
+  const [exportLinkId, setExportLinkId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editTargetId, setEditTargetId] = useState<number | null>(null);
   const [editUrl, setEditUrl] = useState("");
@@ -496,6 +500,19 @@ export function AdminRssFeedsSection({
       setLinkActionId(null);
     }
   };
+
+  async function handleExportLink(id: number) {
+    setExportLinkId(id);
+    const result = await exportIngestLinkItems(id);
+    setExportLinkId(null);
+
+    if (!result.ok) {
+      toast.error(result.message, { autoClose: 3000 });
+      return;
+    }
+
+    toast.success(`Exported ${result.fileName}.`, { autoClose: 2800 });
+  }
 
   const handleArchiveLink = async (id: number) => {
     setLinkActionId(id);
@@ -1209,9 +1226,9 @@ export function AdminRssFeedsSection({
                                     </span>
                                   )}
                                 </td>
-                                <td className="adminPage__td adminPage__th--center">
+                                <td className="adminPage__td adminPage__td--center adminPage__feedStatusCell">
                                   <span
-                                    className={`adminPage__statusPill ${
+                                    className={`adminPage__statusPill adminPage__feedStatusPill ${
                                       isArchived
                                         ? "adminPage__statusPill--archived"
                                         : "adminPage__statusPill--done"
@@ -1580,18 +1597,39 @@ export function AdminRssFeedsSection({
               }}
             >
               {linkRowMenuFeed.archived ? (
-                <button
-                  type="button"
-                  className="adminPage__rowMenuItem adminPage__rowMenuItem--restore"
-                  role="menuitem"
-                  onClick={() => {
-                    closeLinkRowMenu();
-                    void handleRestoreLink(linkRowMenuFeed.id);
-                  }}
-                >
-                  <ArchiveRestore size={14} strokeWidth={2} aria-hidden />
-                  Restore
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem"
+                    role="menuitem"
+                    disabled={
+                      exportLinkId === linkRowMenuFeed.id ||
+                      !canExportIngestLink(linkRowMenuFeed)
+                    }
+                    aria-busy={exportLinkId === linkRowMenuFeed.id}
+                    onClick={() => {
+                      closeLinkRowMenu();
+                      void handleExportLink(linkRowMenuFeed.id);
+                    }}
+                  >
+                    <Download size={14} strokeWidth={2} aria-hidden />
+                    {exportLinkId === linkRowMenuFeed.id
+                      ? "Exporting…"
+                      : "Export"}
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem adminPage__rowMenuItem--restore"
+                    role="menuitem"
+                    onClick={() => {
+                      closeLinkRowMenu();
+                      void handleRestoreLink(linkRowMenuFeed.id);
+                    }}
+                  >
+                    <ArchiveRestore size={14} strokeWidth={2} aria-hidden />
+                    Restore
+                  </button>
+                </>
               ) : (
                 <>
                   <button
@@ -1605,6 +1643,25 @@ export function AdminRssFeedsSection({
                   >
                     <Zap size={14} strokeWidth={2} aria-hidden />
                     Extract
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem"
+                    role="menuitem"
+                    disabled={
+                      exportLinkId === linkRowMenuFeed.id ||
+                      !canExportIngestLink(linkRowMenuFeed)
+                    }
+                    aria-busy={exportLinkId === linkRowMenuFeed.id}
+                    onClick={() => {
+                      closeLinkRowMenu();
+                      void handleExportLink(linkRowMenuFeed.id);
+                    }}
+                  >
+                    <Download size={14} strokeWidth={2} aria-hidden />
+                    {exportLinkId === linkRowMenuFeed.id
+                      ? "Exporting…"
+                      : "Export"}
                   </button>
                   <button
                     type="button"

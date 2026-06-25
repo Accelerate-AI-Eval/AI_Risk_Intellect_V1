@@ -3,6 +3,7 @@ import { db } from "../db/index.js";
 import { articles } from "../schema/articles/articles.js";
 import { jobs } from "../schema/jobs/jobs.js";
 import { contentSha256 } from "./contentHash.js";
+import { localizeArticleTitleForStorage } from "../services/articles/articleTitleLocalization.js";
 
 export type StoredArticle = {
   id: number;
@@ -127,6 +128,16 @@ function hashForText(text: string): string | null {
   return trimmed ? contentSha256(trimmed) : null;
 }
 
+async function resolveStoredTitle(
+  title: string | null,
+  rawText: string,
+): Promise<string | null> {
+  return localizeArticleTitleForStorage({
+    title,
+    rawText,
+  });
+}
+
 /**
  * Port of `app.ingestion.persist.persist_article` with content + URL deduplication.
  */
@@ -134,7 +145,10 @@ export async function persistArticle(
   input: PersistArticleInput,
 ): Promise<StoredArticle> {
   const url = input.url ?? "";
-  const title = (input.title ?? "").trim() || null;
+  const title = await resolveStoredTitle(
+    (input.title ?? "").trim() || null,
+    input.text,
+  );
 
   const dup = await checkArticleDedup({ url, text: input.text });
   if (dup) {
@@ -161,7 +175,10 @@ export async function applyIngestToArticle(
   input: PersistArticleInput,
 ): Promise<StoredArticle> {
   const url = input.url ?? "";
-  const title = (input.title ?? "").trim() || null;
+  const title = await resolveStoredTitle(
+    (input.title ?? "").trim() || null,
+    input.text,
+  );
 
   const dup = await checkArticleDedupExcluding(
     { url, text: input.text },
@@ -219,7 +236,10 @@ export async function persistArticleWithJob(
   input: PersistArticleInput & { source: "manual" | "rss" },
 ): Promise<PersistArticleResult> {
   const url = input.url ?? "";
-  const title = (input.title ?? "").trim() || null;
+  const title = await resolveStoredTitle(
+    (input.title ?? "").trim() || null,
+    input.text,
+  );
 
   const dup = await checkArticleDedup({ url, text: input.text });
   if (dup) {

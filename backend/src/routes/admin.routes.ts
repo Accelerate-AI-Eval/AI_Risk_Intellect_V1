@@ -6,6 +6,7 @@ import { enqueueUrlHandler } from "../controllers/admin/admin.controller.js";
 import { enqueueJobUrlHandler } from "../controllers/admin/manualJobEnqueue.controller.js";
 import {
   archiveIngestLinkHandler,
+  exportIngestLinkItemsHandler,
   extractIngestLinkHandler,
   listIngestLinkItemsHandler,
   listIngestLinksHandler,
@@ -21,12 +22,15 @@ import {
   startWorkerHandler,
   stopDiscoveryHandler,
   stopWorkerHandler,
+  testLlmModelHandler,
+  invokeLlmModelHandler,
 } from "../controllers/admin/services.controller.js";
 import {
   enqueueJobUrlSchema,
   enqueueUrlSchema,
   ingestLinkIdSchema,
   setLlmModelSchema,
+  invokeLlmModelSchema,
   startDiscoverySchema,
   updateIngestLinkSchema,
   startReportsRunSchema,
@@ -41,6 +45,7 @@ import {
 } from "../controllers/admin/etlUpload.controller.js";
 import {
   archiveReportUploadHandler,
+  exportReportUploadItemsHandler,
   listReportUploadItemsHandler,
   listReportUploadsHandler,
 } from "../controllers/admin/etlReportUploads.controller.js";
@@ -134,6 +139,20 @@ adminRouter.put(
   asyncHandler(setLlmModelHandler),
 );
 
+adminRouter.post(
+  "/services/llm-model/test",
+  requireAuth,
+  validate(setLlmModelSchema),
+  asyncHandler(testLlmModelHandler),
+);
+
+adminRouter.post(
+  "/services/llm-model/invoke",
+  requireAuth,
+  validate(invokeLlmModelSchema),
+  asyncHandler(invokeLlmModelHandler),
+);
+
 adminRouter.get(
   "/discovery-logs",
   requireAuth,
@@ -173,6 +192,13 @@ adminRouter.get(
   requireAuth,
   validate(ingestLinkIdSchema, "params"),
   asyncHandler(listIngestLinkItemsHandler),
+);
+
+adminRouter.get(
+  "/ingest-links/:id/export",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(exportIngestLinkItemsHandler),
 );
 
 adminRouter.post(
@@ -215,6 +241,13 @@ adminRouter.get(
   requireAuth,
   validate(ingestLinkIdSchema, "params"),
   asyncHandler(listReportUploadItemsHandler),
+);
+
+adminRouter.get(
+  "/etl/reports/uploads/:id/export",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(exportReportUploadItemsHandler),
 );
 
 adminRouter.post(

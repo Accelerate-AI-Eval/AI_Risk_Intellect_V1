@@ -5,6 +5,7 @@ import {
   formatNotificationTime,
   notificationKindClass,
 } from "./notificationPresentation";
+import { formatCronNotificationText } from "./formatCronNotificationText";
 import { useNotifications } from "./useNotifications";
 import "./notifications.css";
 
@@ -115,6 +116,13 @@ export function NotificationBell() {
             <ul className="notifications__list" role="list">
               {items.map((item) => {
                 const isUnread = !readIds.has(item.id);
+                const isCronNotification = item.kind.startsWith("cron_job_");
+                const title = isCronNotification
+                  ? formatCronNotificationText(item.title)
+                  : item.title;
+                const message = isCronNotification
+                  ? formatCronNotificationText(item.message)
+                  : item.message;
                 const content = (
                   <>
                     <span
@@ -124,7 +132,7 @@ export function NotificationBell() {
                     <div className="notifications__itemBody">
                       <div className="notifications__itemTop">
                         <span className="notifications__itemTitle">
-                          {item.title}
+                          {title}
                         </span>
                         <time
                           className="notifications__itemTime"
@@ -134,7 +142,7 @@ export function NotificationBell() {
                         </time>
                       </div>
                       <p className="notifications__itemMessage">
-                        {item.message}
+                        {message}
                       </p>
                     </div>
                   </>

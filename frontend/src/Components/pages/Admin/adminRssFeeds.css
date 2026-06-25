@@ -527,6 +527,26 @@
   width: 6.75rem;
 }
 
+.adminPage__table--links .adminPage__feedStatusCell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.adminPage__feedStatusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.75rem;
+  margin: 0 auto;
+  padding: 0.3rem 0.65rem;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-indent: 0;
+  gap: 0;
+  box-sizing: border-box;
+}
+
 .adminPage__table--links .adminPage__colAdded {
   width: 6.5rem;
 }
@@ -1319,6 +1339,13 @@ html:not(.app-theme-dark) .adminPage__executionDuration {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   gap: 0;
+}
+
+.adminPage__rssWorkspace .adminPage__feedStatusPill {
+  min-width: 5.75rem;
+  letter-spacing: 0.04em;
+  justify-content: center;
+  text-align: center;
 }
 
 .adminPage__rssWorkspace .adminPage__extractionStatusPill {

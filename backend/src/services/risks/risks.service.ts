@@ -12,11 +12,11 @@ import {
 } from "./riskCatalogMatch.service.js";
 import {
   mapRiskRowToDto,
-  type ReviewQueueItemDto,
   type RiskDto,
 } from "./riskDto.js";
+import { needsHumanReview } from "./riskQuality.js";
 import { resolveRiskUuid } from "./riskResolve.js";
-import { buildRiskDisplayIdMap } from "./riskSequence.js";
+import { fetchGlobalRiskDisplayIdMap } from "./riskSequence.js";
 
 export type RiskListMetrics = {
   total: number;
@@ -25,24 +25,71 @@ export type RiskListMetrics = {
   business: number;
 };
 
-/** True when a risk belongs on the main list (taxonomy domain or reviewer-approved). */
-export function isRiskVisibleInMainList(input: {
+type RiskListRowInput = {
   domains: string | null;
+  qualityScore: number | null;
   extractionJson: unknown;
-}): boolean {
-  const ext = (input.extractionJson ?? {}) as {
-    risk?: Record<string, unknown>;
-    review_status?: string;
-  };
-  const reviewStatus = String(ext.review_status ?? "")
-    .trim()
-    .toLowerCase();
+};
+
+function reviewStatusFromExtraction(extractionJson: unknown): string {
+  const ext = (extractionJson ?? {}) as { review_status?: string };
+  return String(ext.review_status ?? "").trim().toLowerCase();
+}
+
+/** True when a risk belongs on the main Risks list (high quality or reviewer-approved). */
+export function isRiskVisibleInMainList(input: RiskListRowInput): boolean {
+  const reviewStatus = reviewStatusFromExtraction(input.extractionJson);
   if (reviewStatus === "approved") return true;
   if (reviewStatus === "rejected") return false;
 
+  if (
+    needsHumanReview({
+      qualityScore: input.qualityScore,
+      extractionJson: input.extractionJson,
+    })
+  ) {
+    return false;
+  }
+
+  const ext = (input.extractionJson ?? {}) as {
+    risk?: Record<string, unknown>;
+  };
   const extractedRisk = ext.risk ?? {};
   const domain = String(input.domains ?? extractedRisk.domains ?? "").trim();
   return isDomainInTaxonomy(domain);
+}
+
+/** True when a risk still needs human review (shown in Review Queue). */
+export function isRiskInReviewQueue(input: RiskListRowInput): boolean {
+  const reviewStatus = reviewStatusFromExtraction(input.extractionJson);
+  if (
+    reviewStatus === "approved" ||
+    reviewStatus === "rejected" ||
+    reviewStatus === "classified"
+  ) {
+    return false;
+  }
+
+  if (
+    needsHumanReview({
+      qualityScore: input.qualityScore,
+      extractionJson: input.extractionJson,
+    })
+  ) {
+    return true;
+  }
+
+  const ext = (input.extractionJson ?? {}) as {
+    risk?: Record<string, unknown>;
+  };
+  const extractedRisk = ext.risk ?? {};
+  const domain = String(input.domains ?? extractedRisk.domains ?? "").trim();
+  return !isDomainInTaxonomy(domain);
+}
+
+/** True when a risk still needs human review action. */
+export function isPendingHumanReview(input: RiskListRowInput): boolean {
+  return isRiskInReviewQueue(input);
 }
 
 function countByPrimaryKey(rows: RiskDto[]): Pick<
@@ -97,13 +144,12 @@ export async function listRisks(): Promise<{
   const visibleRows = rows.filter((row) =>
     isRiskVisibleInMainList({
       domains: row.domains,
+      qualityScore: row.qualityScore,
       extractionJson: row.extractionJson,
     }),
   );
 
-  const displayIdByRiskId = buildRiskDisplayIdMap(
-    visibleRows.map((row) => ({ id: row.id, createdAt: row.createdAt })),
-  );
+  const displayIdByRiskId = await fetchGlobalRiskDisplayIdMap();
   const mapped = visibleRows.map((row) =>
     mapRiskRowToDto(row, displayIdByRiskId.get(row.id) ?? "R-?"),
   );
@@ -152,11 +198,8 @@ export async function getRiskById(riskId: string): Promise<RiskDto> {
     throw HttpError.notFound("Risk not found.");
   }
 
-  const orderRows = await db
-    .select({ id: risks.id, createdAt: risks.createdAt })
-    .from(risks);
   const displayId =
-    buildRiskDisplayIdMap(orderRows).get(row.id) ?? "R-?";
+    (await fetchGlobalRiskDisplayIdMap()).get(row.id) ?? "R-?";
 
   let extractionJson = row.extractionJson;
   let stored = parseCatalogMatchesFromExtraction(extractionJson);
@@ -194,21 +237,9 @@ export async function getRiskById(riskId: string): Promise<RiskDto> {
   );
 }
 
-function reviewPriorityFromScore(score: number | null): ReviewQueueItemDto["priority"] {
-  if (score == null) return "High";
-  if (score < 50) return "High";
-  if (score < 75) return "Medium";
-  return "Low";
-}
-
-function formatScoreLabel(score: number | null): string {
-  if (score == null) return "—/100";
-  return `${Math.round(score)}/100`;
-}
-
 export async function listReviewQueueRisks(): Promise<{
-  items: ReviewQueueItemDto[];
-  total: number;
+  risks: RiskDto[];
+  metrics: RiskListMetrics;
 }> {
   const rows = await db
     .select({
@@ -218,63 +249,62 @@ export async function listReviewQueueRisks(): Promise<{
       domains: risks.domains,
       primaryRisk: risks.primaryRisk,
       secondaryRisk: risks.secondaryRisk,
+      sector: risks.sector,
+      industry: risks.industry,
+      intent: risks.intent,
       qualityScore: risks.qualityScore,
       extractionJson: risks.extractionJson,
+      modelName: risks.modelName,
+      sourceFlag: risks.sourceFlag,
       createdAt: risks.createdAt,
+      articleTitle: articles.title,
       articleUrl: articles.url,
     })
     .from(risks)
     .innerJoin(articles, eq(risks.articleId, articles.id))
     .orderBy(desc(risks.createdAt));
 
-  const displayIdByRiskId = buildRiskDisplayIdMap(
-    rows.map((row) => ({ id: row.id, createdAt: row.createdAt })),
+  const reviewRows = rows.filter((row) =>
+    isRiskInReviewQueue({
+      domains: row.domains,
+      qualityScore: row.qualityScore,
+      extractionJson: row.extractionJson,
+    }),
   );
 
-  const items: ReviewQueueItemDto[] = [];
+  const displayIdByRiskId = await fetchGlobalRiskDisplayIdMap();
+  const mapped = reviewRows.map((row) =>
+    mapRiskRowToDto(row, displayIdByRiskId.get(row.id) ?? "R-?"),
+  );
+  const counts = countByPrimaryKey(mapped);
 
-  for (const row of rows) {
-    const ext = (row.extractionJson ?? {}) as {
-      risk?: Record<string, unknown>;
-      review_status?: string;
-    };
-    const reviewStatus = String(ext.review_status ?? "")
-      .trim()
-      .toLowerCase();
-    if (reviewStatus === "approved" || reviewStatus === "rejected") {
-      continue;
-    }
+  return {
+    risks: mapped,
+    metrics: {
+      total: mapped.length,
+      ...counts,
+    },
+  };
+}
 
-    const extractedRisk = ext.risk ?? {};
-    const domain = String(row.domains ?? extractedRisk.domains ?? "").trim();
+export async function countPendingReviewRisks(): Promise<{ pendingCount: number }> {
+  const rows = await db
+    .select({
+      domains: risks.domains,
+      qualityScore: risks.qualityScore,
+      extractionJson: risks.extractionJson,
+    })
+    .from(risks);
 
-    if (isDomainInTaxonomy(domain)) continue;
+  const pendingCount = rows.filter((row) =>
+    isPendingHumanReview({
+      domains: row.domains,
+      qualityScore: row.qualityScore,
+      extractionJson: row.extractionJson,
+    }),
+  ).length;
 
-    const score =
-      row.qualityScore ??
-      (typeof extractedRisk.quality_score === "number"
-        ? extractedRisk.quality_score
-        : null);
-
-    items.push({
-      id: row.id,
-      displayId: displayIdByRiskId.get(row.id) ?? "R-?",
-      title: row.riskTitle,
-      domain: domain || "—",
-      primaryRisk: row.primaryRisk ?? "—",
-      secondaryRisk: row.secondaryRisk ?? "—",
-      qualityScore: score,
-      scoreLabel: formatScoreLabel(score),
-      priority: reviewPriorityFromScore(score),
-      category: [row.primaryRisk, domain].filter(Boolean).join(" · ") || "—",
-      reviewReason:
-        "Extracted domain does not match any of the 7 risk taxonomy domains.",
-      articleUrl: row.articleUrl,
-      ingestedAt: row.createdAt.toISOString(),
-    });
-  }
-
-  return { items, total: items.length };
+  return { pendingCount };
 }
 
 export function getTaxonomyDomains(): { domains: readonly string[] } {

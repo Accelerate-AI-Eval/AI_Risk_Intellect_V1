@@ -40,3 +40,12 @@ export function withUsModelPrefix(modelId: string): string {
   }
   return trimmed;
 }
+
+/** Catalog ids like …:v1:0:200k are not valid for bedrock-runtime invoke. */
+const INVOKE_CONTEXT_SUFFIX = /:(?:28|48|200)k$/i;
+
+export function resolveBedrockInvokeModelId(modelId: string): string {
+  const trimmed = withUsModelPrefix(modelId.trim());
+  if (!trimmed) return trimmed;
+  return trimmed.replace(INVOKE_CONTEXT_SUFFIX, "");
+}

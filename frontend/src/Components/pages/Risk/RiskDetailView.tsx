@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type RefObject } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -63,6 +63,45 @@ const TABS: { key: RiskDetailTab; label: string; icon: LucideIcon }[] = [
   { key: "evidence", label: "Evidence", icon: Eye },
 ];
 
+type RiskDetailTabBarProps = {
+  idPrefix: string;
+  tab: RiskDetailTab;
+  onTabChange: (tab: RiskDetailTab) => void;
+  tabPanelId: string;
+  className?: string;
+};
+
+export function RiskDetailTabBar({
+  idPrefix,
+  tab,
+  onTabChange,
+  tabPanelId,
+  className,
+}: RiskDetailTabBarProps) {
+  return (
+    <div className={`riskDetail__tabBar${className ? ` ${className}` : ""}`}>
+      <div className="riskDetail__tabs" role="tablist" aria-label="Risk detail sections">
+        {TABS.map(({ key, label, icon: TabIcon }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            id={`${idPrefix}-tab-${key}`}
+            aria-selected={tab === key}
+            aria-controls={tabPanelId}
+            tabIndex={tab === key ? 0 : -1}
+            className={`riskDetail__tab${tab === key ? " riskDetail__tab--selected" : ""}`}
+            onClick={() => onTabChange(key)}
+          >
+            <TabIcon size={15} strokeWidth={2} className="riskDetail__tabIcon" aria-hidden />
+            <span className="riskDetail__tabLabel">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function parseRiskDetailTab(value: string | null): RiskDetailTab | undefined {
   if (
     value === "overview" ||
@@ -80,6 +119,11 @@ type RiskDetailViewProps = {
   initialTab?: RiskDetailTab;
   /** When set (e.g. page back nav title), used for `aria-labelledby` on the detail shell. */
   titleElementId?: string;
+  tab?: RiskDetailTab;
+  onTabChange?: (tab: RiskDetailTab) => void;
+  hideTabBar?: boolean;
+  idPrefix?: string;
+  tabContentRef?: RefObject<HTMLDivElement | null>;
 };
 
 function confidenceLabel(level: RiskDetail["confidence"]): string {
@@ -242,13 +286,25 @@ export function RiskDetailView({
   risk,
   initialTab = "overview",
   titleElementId,
+  tab: controlledTab,
+  onTabChange,
+  hideTabBar = false,
+  idPrefix: idPrefixProp,
+  tabContentRef,
 }: RiskDetailViewProps) {
-  const baseId = useId();
-  const [tab, setTab] = useState<RiskDetailTab>(initialTab);
+  const generatedId = useId();
+  const baseId = idPrefixProp ?? generatedId;
+  const [internalTab, setInternalTab] = useState<RiskDetailTab>(initialTab);
+  const tab = controlledTab ?? internalTab;
+
+  const setTab = (next: RiskDetailTab) => {
+    if (onTabChange) onTabChange(next);
+    else setInternalTab(next);
+  };
 
   useEffect(() => {
-    setTab(initialTab);
-  }, [risk.id, initialTab]);
+    if (controlledTab === undefined) setInternalTab(initialTab);
+  }, [risk.id, initialTab, controlledTab]);
 
   const tabPanelId = `${baseId}-panel`;
 
@@ -284,28 +340,17 @@ export function RiskDetailView({
           </>
         ) : null}
 
-        <div className="riskDetail__tabBar">
-          <div className="riskDetail__tabs" role="tablist" aria-label="Risk detail sections">
-            {TABS.map(({ key, label, icon: TabIcon }) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                id={`${baseId}-tab-${key}`}
-                aria-selected={tab === key}
-                aria-controls={tabPanelId}
-                tabIndex={tab === key ? 0 : -1}
-                className={`riskDetail__tab${tab === key ? " riskDetail__tab--selected" : ""}`}
-                onClick={() => setTab(key)}
-              >
-                <TabIcon size={15} strokeWidth={2} className="riskDetail__tabIcon" aria-hidden />
-                <span className="riskDetail__tabLabel">{label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        {!hideTabBar ? (
+          <RiskDetailTabBar
+            idPrefix={baseId}
+            tab={tab}
+            onTabChange={setTab}
+            tabPanelId={tabPanelId}
+          />
+        ) : null}
 
         <div
+          ref={tabContentRef}
           id={tabPanelId}
           role="tabpanel"
           aria-labelledby={`${baseId}-tab-${tab}`}

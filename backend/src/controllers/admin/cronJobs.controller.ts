@@ -29,14 +29,14 @@ export async function saveCronJobHandler(
     res.status(200).json({
       ok: true,
       message:
-        "Cron job saved. Discovery runs on schedule; the worker starts when jobs are queued.",
+        "CRON job saved. Discovery runs on schedule; the worker starts when jobs are queued.",
       job,
       jobs: await listCronJobs(),
     });
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 400;
     const message =
-      err instanceof Error ? err.message : "Could not save cron job.";
+      err instanceof Error ? err.message : "Could not save CRON job.";
     res.status(status).json({
       ok: false,
       error: { message },
@@ -54,14 +54,14 @@ export async function stopCronJobHandler(
     const job = await stopCronJobSchedule(id);
     res.status(200).json({
       ok: true,
-      message: "Cron job stopped.",
+      message: "CRON job stopped.",
       job,
       jobs: await listCronJobs(),
     });
   } catch (err) {
     const status = err instanceof HttpError ? err.status : 400;
     const message =
-      err instanceof Error ? err.message : "Could not stop cron job.";
+      err instanceof Error ? err.message : "Could not stop CRON job.";
     res.status(status).json({
       ok: false,
       error: { message },

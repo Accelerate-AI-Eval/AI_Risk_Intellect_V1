@@ -39,23 +39,8 @@ import {
   type PendingAction,
   type ServiceKey,
 } from "./adminServices";
-import { LlmModelPicker } from "./LlmModelPicker";
+import { ModelCompatibilityChecker } from "./ModelCompatibilityChecker";
 import "./adminPage.css";
-
-type LlmModelOption = {
-  id: string;
-  label: string;
-  backend: string;
-};
-
-type LlmModelConfig = {
-  modelId: string;
-  modelLabel: string;
-  backend: string;
-  options: LlmModelOption[];
-  requiresPythonRestart?: boolean;
-  pythonSynced?: boolean;
-};
 
 type AdminTab = "controls" | "rss" | "etl";
 type RssSubTab = "links" | "logs";
@@ -80,10 +65,6 @@ export function AdminPage() {
   // const [dryRun, setDryRun] = useState(false);
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [resetConfirm, setResetConfirm] = useState("");
-  const [llmModel, setLlmModel] = useState<LlmModelConfig | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState("");
-  const [llmModelLoading, setLlmModelLoading] = useState(true);
-  const [llmModelSaving, setLlmModelSaving] = useState(false);
   useEffect(() => {
     const activeTab = ADMIN_TABS.find((item) => item.key === tab);
     setDocumentPageTitle(activeTab?.label ?? "Controls");
@@ -108,30 +89,6 @@ export function AdminPage() {
     const timer = window.setInterval(() => void loadServiceStatus(), 10_000);
     return () => window.clearInterval(timer);
   }, [loadServiceStatus]);
-
-  const loadLlmModel = useCallback(async () => {
-    const token = sessionStorage.getItem("accessToken");
-    if (!token) {
-      setLlmModelLoading(false);
-      return;
-    }
-
-    try {
-      const res = await authFetch("/admin/services/llm-model");
-      if (!res.ok) return;
-      const data = (await res.json()) as LlmModelConfig;
-      setLlmModel(data);
-      setSelectedModelId(data.modelId);
-    } catch {
-      // ignore load errors
-    } finally {
-      setLlmModelLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadLlmModel();
-  }, [loadLlmModel]);
 
   const fid = (name: string) => `${baseId}-${name}`;
 
@@ -289,48 +246,6 @@ export function AdminPage() {
     }
   };
 
-  const handleLlmModelChange = async (modelId: string) => {
-    if (!modelId || llmModelSaving) return;
-
-    setLlmModelSaving(true);
-    try {
-      const res = await authFetch("/admin/services/llm-model", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modelId }),
-      });
-      const data = (await res.json().catch(() => ({}))) as LlmModelConfig & {
-        message?: string;
-        error?: { message?: string };
-      };
-
-      if (!res.ok) {
-        toast.error(data.error?.message ?? "Could not update LLM model.", {
-          autoClose: 3500,
-        });
-        return;
-      }
-
-      setLlmModel(data);
-      setSelectedModelId(data.modelId);
-      const restartNote = data.requiresPythonRestart
-        ? " Restart the Python service for local models to take effect."
-        : !data.pythonSynced
-          ? " Python service was offline; restart it to apply the model."
-          : "";
-      toast.success(
-        `${data.message ?? "LLM model updated."}${restartNote}`,
-        { autoClose: restartNote ? 5000 : 2800 },
-      );
-    } catch {
-      toast.error("Network error while updating LLM model.", {
-        autoClose: 3000,
-      });
-    } finally {
-      setLlmModelSaving(false);
-    }
-  };
-
   const handleStop = async (key: ServiceKey) => {
     const path =
       key === "worker"
@@ -406,12 +321,6 @@ export function AdminPage() {
   };
 
   const resetEnabled = resetConfirm === "RESET";
-  const currentModelId = llmModel?.modelId ?? "";
-  const canApplyModel =
-    !llmModelLoading &&
-    !llmModelSaving &&
-    Boolean(selectedModelId) &&
-    selectedModelId !== currentModelId;
 
   return (
     <main className="mainLayout__content adminPage">
@@ -463,35 +372,7 @@ export function AdminPage() {
           />
         </ul>
 
-        <div className="adminPage__modelField">
-          <div className="adminPage__modelLabelRow">
-            <label className="adminPage__modelLabel" htmlFor={fid("llm-model-trigger")}>
-              LLM model
-            </label>
-            <span className="adminPage__modelCurrent" role="status" aria-live="polite">
-              {llmModelLoading ? "Loading…" : currentModelId || "—"}
-            </span>
-          </div>
-          <div className="adminPage__modelRow">
-            <LlmModelPicker
-              idPrefix={fid("llm-model")}
-              options={llmModel?.options ?? []}
-              value={selectedModelId}
-              onChange={setSelectedModelId}
-              disabled={llmModelSaving || !llmModel?.options.length}
-              loading={llmModelLoading}
-            />
-            <button
-              type="button"
-              className="usersPage__btn usersPage__btn--primary usersPage__btn--inviteSend adminPage__modelApplyBtn"
-              onClick={() => void handleLlmModelChange(selectedModelId)}
-              disabled={!canApplyModel}
-              aria-busy={llmModelSaving}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
+        <ModelCompatibilityChecker idPrefix={fid("llm-model")} />
       </section>
 
         <div className="settingsPage adminPage__topRowCell">
@@ -535,7 +416,7 @@ export function AdminPage() {
           void loadServiceStatus();
           if (!stopped) {
             toast.warning(
-              "Cron job stop requested, but discovery has not reported stopped yet.",
+              "CRON job stop requested, but discovery has not reported stopped yet.",
               { autoClose: 4000 },
             );
           }

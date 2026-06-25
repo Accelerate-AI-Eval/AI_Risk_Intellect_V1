@@ -1,3 +1,5 @@
+import { db } from "../../db/index.js";
+import { risks } from "../../schema/risks/risks.js";
 import { formatRiskDisplayId } from "./riskDisplayId.js";
 
 export type RiskOrderRow = {
@@ -25,4 +27,14 @@ export function buildRiskDisplayIdMap(
     map.set(row.id, formatRiskDisplayId(index + 1, total));
   });
   return map;
+}
+
+/** Stable R-n ids across Risks page, Review queue, and Feedback (by global ingest order). */
+export async function fetchGlobalRiskDisplayIdMap(): Promise<
+  Map<string, string>
+> {
+  const orderRows = await db
+    .select({ id: risks.id, createdAt: risks.createdAt })
+    .from(risks);
+  return buildRiskDisplayIdMap(orderRows);
 }

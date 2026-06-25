@@ -212,7 +212,7 @@
 .adminPage__logsStatus {
   display: inline-block;
   padding: 0.12rem 0.45rem;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -594,7 +594,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0.18rem 0.55rem;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--adm-primary);
@@ -840,7 +840,7 @@
   justify-content: center;
   min-width: 1.45rem;
   padding: 0.1rem 0.35rem;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.68rem;
   font-weight: 600;
   color: var(--adm-primary);
@@ -912,6 +912,38 @@
   flex-shrink: 0;
   color: var(--adm-muted);
   pointer-events: none;
+}
+
+.adminPage__cronFieldIcon {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
+  color: var(--adm-primary, #1cb0d4);
+  stroke: currentColor;
+  pointer-events: none;
+}
+
+html.app-theme-dark .adminPage__cronInputWrap > svg:not(.adminPage__cronFieldIcon) {
+  color: #e2e8f0;
+}
+
+html.app-theme-dark .adminPage__cronInputWrap > svg.adminPage__cronFieldIcon,
+html.app-theme-dark .adminPage__cronFieldIcon {
+  color: #38bdf8;
+  stroke: currentColor;
+}
+
+html.app-theme-dark .adminPage__cronSectionTitleWrap .adminPage__cronFieldIcon {
+  color: var(--adm-primary, #1cb0d4);
+}
+
+html:not(.app-theme-dark) .adminPage__cronInputWrap > svg:not(.adminPage__cronFieldIcon) {
+  color: #64748b;
+}
+
+html:not(.app-theme-dark) .adminPage__cronInputWrap > svg.adminPage__cronFieldIcon,
+html:not(.app-theme-dark) .adminPage__cronFieldIcon {
+  color: var(--adm-primary, #1cb0d4);
 }
 
 .adminPage__cronInputWrap:focus-within {
@@ -1082,7 +1114,14 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   box-shadow: none !important;
   background: transparent !important;
   cursor: pointer;
+}
+
+html.app-theme-dark .adminPage__cronInput--native {
   color-scheme: dark;
+}
+
+html:not(.app-theme-dark) .adminPage__cronInput--native {
+  color-scheme: light;
 }
 
 .adminPage__cronInput--native:focus,
@@ -1090,6 +1129,10 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   border: 0 !important;
   outline: 0 !important;
   box-shadow: none !important;
+}
+
+html.app-theme-dark .adminPage__cronInputWrap--native {
+  color-scheme: dark;
 }
 
 .adminPage__cronInput--native::-webkit-calendar-picker-indicator,
@@ -1108,6 +1151,52 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
+}
+
+html.app-theme-dark .adminPage__cronInput--native::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  filter: invert(1) brightness(1.35);
+  cursor: pointer;
+}
+
+html:not(.app-theme-dark) .adminPage__cronInput--native::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  filter: none;
+}
+
+.adminPage__cronInputWrap--date .adminPage__cronInput--native::-webkit-calendar-picker-indicator {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  filter: none !important;
+}
+
+.adminPage__cronFieldIconBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--adm-primary, #1cb0d4);
+}
+
+html.app-theme-dark .adminPage__cronFieldIconBtn {
+  color: #38bdf8;
+}
+
+.adminPage__cronFieldIconBtn .adminPage__cronFieldIcon {
+  pointer-events: none;
+}
+
+.adminPage__cronFieldIconBtn:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.45);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .adminPage__cronInput--native::-webkit-datetime-edit,
@@ -1373,7 +1462,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   width: 2rem;
   height: 2rem;
   padding: 0;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid var(--adm-input-border);
   background: rgba(148, 163, 184, 0.08);
   color: var(--adm-muted);
@@ -1411,7 +1500,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   min-width: 3.25rem;
   height: 1.85rem;
   padding: 0 0.55rem;
-  border-radius: 999px;
+  border-radius: 6px;
   border: 1px solid var(--adm-input-border);
   background: transparent;
   color: var(--adm-muted);
@@ -1609,7 +1698,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   align-items: center;
   gap: 0.32rem;
   padding: 0.16rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 600;
   line-height: 1.25;
@@ -1622,7 +1711,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
 .adminPage__statusPillDot {
   width: 0.32rem;
   height: 0.32rem;
-  border-radius: 999px;
+  border-radius: 2px;
   background: currentColor;
   flex-shrink: 0;
 }
@@ -1724,7 +1813,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
 .adminPage__modelCurrent {
   display: inline-flex;
   align-items: center;
-  max-width: 100%;
+  max-width: min(100%, 18rem);
   padding: 0.2rem 0.55rem;
   border-radius: 6px;
   font-size: 0.78rem;
@@ -1734,18 +1823,45 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
   background: rgba(28, 176, 212, 0.14);
   border: 1px solid rgba(28, 176, 212, 0.45);
   box-shadow: 0 0 0 1px rgba(28, 176, 212, 0.08);
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.adminPage__modelRow {
+.adminPage__modelControls {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 0.5rem;
+}
+
+.adminPage__modelPickerRow {
+  width: 100%;
+  min-width: 0;
+}
+
+.adminPage__modelActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.adminPage__modelApplyBtn,
+.adminPage__modelTestBtn {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  margin-top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
 .adminPage__modelPicker {
   position: relative;
-  flex: 1 1 12rem;
+  width: 100%;
   min-width: 0;
 }
 
@@ -1881,11 +1997,10 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
 
 .adminPage__modelOption {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.15rem;
+  align-items: center;
   width: 100%;
-  padding: 0.5rem 0.65rem;
+  min-height: 36px;
+  padding: 0.45rem 0.65rem;
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -1911,22 +2026,164 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
 }
 
 .adminPage__modelOptionLabel {
+  flex: 1;
+  min-width: 0;
   font-size: 0.84rem;
   font-weight: 600;
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.adminPage__modelOptionId {
-  font-size: 0.72rem;
-  color: var(--adm-muted);
-  word-break: break-all;
-  line-height: 1.25;
+.adminPage__modelStatus {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  border: 1px solid var(--adm-border);
+  background: var(--adm-input-bg);
+  color: var(--adm-text);
 }
 
-.adminPage__modelApplyBtn {
-  flex-shrink: 0;
-  min-height: 40px;
+.adminPage__modelStatus--success {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.adminPage__modelStatus--error {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.adminPage__modelTestDialog {
+  max-width: 460px;
+}
+
+.adminPage__modelTestDialogBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.adminPage__modelTestDialogBanner--success {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.adminPage__modelTestDialogBanner--error {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.adminPage__modelTestDialogMeta {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.adminPage__modelTestDialogRow {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.adminPage__modelTestDialogRow dt {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--main-text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.adminPage__modelTestDialogRow dd {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--main-text-color, #1f2937);
+  word-break: break-word;
+}
+
+.adminPage__modelTestDialogMessage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.adminPage__modelTestDialogMessageLabel {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--main-text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.adminPage__modelTestDialogMessageText {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--main-text-color, #1f2937);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.adminPage__modelTestDialog--error .adminPage__modelTestDialogMessageText {
+  color: #991b1b;
+  background: rgba(254, 242, 242, 0.85);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.adminPage__modelTestDialog .usersPage__dialogActions {
+  padding: 0 1.1rem 1.1rem;
   margin-top: 0;
+}
+
+html.app-theme-dark .adminPage__modelTestDialogRow dd {
+  color: #e2e8f0;
+}
+
+html.app-theme-dark .adminPage__modelTestDialogBanner--success {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+html.app-theme-dark .adminPage__modelTestDialogBanner--error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+html.app-theme-dark .adminPage__modelTestDialogMessageText {
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+html.app-theme-dark
+  .adminPage__modelTestDialog--error
+  .adminPage__modelTestDialogMessageText {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(248, 113, 113, 0.35);
 }
 
 .adminPage__split {
@@ -1993,7 +2250,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
 }
 
 .adminPage__fileField--tight {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0;
 }
 
 .adminPage__fileLabel {
@@ -2005,6 +2262,7 @@ html:not(.app-theme-dark) .adminPage__cronTimeComboOption--active {
 .adminPage__fileInput {
   width: 100%;
   max-width: 100%;
+  margin-bottom: 0.75rem;
   font: inherit;
   font-size: 0.8rem;
   color: var(--adm-muted);
@@ -2304,7 +2562,6 @@ html:not(.app-theme-dark) .adminPage__cronPanel {
   border-color: #e2e8f0;
 }
 
-html:not(.app-theme-dark) .adminPage__cronFeedsPanel,
 html:not(.app-theme-dark) .adminPage__cronInputWrap,
 html:not(.app-theme-dark) .adminPage__cronSearchWrap,
 html:not(.app-theme-dark) .adminPage__cronSearchInput,
@@ -2313,8 +2570,8 @@ html:not(.app-theme-dark) .adminPage__cronMonthDaySelect {
   background: #fff;
 }
 
-html:not(.app-theme-dark) .adminPage__cronInput--native {
-  color-scheme: light;
+html:not(.app-theme-dark) .adminPage__cronFeedsPanel {
+  background: #fff;
 }
 
 html:not(.app-theme-dark) .adminPage__cronDayBtn,
@@ -2402,4 +2659,9 @@ html:not(.app-theme-dark) .adminPage__modelOption--selected {
 html.app-theme-dark .adminPage {
   --adm-surface: #0f172a;
   --adm-card: #1e293b;
+}
+
+html.app-theme-dark .adminPage__cronInputWrap {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 163, 184, 0.28);
 }

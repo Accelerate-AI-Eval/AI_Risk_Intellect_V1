@@ -99,7 +99,7 @@ export async function saveCronJobSchedule(
   input: SaveCronScheduleInput,
 ): Promise<CronJobDefinition> {
   if (jobId !== RSS_CRON_SERVICE_ID) {
-    throw new Error("Unknown cron job.");
+    throw new Error("Unknown CRON job.");
   }
 
   if (
@@ -170,7 +170,7 @@ export async function stopCronJobSchedule(
   jobId: string,
 ): Promise<CronJobDefinition> {
   if (jobId !== RSS_CRON_SERVICE_ID) {
-    throw new Error("Unknown cron job.");
+    throw new Error("Unknown CRON job.");
   }
 
   await deactivateAllRssCronSchedules();
@@ -179,7 +179,7 @@ export async function stopCronJobSchedule(
   const jobs = await listCronJobs();
   const job = jobs[0];
   if (!job) {
-    throw new Error("Cron job could not be loaded after stop.");
+    throw new Error("CRON job could not be loaded after stop.");
   }
 
   return job;

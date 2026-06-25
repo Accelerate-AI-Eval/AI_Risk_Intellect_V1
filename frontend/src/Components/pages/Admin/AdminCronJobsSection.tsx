@@ -121,6 +121,20 @@ function unitLabel(unit: RepeatUnit, interval: number): string {
   return interval === 1 ? base : `${base}s`;
 }
 
+function openNativeDatePicker(input: HTMLInputElement | null) {
+  if (!input) return;
+  if (typeof input.showPicker === "function") {
+    try {
+      input.showPicker();
+      return;
+    } catch {
+      // showPicker may throw outside a user gesture
+    }
+  }
+  input.focus();
+  input.click();
+}
+
 function feedMatchesSearch(feed: IngestLinkRow, search: string): boolean {
   const query = search.trim().toLowerCase();
   if (!query) return true;
@@ -228,6 +242,7 @@ export function AdminCronJobsSection({
   });
   const startTimeComboRef = useRef<HTMLDivElement>(null);
   const startTimeListRef = useRef<HTMLUListElement>(null);
+  const startDateRef = useRef<HTMLInputElement>(null);
 
   const activeFeeds = useMemo(
     () => rssFeeds.filter((feed) => !feed.archived),
@@ -413,7 +428,7 @@ export function AdminCronJobsSection({
     } catch {
       setFeedSummaries([]);
       if (!silent) {
-        toast.error("Network error while loading cron job logs.", {
+        toast.error("Network error while loading CRON job logs.", {
           autoClose: 3000,
         });
       }
@@ -588,7 +603,7 @@ export function AdminCronJobsSection({
       );
       void requestNotificationsReload({ silent: true });
     } catch {
-      toast.error("Network error while saving cron job.", { autoClose: 3000 });
+      toast.error("Network error while saving CRON job.", { autoClose: 3000 });
     } finally {
       setSaving(false);
     }
@@ -611,7 +626,7 @@ export function AdminCronJobsSection({
       toast.success(result.message, { autoClose: 3200 });
       toastCronJobStopped();
     } catch {
-      toast.error("Network error while stopping cron job.", { autoClose: 3000 });
+      toast.error("Network error while stopping CRON job.", { autoClose: 3000 });
     } finally {
       setStopping(false);
     }
@@ -626,7 +641,7 @@ export function AdminCronJobsSection({
           </span>
           <div className="adminPage__cardHeadText">
             <h2 id={titleId} className="adminPage__cardTitle">
-              Cron jobs
+              CRON jobs
             </h2>
             <p className="adminPage__cardHint">
               Schedule automated RSS discovery for selected feeds. Discovery
@@ -650,7 +665,7 @@ export function AdminCronJobsSection({
           <div
             className="adminPage__tabs adminPage__tabs--sub"
             role="tablist"
-            aria-label="Cron job sections"
+            aria-label="CRON job sections"
           >
             <button
               type="button"
@@ -789,7 +804,7 @@ export function AdminCronJobsSection({
                             className="adminPage__td adminPage__emptyCell"
                             colSpan={8}
                           >
-                            Loading cron job logs…
+                            Loading CRON job logs…
                           </td>
                         </tr>
                       ) : logsError ? (
@@ -991,7 +1006,12 @@ export function AdminCronJobsSection({
             <div className="adminPage__cronPanel">
               <div className="adminPage__cronSectionHead">
                 <div className="adminPage__cronSectionTitleWrap">
-                  <Calendar size={15} strokeWidth={2} aria-hidden />
+                  <Calendar
+                    className="adminPage__cronFieldIcon"
+                    size={15}
+                    strokeWidth={2}
+                    aria-hidden
+                  />
                   <h3 className="adminPage__cronSectionTitle">Schedule</h3>
                 </div>
               </div>
@@ -1005,9 +1025,15 @@ export function AdminCronJobsSection({
                     >
                       Start date
                     </label>
-                    <div className="adminPage__cronInputWrap adminPage__cronInputWrap--native">
-                      <Calendar size={15} strokeWidth={2} aria-hidden />
+                    <div className="adminPage__cronInputWrap adminPage__cronInputWrap--native adminPage__cronInputWrap--date">
+                      <Calendar
+                        className="adminPage__cronFieldIcon"
+                        size={15}
+                        strokeWidth={2}
+                        aria-hidden
+                      />
                       <input
+                        ref={startDateRef}
                         id={startDateId}
                         type="date"
                         className="adminPage__cronInput adminPage__cronInput--native"
@@ -1023,6 +1049,19 @@ export function AdminCronJobsSection({
                           }))
                         }
                       />
+                      <button
+                        type="button"
+                        className="adminPage__cronFieldIconBtn"
+                        onClick={() => openNativeDatePicker(startDateRef.current)}
+                        aria-label="Open date picker"
+                      >
+                        <Calendar
+                          className="adminPage__cronFieldIcon"
+                          size={15}
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      </button>
                     </div>
                     {/* <p className="adminPage__cronFieldHint">
                       Anchor date for repeat schedules. Saved value is kept when
@@ -1045,7 +1084,12 @@ export function AdminCronJobsSection({
                           : ""
                       }`}
                     >
-                      <Clock size={15} strokeWidth={2} aria-hidden />
+                      <Clock
+                        className="adminPage__cronFieldIcon"
+                        size={15}
+                        strokeWidth={2}
+                        aria-hidden
+                      />
                       <input
                         id={startTimeId}
                         type="time"
@@ -1280,7 +1324,7 @@ export function AdminCronJobsSection({
                 aria-busy={stopping}
               >
                 <Square size={14} strokeWidth={2} aria-hidden />
-                {stopping ? "Stopping…" : "Stop cron job"}
+                {stopping ? "Stopping…" : "Stop CRON job"}
               </button>
               <button
                 type="button"

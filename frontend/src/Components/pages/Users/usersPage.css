@@ -346,7 +346,7 @@ textarea.usersPage__textarea:focus {
 
 /* Same tones as .mainLayout__dropdownItem--logout */
 .usersPage__btn--logoutTone {
-  border: none;
+  border: 1px solid #fecaca;
   color: #b91c1c;
   background: #fef2f2;
 }
@@ -354,6 +354,7 @@ textarea.usersPage__textarea:focus {
 .usersPage__btn--logoutTone:hover:not(:disabled) {
   color: #b91c1c;
   background: #fef2f2;
+  border-color: #fca5a5;
 }
 
 .usersPage__btn--logoutTone:focus-visible {
@@ -436,6 +437,7 @@ html.app-theme-dark .usersPage__dialogClose:hover:not(:disabled) {
 }
 
 html.app-theme-dark .usersPage__btn--logoutTone {
+  border: 1px solid rgba(248, 113, 113, 0.45);
   color: #fca5a5;
   background: rgba(185, 28, 28, 0.12);
 }
@@ -443,6 +445,7 @@ html.app-theme-dark .usersPage__btn--logoutTone {
 html.app-theme-dark .usersPage__btn--logoutTone:hover:not(:disabled) {
   color: #fca5a5;
   background: rgba(185, 28, 28, 0.12);
+  border-color: rgba(252, 165, 165, 0.65);
 }
 
 .usersPage__intro {

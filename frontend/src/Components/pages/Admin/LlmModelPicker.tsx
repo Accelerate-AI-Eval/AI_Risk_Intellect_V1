@@ -84,7 +84,16 @@ export function LlmModelPicker({
 
   const triggerLabel = loading
     ? "Loading models…"
-    : selected?.label ?? (value ? value : "Select a model…");
+    : options.length === 0
+      ? "No models available"
+      : selected?.label ?? (value ? value : "Select a model…");
+
+  useEffect(() => {
+    if (inactive && open) {
+      setOpen(false);
+      setQuery("");
+    }
+  }, [inactive, open]);
 
   return (
     <div
@@ -158,11 +167,11 @@ export function LlmModelPicker({
                       type="button"
                       role="option"
                       aria-selected={isSelected}
+                      title={option.id}
                       className={`adminPage__modelOption${isSelected ? " adminPage__modelOption--selected" : ""}`}
                       onClick={() => handleSelect(option.id)}
                     >
                       <span className="adminPage__modelOptionLabel">{option.label}</span>
-                      <span className="adminPage__modelOptionId">{option.id}</span>
                     </button>
                   </li>
                 );

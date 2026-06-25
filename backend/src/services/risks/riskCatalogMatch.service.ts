@@ -1,5 +1,25 @@
+import {
+  listTaxonomyDomains,
+  type TaxonomyDomain,
+} from "../../config/aiqRiskTaxonomy.js";
 import { db } from "../../db/index.js";
 import { riskMappings } from "../../schema/riskMappings/riskMappings.js";
+import {
+  normalizeLabelToCatalogDomain,
+  resolveCatalogDomain,
+  scoreDomainsFromDefinitions,
+  type DomainResolutionResult,
+  type ResolveCatalogDomainInput,
+} from "./riskDomainResolver.service.js";
+
+export {
+  listTaxonomyDomains,
+  type TaxonomyDomain,
+  resolveCatalogDomain,
+  scoreDomainsFromDefinitions,
+  type DomainResolutionResult,
+  type ResolveCatalogDomainInput,
+};
 
 export type CatalogRiskMatch = {
   riskId: string;
@@ -71,23 +91,6 @@ export function mergeCatalogMatchesIntoExtraction(
     ...extractionJson,
     catalog_matches: matches,
   };
-}
-
-const CATALOG_DOMAINS = [
-  "Discrimination and Toxicity",
-  "Privacy and Security",
-  "Misinformation",
-  "Malicious Actors and Misuse",
-  "Human-Computer Interaction",
-  "Socioeconomic and Environmental",
-  "AI System Safety, Failures, and Limitations",
-] as const;
-
-export type TaxonomyDomain = (typeof CATALOG_DOMAINS)[number];
-
-/** Canonical 7-domain risk taxonomy used for filtering and review. */
-export function listTaxonomyDomains(): readonly TaxonomyDomain[] {
-  return CATALOG_DOMAINS;
 }
 
 /** True when the extracted domain maps to one of the 7 taxonomy domains. */
@@ -172,62 +175,27 @@ function textSimilarity(a: Set<string>, b: Set<string>): number {
 
 /** Map LLM / numbered taxonomy labels to catalog `risk_mappings.domains` values. */
 export function normalizeToCatalogDomain(domain: string): string | null {
-  const fp = fingerprint(domain);
-  if (!fp) return null;
-
-  const direct: Record<string, string> = {
-    discriminationandtoxicity: "Discrimination and Toxicity",
-    privacyandsecurity: "Privacy and Security",
-    misinformation: "Misinformation",
-    maliciousactorsandmisuse: "Malicious Actors and Misuse",
-    maliciousactors: "Malicious Actors and Misuse",
-    humancomputerinteraction: "Human-Computer Interaction",
-    socioeconomicandenvironmental: "Socioeconomic and Environmental",
-    aisystemsafetyfailuresandlimitations: "AI System Safety, Failures, and Limitations",
-    aisystemsafetyfailureslimitations: "AI System Safety, Failures, and Limitations",
-  };
-  if (direct[fp]) return direct[fp];
-
-  if (fp.includes("discriminat") || fp.includes("toxic")) {
-    return "Discrimination and Toxicity";
-  }
-  if (fp.includes("privacy") || fp.includes("security")) {
-    return "Privacy and Security";
-  }
-  if (fp.includes("misinform") || fp.includes("deepfake")) {
-    return "Misinformation";
-  }
-  if (fp.includes("malicious") || fp.includes("misuse")) {
-    return "Malicious Actors and Misuse";
-  }
-  if (fp.includes("humancomputer") || fp.includes("interaction")) {
-    return "Human-Computer Interaction";
-  }
-  if (fp.includes("socioeconomic") || fp.includes("environmental")) {
-    return "Socioeconomic and Environmental";
-  }
-  if (fp.includes("safety") || fp.includes("failure") || fp.includes("limitation")) {
-    return "AI System Safety, Failures, and Limitations";
-  }
-
-  let best: string | null = null;
-  let bestScore = 0;
-  for (const catalog of CATALOG_DOMAINS) {
-    const score = jaccard(tokenize(domain), tokenize(catalog));
-    if (score > bestScore) {
-      bestScore = score;
-      best = catalog;
-    }
-  }
-  return bestScore >= 0.25 ? best : null;
+  return normalizeLabelToCatalogDomain(domain);
 }
 
-function domainMatchScore(extractedDomain: string, catalogDomain: string): number {
+function domainMatchScore(
+  extractedDomain: string,
+  catalogDomain: string,
+  contextText = "",
+): number {
   const normalized = normalizeToCatalogDomain(extractedDomain);
   const catalog = (catalogDomain ?? "").trim();
   if (!catalog) return 0;
-  if (normalized && fingerprint(normalized) === fingerprint(catalog)) return 1;
-  return jaccard(tokenize(extractedDomain), tokenize(catalog));
+  if (normalized && fingerprint(normalized) === fingerprint(catalog)) {
+    return 1;
+  }
+  const labelScore = jaccard(tokenize(extractedDomain), tokenize(catalog));
+  const definitionScore = contextText
+    ? (scoreDomainsFromDefinitions(contextText).find(
+        (s) => fingerprint(s.catalogDomain) === fingerprint(catalog),
+      )?.score ?? 0)
+    : 0;
+  return Math.min(1, labelScore * 0.45 + definitionScore * 0.55);
 }
 
 function buildMatchSummary(
@@ -344,13 +312,16 @@ export async function findCatalogRiskMatches(
   if (!extractedText) return [];
 
   const normalizedDomain = normalizeToCatalogDomain(extractedDomain);
+  const definitionDomain = scoreDomainsFromDefinitions(extractedText)[0]?.catalogDomain;
+  const resolvedDomain = normalizedDomain ?? definitionDomain ?? null;
   const rows = await loadCatalogRows();
 
-  const candidates = normalizedDomain
+  const candidates = resolvedDomain
     ? rows.filter(
         (row) =>
-          fingerprint(row.domains ?? "") === fingerprint(normalizedDomain) ||
-          domainMatchScore(extractedDomain, row.domains ?? "") >= 0.4,
+          fingerprint(row.domains ?? "") === fingerprint(resolvedDomain) ||
+          domainMatchScore(extractedDomain, row.domains ?? "", extractedText) >=
+            0.35,
       )
     : rows;
 
@@ -369,7 +340,11 @@ export async function findCatalogRiskMatches(
         extractedTokens,
         tokenize(catalogText),
       );
-      const domainScore = domainMatchScore(extractedDomain, row.domains ?? "");
+      const domainScore = domainMatchScore(
+        extractedDomain,
+        row.domains ?? "",
+        extractedText,
+      );
       const accuracy = 0.35 * domainScore + 0.65 * descriptionScore;
       const domainPct = Math.round(domainScore * 100);
       const descriptionPct = Math.round(descriptionScore * 100);

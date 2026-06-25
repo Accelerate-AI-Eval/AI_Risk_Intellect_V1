@@ -1,5 +1,6 @@
 import { normalizeNarrativeText } from "../../utils/normalizeNarrativeText.js";
 import { parseCatalogMatchesFromExtraction } from "./riskCatalogMatch.service.js";
+import { resolveQualityScore100 } from "./riskQuality.js";
 
 export type EvidenceBreakdownItem = {
   field: string;
@@ -23,6 +24,15 @@ export type ReviewQueueItemDto = {
   reviewReason: string;
   articleUrl: string;
   ingestedAt: string;
+};
+
+export type HumanReviewInfo = {
+  status: "pending" | "approved" | "rejected" | "classified" | null;
+  classification: "raw" | "structured" | null;
+  reviewedBy: string | null;
+  reviewedByUsername: string | null;
+  reviewedAt: string | null;
+  feedback: string | null;
 };
 
 export type CatalogRiskMatchDto = {
@@ -60,6 +70,7 @@ export type RiskDto = {
   articleUrl: string;
   ingestedAt: string;
   modelName: string | null;
+  humanReview: HumanReviewInfo;
   riskAnalysis: {
     risk_identified: string;
     article_context: string;
@@ -97,6 +108,19 @@ export type RiskDto = {
 type ExtractionJson = {
   risk?: Record<string, unknown>;
   analysis?: Record<string, unknown>;
+  review_status?: string;
+  review_classification?: string;
+  review_feedback?: string;
+  reviewed_at?: string;
+  approved_at?: string;
+  rejected_at?: string;
+  classified_at?: string;
+  reviewed_by?: {
+    user_id?: string;
+    username?: string;
+    email?: string;
+    display_name?: string;
+  };
   justification?: {
     self_assessment?: Record<string, unknown>;
     decision_rationale?: string;
@@ -105,6 +129,11 @@ type ExtractionJson = {
   controls?: Array<Record<string, unknown>>;
   /** Catalog `risk_mappings` IDs matched at extraction time. */
   catalog_matches?: unknown[];
+  is_non_english?: boolean;
+  english_risk_title?: string;
+  original_risk_title?: string;
+  english_article_title?: string;
+  original_article_title?: string;
 };
 
 type RiskRowInput = {
@@ -128,6 +157,36 @@ type RiskRowInput = {
 function str(v: unknown, fallback = ""): string {
   if (v == null) return fallback;
   return String(v).trim();
+}
+
+function resolveEnglishRiskTitle(
+  row: Pick<RiskRowInput, "riskTitle">,
+  ext: ExtractionJson,
+  risk: Record<string, unknown>,
+): string {
+  const english = str(ext.english_risk_title);
+  if (english) return english;
+
+  const fromJson = str(risk.risk_title);
+  const fromColumn = str(row.riskTitle);
+  const original = str(ext.original_risk_title);
+
+  if (fromJson && original && fromJson !== original) return fromJson;
+  if (fromColumn && original && fromColumn !== original) return fromColumn;
+  return fromColumn || fromJson || "Untitled risk";
+}
+
+function resolveEnglishArticleTitle(
+  row: Pick<RiskRowInput, "articleTitle" | "articleUrl">,
+  ext: ExtractionJson,
+): string {
+  const english = str(ext.english_article_title);
+  if (english) return english;
+
+  const fromColumn = str(row.articleTitle);
+  const original = str(ext.original_article_title);
+  if (fromColumn && original && fromColumn !== original) return fromColumn;
+  return fromColumn || row.articleUrl;
 }
 
 /** Full narrative text for UI — never word-capped; strips only a trailing fragment. */
@@ -186,6 +245,44 @@ function mapEvidenceBreakdown(
     .filter((item) => item.sourceText.length > 0);
 }
 
+function parseHumanReview(ext: ExtractionJson): HumanReviewInfo {
+  const statusRaw = str(ext.review_status).toLowerCase();
+  const status =
+    statusRaw === "approved" ||
+    statusRaw === "rejected" ||
+    statusRaw === "classified" ||
+    statusRaw === "pending"
+      ? statusRaw
+      : null;
+
+  const classificationRaw = str(ext.review_classification).toLowerCase();
+  const classification =
+    classificationRaw === "raw" || classificationRaw === "structured"
+      ? classificationRaw
+      : null;
+
+  const reviewedByRecord = ext.reviewed_by;
+  const reviewedBy =
+    str(reviewedByRecord?.display_name) ||
+    str(reviewedByRecord?.username) ||
+    str(reviewedByRecord?.email) ||
+    null;
+
+  return {
+    status,
+    classification,
+    reviewedBy,
+    reviewedByUsername: str(reviewedByRecord?.username) || null,
+    reviewedAt:
+      str(ext.reviewed_at) ||
+      str(ext.approved_at) ||
+      str(ext.rejected_at) ||
+      str(ext.classified_at) ||
+      null,
+    feedback: str(ext.review_feedback) || null,
+  };
+}
+
 export function mapRiskRowToDto(
   row: RiskRowInput,
   displayId: string,
@@ -206,7 +303,10 @@ export function mapRiskRowToDto(
   const domain = str(row.domains ?? risk.domains, "—");
   const primaryRisk = str(row.primaryRisk ?? risk.primary_risk, "—");
   const secondaryRisk = str(row.secondaryRisk ?? risk.secondary_risks, "—");
-  const quality = row.qualityScore ?? Number(self.total_score) ?? null;
+  const quality = resolveQualityScore100({
+    qualityScore: row.qualityScore,
+    extractionJson: ext,
+  });
 
   const description = narrative(risk.description);
 
@@ -249,7 +349,7 @@ export function mapRiskRowToDto(
   return {
     id: row.id,
     displayId,
-    title: str(row.riskTitle ?? risk.risk_title, "Untitled risk"),
+    title: resolveEnglishRiskTitle(row, ext, risk),
     domain,
     primaryRisk,
     secondaryRisk,
@@ -270,10 +370,11 @@ export function mapRiskRowToDto(
     observableIndicators: narrative(risk.observable_indicators),
     timing: narrative(risk.timing),
     articleId: row.articleId,
-    articleTitle: str(row.articleTitle, row.articleUrl),
+    articleTitle: resolveEnglishArticleTitle(row, ext),
     articleUrl: row.articleUrl,
     ingestedAt: row.createdAt.toISOString(),
     modelName: row.modelName,
+    humanReview: parseHumanReview(ext),
     riskAnalysis: {
       risk_identified: narrative(analysis.risk_identified),
       article_context: narrative(analysis.article_context),

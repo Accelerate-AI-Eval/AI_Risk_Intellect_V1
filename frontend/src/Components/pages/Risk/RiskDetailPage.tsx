@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { authFetch } from "../../../utils/authFetch";
@@ -11,8 +11,34 @@ import {
   riskBackNavTitle,
   type RiskDetail,
 } from "./riskData";
-import { parseRiskDetailTab, RiskDetailView } from "./RiskDetailView";
+import {
+  parseRiskDetailTab,
+  RiskDetailTabBar,
+  RiskDetailView,
+  type RiskDetailTab,
+} from "./RiskDetailView";
 import "./riskDetailPage.css";
+
+function scrollRiskDetailTabContent(contentEl: HTMLElement | null): void {
+  if (!contentEl) return;
+
+  const scrollRoot = contentEl.closest(".mainLayout__scroll");
+  const header = contentEl
+    .closest(".riskDetailPage")
+    ?.querySelector(".riskDetailPage__stickyHeader");
+
+  if (!(scrollRoot instanceof HTMLElement) || !(header instanceof HTMLElement)) {
+    contentEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  const contentTop = contentEl.getBoundingClientRect().top;
+  const scrollRootTop = scrollRoot.getBoundingClientRect().top;
+  const stickyOffset = header.getBoundingClientRect().height + 8;
+  const nextTop = scrollRoot.scrollTop + (contentTop - scrollRootTop) - stickyOffset;
+
+  scrollRoot.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+}
 
 function confidenceLabel(level: RiskDetail["confidence"]): string {
   switch (level) {
@@ -89,6 +115,7 @@ function RiskDetailPageMeta({ risk }: { risk: RiskDetail }) {
 export function RiskDetailPage() {
   const { riskId } = useParams();
   const [searchParams] = useSearchParams();
+  const detailId = useId();
   const [risk, setRisk] = useState<RiskDetail | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "idle" | "error">(
     "loading",
@@ -98,6 +125,23 @@ export function RiskDetailPage() {
     () => parseRiskDetailTab(searchParams.get("tab")) ?? "overview",
     [searchParams],
   );
+  const [tab, setTab] = useState<RiskDetailTab>(initialTab);
+  const tabContentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [risk?.id, initialTab]);
+
+  const handleTabChange = useCallback((next: RiskDetailTab) => {
+    setTab(next);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        scrollRiskDetailTabContent(tabContentRef.current);
+      });
+    });
+  }, []);
+
+  const tabPanelId = `${detailId}-panel`;
 
   const loadRisk = useCallback(async () => {
     const id = riskId?.trim();
@@ -171,13 +215,27 @@ export function RiskDetailPage() {
 
   return (
     <main className="mainLayout__content riskDetailPage">
-      <div className="riskDetailPage__stickyBar">
-        <RiskDetailBackNav risk={risk} fallbackLabel={fallbackLabel} />
-        <RiskDetailPageMeta risk={risk} />
+      <div className="riskDetailPage__stickyHeader">
+        <div className="riskDetailPage__stickyBar">
+          <RiskDetailBackNav risk={risk} fallbackLabel={fallbackLabel} />
+          <RiskDetailPageMeta risk={risk} />
+        </div>
+        <RiskDetailTabBar
+          idPrefix={detailId}
+          tab={tab}
+          onTabChange={handleTabChange}
+          tabPanelId={tabPanelId}
+          className="riskDetailPage__stickyTabs"
+        />
       </div>
       <RiskDetailView
         risk={risk}
         initialTab={initialTab}
+        tab={tab}
+        onTabChange={handleTabChange}
+        hideTabBar
+        idPrefix={detailId}
+        tabContentRef={tabContentRef}
         titleElementId="risk-detail-page-title"
       />
     </main>

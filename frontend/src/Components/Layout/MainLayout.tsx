@@ -2,6 +2,7 @@ import mainLogo from "../../assets/images/mainlogo.svg";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { isSidebarNavItemActive, SIDEBAR_NAV } from "./sidebarNav";
 import { TopBar } from "./TopBar";
+import { usePendingReviewCount } from "../../utils/usePendingReviewCount";
 import "./mainLayout.css";
 
 const NAV_ICON_PROPS = {
@@ -13,6 +14,7 @@ const NAV_ICON_PROPS = {
 
 export function MainLayout() {
   const { pathname } = useLocation();
+  const pendingReviewCount = usePendingReviewCount();
 
   return (
     <div className="mainLayout">
@@ -33,6 +35,11 @@ export function MainLayout() {
         <nav className="mainLayout__nav">
           {SIDEBAR_NAV.map((item) => {
             const Icon = item.icon;
+            const showPendingBadge =
+              item.to === "/review" && pendingReviewCount > 0;
+            const pendingLabel =
+              pendingReviewCount > 99 ? "99+" : String(pendingReviewCount);
+
             return (
               <NavLink
                 key={item.to}
@@ -45,9 +52,19 @@ export function MainLayout() {
                       : ""
                   }`
                 }
+                aria-label={
+                  showPendingBadge
+                    ? `${item.label}, ${pendingReviewCount} pending review${pendingReviewCount === 1 ? "" : "s"}`
+                    : item.label
+                }
               >
                 <Icon {...NAV_ICON_PROPS} />
                 <span className="mainLayout__navLabel">{item.label}</span>
+                {showPendingBadge ? (
+                  <span className="mainLayout__navBadge" aria-hidden>
+                    {pendingLabel}
+                  </span>
+                ) : null}
               </NavLink>
             );
           })}

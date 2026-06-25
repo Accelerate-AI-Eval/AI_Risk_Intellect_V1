@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as html_module
 import io
 import re
 
@@ -12,9 +13,14 @@ def extract_from_html(html: str) -> str:
     try:
         from trafilatura import extract
 
-        text = extract(html, include_comments=False, include_tables=False)
+        text = extract(
+            html,
+            include_comments=False,
+            include_tables=False,
+            favor_precision=True,
+        )
         if text:
-            return text.strip()
+            return html_module.unescape(text.strip())
     except Exception:
         pass
 

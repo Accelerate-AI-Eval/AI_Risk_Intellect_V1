@@ -60,12 +60,12 @@ export async function fetchCronJobs(): Promise<
     if (!res.ok) {
       return {
         ok: false,
-        message: errorMessage(data, "Could not load cron jobs."),
+        message: errorMessage(data, "Could not load CRON jobs."),
       };
     }
     return { ok: true, jobs: data.jobs ?? [] };
   } catch {
-    return { ok: false, message: "Network error while loading cron jobs." };
+    return { ok: false, message: "Network error while loading CRON jobs." };
   }
 }
 
@@ -88,19 +88,19 @@ export async function saveCronJobSchedule(
     if (!res.ok) {
       return {
         ok: false,
-        message: errorMessage(data, "Could not save cron job."),
+        message: errorMessage(data, "Could not save CRON job."),
       };
     }
     if (!data.job) {
-      return { ok: false, message: "Cron job response was incomplete." };
+      return { ok: false, message: "CRON job response was incomplete." };
     }
     return {
       ok: true,
-      message: data.message ?? "Cron job saved and started.",
+      message: data.message ?? "CRON job saved and started.",
       job: data.job,
     };
   } catch {
-    return { ok: false, message: "Network error while saving cron job." };
+    return { ok: false, message: "Network error while saving CRON job." };
   }
 }
 
@@ -120,18 +120,18 @@ export async function stopCronJobSchedule(
     if (!res.ok) {
       return {
         ok: false,
-        message: errorMessage(data, "Could not stop cron job."),
+        message: errorMessage(data, "Could not stop CRON job."),
       };
     }
     if (!data.job) {
-      return { ok: false, message: "Cron job response was incomplete." };
+      return { ok: false, message: "CRON job response was incomplete." };
     }
     return {
       ok: true,
-      message: data.message ?? "Cron job stopped.",
+      message: data.message ?? "CRON job stopped.",
       job: data.job,
     };
   } catch {
-    return { ok: false, message: "Network error while stopping cron job." };
+    return { ok: false, message: "Network error while stopping CRON job." };
   }
 }

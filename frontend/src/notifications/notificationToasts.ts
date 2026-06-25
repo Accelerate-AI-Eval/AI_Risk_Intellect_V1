@@ -1,4 +1,5 @@
 import { toast } from "react-toastify";
+import { formatCronNotificationText } from "./formatCronNotificationText";
 import type { NotificationItem } from "./types";
 
 const RECENT_CRON_TOAST_MS = 30_000;
@@ -16,16 +17,21 @@ function shouldShowCronToast(lastAt: number): boolean {
 export function toastCronJobStarted(message?: string): void {
   if (!shouldShowCronToast(lastCronStartToastAt)) return;
   lastCronStartToastAt = Date.now();
-  toast.info(message?.trim() || "Cron job has been started.", {
-    autoClose: 4000,
-  });
+  toast.info(
+    formatCronNotificationText(message?.trim() || "CRON job has been started."),
+    {
+      autoClose: 4000,
+    },
+  );
 }
 
 export function toastCronJobStopped(message?: string): void {
   if (!shouldShowCronToast(lastCronStopToastAt)) return;
   lastCronStopToastAt = Date.now();
   toast.info(
-    message?.trim() || "RSS feed discovery cron job stopped.",
+    formatCronNotificationText(
+      message?.trim() || "RSS feed discovery CRON job stopped.",
+    ),
     { autoClose: 4000 },
   );
 }
@@ -34,7 +40,9 @@ export function toastCronJobScheduled(message?: string): void {
   if (!shouldShowCronToast(lastCronScheduledToastAt)) return;
   lastCronScheduledToastAt = Date.now();
   toast.success(
-    message?.trim() || "RSS feed discovery cron job was scheduled.",
+    formatCronNotificationText(
+      message?.trim() || "RSS feed discovery CRON job was scheduled.",
+    ),
     { autoClose: 4500 },
   );
 }
@@ -42,9 +50,12 @@ export function toastCronJobScheduled(message?: string): void {
 export function toastCronJobCompleted(message?: string): void {
   if (!shouldShowCronToast(lastCronCompletedToastAt)) return;
   lastCronCompletedToastAt = Date.now();
-  toast.success(message?.trim() || "Cron job is completed.", {
-    autoClose: 4500,
-  });
+  toast.success(
+    formatCronNotificationText(message?.trim() || "CRON job is completed."),
+    {
+      autoClose: 4500,
+    },
+  );
 }
 
 export function maybeToastNotification(item: NotificationItem): void {

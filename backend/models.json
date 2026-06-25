@@ -1,10 +1,10 @@
 {
   "region": "us-east-1",
-  "generatedAt": "2026-05-26T09:03:44.456Z",
+  "generatedAt": "2026-06-23T06:12:21.377Z",
   "summary": {
     "total": 125,
-    "active": 100,
-    "legacy": 25
+    "active": 99,
+    "legacy": 26
   },
   "models": [
     {
@@ -145,6 +145,24 @@
       "supportedCustomizations": [],
       "supportedInferenceTypes": [
         "ON_DEMAND"
+      ],
+      "lifecycleStatus": "ACTIVE"
+    },
+    {
+      "modelId": "anthropic.claude-fable-5",
+      "name": "Claude Fable 5",
+      "provider": "Anthropic",
+      "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-fable-5",
+      "inputModalities": [
+        "TEXT",
+        "IMAGE"
+      ],
+      "outputModalities": [
+        "TEXT"
+      ],
+      "supportedCustomizations": [],
+      "supportedInferenceTypes": [
+        "INFERENCE_PROFILE"
       ],
       "lifecycleStatus": "ACTIVE"
     },
@@ -798,6 +816,24 @@
       "lifecycleStatus": "ACTIVE"
     },
     {
+      "modelId": "anthropic.claude-opus-4-8",
+      "name": "Claude Opus 4.8",
+      "provider": "Anthropic",
+      "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-8",
+      "inputModalities": [
+        "TEXT",
+        "IMAGE"
+      ],
+      "outputModalities": [
+        "TEXT"
+      ],
+      "supportedCustomizations": [],
+      "supportedInferenceTypes": [
+        "INFERENCE_PROFILE"
+      ],
+      "lifecycleStatus": "ACTIVE"
+    },
+    {
       "modelId": "anthropic.claude-opus-4-7",
       "name": "Claude Opus 4.7",
       "provider": "Anthropic",
@@ -960,7 +996,7 @@
       "supportedInferenceTypes": [
         "INFERENCE_PROFILE"
       ],
-      "lifecycleStatus": "ACTIVE"
+      "lifecycleStatus": "LEGACY"
     },
     {
       "modelId": "qwen.qwen3-vl-235b-a22b",
@@ -1665,7 +1701,7 @@
       "supportedInferenceTypes": [
         "ON_DEMAND"
       ],
-      "lifecycleStatus": "ACTIVE"
+      "lifecycleStatus": "LEGACY"
     },
     {
       "modelId": "ai21.jamba-1-5-mini-v1:0",
@@ -1682,7 +1718,7 @@
       "supportedInferenceTypes": [
         "ON_DEMAND"
       ],
-      "lifecycleStatus": "ACTIVE"
+      "lifecycleStatus": "LEGACY"
     },
     {
       "modelId": "anthropic.claude-3-sonnet-20240229-v1:0:28k",
@@ -1789,41 +1825,6 @@
       "supportedCustomizations": [],
       "supportedInferenceTypes": [
         "ON_DEMAND"
-      ],
-      "lifecycleStatus": "LEGACY"
-    },
-    {
-      "modelId": "anthropic.claude-3-5-haiku-20241022-v1:0",
-      "name": "Claude 3.5 Haiku",
-      "provider": "Anthropic",
-      "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0",
-      "inputModalities": [
-        "TEXT"
-      ],
-      "outputModalities": [
-        "TEXT"
-      ],
-      "supportedCustomizations": [],
-      "supportedInferenceTypes": [
-        "INFERENCE_PROFILE"
-      ],
-      "lifecycleStatus": "LEGACY"
-    },
-    {
-      "modelId": "anthropic.claude-opus-4-20250514-v1:0",
-      "name": "Claude Opus 4",
-      "provider": "Anthropic",
-      "modelArn": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-opus-4-20250514-v1:0",
-      "inputModalities": [
-        "TEXT",
-        "IMAGE"
-      ],
-      "outputModalities": [
-        "TEXT"
-      ],
-      "supportedCustomizations": [],
-      "supportedInferenceTypes": [
-        "INFERENCE_PROFILE"
       ],
       "lifecycleStatus": "LEGACY"
     },

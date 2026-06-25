@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
   Database,
+  Download,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -42,10 +43,13 @@ import {
 } from "../../../../../utils/formatDate";
 import {
   archiveEtlReportUpload,
+  canExportReportUpload,
   extractEtlReportUpload,
+  exportEtlReportUploadItems,
   fetchEtlReportUploadItems,
   fetchEtlReportUploads,
   reuploadEtlReportUpload,
+  reportUploadItemDisplayCount,
   type EtlExtractionDisplayStatus,
   type EtlReportUploadItemRow,
   type EtlReportUploadRow,
@@ -76,9 +80,11 @@ const TABLE_COL_SPAN = 8;
 const TERMINAL_DISCOVERY_STATUSES = new Set(["EXECUTED", "SKIPPED", "FAILED"]);
 const RUNNING_DISCOVERY_STATUSES = new Set(["PENDING", "RUNNING"]);
 
-function itemCountForRow(row: EtlReportUploadRow): number {
-  if (row.status === "pending") return 0;
-  return row.importedRows;
+function itemCountForRow(
+  row: EtlReportUploadRow,
+  items?: EtlReportUploadItemRow[],
+): number {
+  return reportUploadItemDisplayCount(row, items);
 }
 
 function extractionStatusLabel(status: EtlExtractionDisplayStatus): string {
@@ -211,6 +217,7 @@ export function ReportsTab({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
+  const [exportUploadId, setExportUploadId] = useState<number | null>(null);
   const [uploadRowMenuOpenId, setUploadRowMenuOpenId] = useState<number | null>(
     null,
   );
@@ -585,6 +592,19 @@ export function ReportsTab({
     void loadUploads({ silent: true });
   }
 
+  async function handleExportUpload(id: number) {
+    setExportUploadId(id);
+    const result = await exportEtlReportUploadItems(id);
+    setExportUploadId(null);
+
+    if (!result.ok) {
+      toast.error(result.message, { autoClose: 3000 });
+      return;
+    }
+
+    toast.success(`Exported ${result.fileName}.`, { autoClose: 2800 });
+  }
+
   const loadUploadItems = useCallback(async (uploadId: number) => {
     setUploadItemsLoadingId(uploadId);
     const result = await fetchEtlReportUploadItems(uploadId);
@@ -600,9 +620,16 @@ export function ReportsTab({
 
   useEffect(() => {
     if (expandedUploadId == null) return;
-    if (uploadItemsById[expandedUploadId]) return;
     void loadUploadItems(expandedUploadId);
-  }, [expandedUploadId, loadUploadItems, uploadItemsById]);
+  }, [expandedUploadId, loadUploadItems]);
+
+  useEffect(() => {
+    for (const row of uploads) {
+      if (row.status === "pending" || row.status === "processing") continue;
+      if (uploadItemsById[row.id]) continue;
+      void loadUploadItems(row.id);
+    }
+  }, [uploads, loadUploadItems, uploadItemsById]);
 
   function toggleUploadDetails(id: number) {
     setExpandedUploadId((prev) => (prev === id ? null : id));
@@ -834,8 +861,9 @@ export function ReportsTab({
                     uploadPageRows.map((row) => {
                       const busy = actionId === row.id;
                       const isExpanded = expandedUploadId === row.id;
-                      const items = itemCountForRow(row);
                       const uploadItems = uploadItemsById[row.id] ?? [];
+                      const displayItems = uploadItems;
+                      const items = itemCountForRow(row, uploadItems);
                       const itemsLoading = uploadItemsLoadingId === row.id;
                       const progress = discoveryProgressByUpload.get(row.id) ?? {
                         total: 0,
@@ -1096,7 +1124,7 @@ export function ReportsTab({
                                     >
                                       Loading report URLs…
                                     </p>
-                                  ) : uploadItems.length === 0 ? (
+                                  ) : displayItems.length === 0 ? (
                                     <p
                                       className="adminPage__itemsPanelEmpty"
                                       role="status"
@@ -1107,59 +1135,35 @@ export function ReportsTab({
                                     <table className="adminPage__itemsTable">
                                       <colgroup>
                                         <col className="adminPage__itemsColIndex" />
-                                        <col className="adminPage__itemsColName" />
                                         <col />
                                       </colgroup>
                                       <thead>
                                         <tr>
                                           <th scope="col">#</th>
-                                          <th
-                                            scope="col"
-                                            className="adminPage__itemsNameCol"
-                                          >
-                                            Suggested name
-                                          </th>
                                           <th scope="col">Report URL</th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {uploadItems.map((item) => (
+                                        {displayItems.map((item, index) => (
                                             <tr key={item.id}>
                                               <td>
                                                 <span
                                                   className="adminPage__id"
-                                                  title={`Row ${item.rowOrder}`}
+                                                  title={`Item ${index + 1}`}
                                                 >
-                                                  #{item.rowOrder}
-                                                </span>
-                                              </td>
-                                              <td className="adminPage__itemsNameCol">
-                                                <span
-                                                  className="adminPage__itemTitle"
-                                                  title={
-                                                    item.title?.trim() ||
-                                                    undefined
-                                                  }
-                                                >
-                                                  {item.title?.trim() || "—"}
+                                                  #{index + 1}
                                                 </span>
                                               </td>
                                               <td>
-                                                {item.url ? (
-                                                  <a
-                                                    href={item.url}
-                                                    className="adminPage__cellUrl"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    title={item.url}
-                                                  >
-                                                    {item.url}
-                                                  </a>
-                                                ) : (
-                                                  <span className="adminPage__cellMuted">
-                                                    —
-                                                  </span>
-                                                )}
+                                                <a
+                                                  href={item.url}
+                                                  className="adminPage__cellUrl"
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  title={item.url}
+                                                >
+                                                  {item.url}
+                                                </a>
                                               </td>
                                             </tr>
                                         ))}
@@ -1220,6 +1224,26 @@ export function ReportsTab({
               >
                 <Zap size={14} strokeWidth={2} aria-hidden />
                 Extract
+              </button>
+              <button
+                type="button"
+                className="adminPage__rowMenuItem"
+                role="menuitem"
+                disabled={
+                  exportUploadId === uploadRowMenuUpload.id ||
+                  uploadRowMenuUpload.status === "processing" ||
+                  !canExportReportUpload(uploadRowMenuUpload)
+                }
+                aria-busy={exportUploadId === uploadRowMenuUpload.id}
+                onClick={() => {
+                  closeUploadRowMenu();
+                  void handleExportUpload(uploadRowMenuUpload.id);
+                }}
+              >
+                <Download size={14} strokeWidth={2} aria-hidden />
+                {exportUploadId === uploadRowMenuUpload.id
+                  ? "Exporting…"
+                  : "Export"}
               </button>
               <button
                 type="button"

@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { buildReportUploadItemsExcel } from "../../services/admin/etlReportUploadExport.service.js";
 import {
   archiveReportUpload,
   listActiveReportUploads,
@@ -20,6 +21,23 @@ export async function listReportUploadItemsHandler(
   const id = Number(req.params.id);
   const items = await listReportUploadItems(id);
   res.json({ items });
+}
+
+export async function exportReportUploadItemsHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const id = Number(req.params.id);
+  const { buffer, fileName } = await buildReportUploadItemsExcel(id);
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+  );
+  res.send(buffer);
 }
 
 export async function archiveReportUploadHandler(

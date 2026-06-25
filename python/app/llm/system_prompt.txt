@@ -8,6 +8,10 @@ TASK:
 
 Return ONLY valid JSON. NO markdown, NO comments, NO explanation outside the JSON.
 
+LANGUAGE (required):
+- Write ALL JSON string values in English, even when the source article is in another language.
+- Translate risk_title, description, and all narrative fields into clear English.
+
 JSON FORMATTING (strict):
 - Use double quotes for all keys and string values (not single quotes)
 - Every key must be followed by a colon: "key": value

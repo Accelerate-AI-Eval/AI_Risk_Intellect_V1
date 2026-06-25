@@ -1,11 +1,63 @@
 /* Loaded after react-toastify.css — matches app font, body (--bg), app blue copy */
 
 .Toastify__toast {
+  position: relative;
   font-size: 14px;
 }
 
 .Toastify__toast-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 1.5rem 0 0;
   font-size: 14px;
+}
+
+/* Close icon — top-right of toast */
+.Toastify__toast .Toastify__close-button {
+  position: absolute !important;
+  top: 6px;
+  right: 6px;
+  left: auto !important;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  opacity: 1;
+  border: none;
+  border-radius: 4px;
+  line-height: 0;
+  cursor: pointer;
+  background: transparent;
+  z-index: 1;
+  transition:
+    background-color 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.Toastify__toast--rtl .Toastify__close-button {
+  right: auto !important;
+  left: 6px !important;
+}
+
+.Toastify__toast .Toastify__close-button > svg {
+  display: block;
+  flex-shrink: 0;
+  margin: 0;
+  stroke: currentColor;
+}
+
+.Toastify__toast .Toastify__close-button:hover,
+.Toastify__toast .Toastify__close-button:focus-visible {
+  opacity: 1;
+  outline: none;
 }
 
 .Toastify__toast-container {
@@ -54,76 +106,35 @@
   fill: #dc2626;
 }
 
-/* Close: icon centered in light pill (square flex hit target) */
 .Toastify__toast-theme--light.Toastify__toast--success .Toastify__close-button,
 .Toastify__toast-theme--light.Toastify__toast--success
   .Toastify__close-button.Toastify__close-button--light,
-.Toastify__toast-theme--light.Toastify__toast--error .Toastify__close-button,
-.Toastify__toast-theme--light.Toastify__toast--error
-  .Toastify__close-button.Toastify__close-button--light {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.375rem;
-  height: 1.375rem;
-  padding: 0;
-  box-sizing: border-box;
-  opacity: 1;
-  border-radius: 4px;
-  top: 6px;
-  right: 6px;
-  line-height: 0;
-}
-
-.Toastify__toast-theme--light.Toastify__toast--success .Toastify__close-button,
 .Toastify__toast-theme--light.Toastify__toast--success
-  .Toastify__close-button.Toastify__close-button--light {
+  .Toastify__close-button.Toastify__close-button--custom {
   color: #16a34a;
   background: rgba(22, 163, 74, 0.14);
-}
-
-.Toastify__toast-theme--light.Toastify__toast--error .Toastify__close-button,
-.Toastify__toast-theme--light.Toastify__toast--error
-  .Toastify__close-button.Toastify__close-button--light {
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.12);
-}
-
-.Toastify__toast-theme--light.Toastify__toast--success .Toastify__close-button > svg,
-.Toastify__toast-theme--light.Toastify__toast--error .Toastify__close-button > svg {
-  display: block;
-  flex-shrink: 0;
-  margin: 0;
-  fill: currentColor;
-  /* SVG viewBox is slightly left-heavy at 14×16; nudge for optical center in pill */
-  transform: translateX(1px);
-}
-
-.Toastify__toast--rtl.Toastify__toast-theme--light.Toastify__toast--success
-  .Toastify__close-button
-  > svg,
-.Toastify__toast--rtl.Toastify__toast-theme--light.Toastify__toast--error
-  .Toastify__close-button
-  > svg {
-  transform: translateX(-1px);
 }
 
 .Toastify__toast-theme--light.Toastify__toast--success
   .Toastify__close-button:hover,
 .Toastify__toast-theme--light.Toastify__toast--success
-  .Toastify__close-button:focus,
-.Toastify__toast-theme--light.Toastify__toast--error .Toastify__close-button:hover,
-.Toastify__toast-theme--light.Toastify__toast--error
-  .Toastify__close-button:focus {
-  opacity: 1;
+  .Toastify__close-button:focus-visible {
+  background: rgba(22, 163, 74, 0.22);
 }
 
-.Toastify__toast--rtl.Toastify__toast-theme--light.Toastify__toast--success
-  .Toastify__close-button,
-.Toastify__toast--rtl.Toastify__toast-theme--light.Toastify__toast--error
-  .Toastify__close-button {
-  left: 6px;
-  right: unset;
+.Toastify__toast-theme--light.Toastify__toast--error .Toastify__close-button,
+.Toastify__toast-theme--light.Toastify__toast--error
+  .Toastify__close-button.Toastify__close-button--light,
+.Toastify__toast-theme--light.Toastify__toast--error
+  .Toastify__close-button.Toastify__close-button--custom {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.12);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--error .Toastify__close-button:hover,
+.Toastify__toast-theme--light.Toastify__toast--error
+  .Toastify__close-button:focus-visible {
+  background: rgba(220, 38, 38, 0.2);
 }
 
 /* Progress bar: subtle tint matching type */
@@ -205,6 +216,21 @@
   opacity: 0.85;
 }
 
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__close-button,
+.Toastify__toast-theme--light.Toastify__toast--info
+  .Toastify__close-button.Toastify__close-button--light,
+.Toastify__toast-theme--light.Toastify__toast--info
+  .Toastify__close-button.Toastify__close-button--custom {
+  color: var(--main-auth-button-color, #1cb0d4);
+  background: rgba(28, 176, 212, 0.14);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--info .Toastify__close-button:hover,
+.Toastify__toast-theme--light.Toastify__toast--info
+  .Toastify__close-button:focus-visible {
+  background: rgba(28, 176, 212, 0.22);
+}
+
 /* Session expired: same chrome as success/error (icon + progress timer), warning palette */
 .Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired {
   background: var(--bg, #fff);
@@ -222,7 +248,22 @@
 .Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired
   .Toastify__toast-body {
   color: #b45309;
-  padding: 0.35rem 0.5rem 0.35rem 0;
+  padding: 0;
+}
+
+.Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired
+  .Toastify__close-button,
+.Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired
+  .Toastify__close-button.Toastify__close-button--custom {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.14);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired
+  .Toastify__close-button:hover,
+.Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired
+  .Toastify__close-button:focus-visible {
+  background: rgba(217, 119, 6, 0.22);
 }
 
 .Toastify__toast-theme--light.Toastify__toast--warning.app-toast-session-expired
@@ -247,4 +288,28 @@
   .Toastify__progress-bar {
   background: rgba(217, 119, 6, 0.45);
   opacity: 0.9;
+}
+
+.Toastify__toast-theme--light.Toastify__toast--warning .Toastify__close-button,
+.Toastify__toast-theme--light.Toastify__toast--warning
+  .Toastify__close-button.Toastify__close-button--custom {
+  color: #d97706;
+  background: rgba(217, 119, 6, 0.14);
+}
+
+.Toastify__toast-theme--light.Toastify__toast--warning .Toastify__close-button:hover,
+.Toastify__toast-theme--light.Toastify__toast--warning
+  .Toastify__close-button:focus-visible {
+  background: rgba(217, 119, 6, 0.22);
+}
+
+.Toastify__toast-theme--dark .Toastify__close-button,
+.Toastify__toast-theme--dark .Toastify__close-button.Toastify__close-button--custom {
+  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.Toastify__toast-theme--dark .Toastify__close-button:hover,
+.Toastify__toast-theme--dark .Toastify__close-button:focus-visible {
+  background: rgba(148, 163, 184, 0.28);
 }
