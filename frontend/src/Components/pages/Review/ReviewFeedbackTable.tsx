@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { createPortal } from "react-dom";
 import { ArrowRightToLine, ExternalLink } from "lucide-react";
 import {
   canPromoteFeedbackToRisks,
@@ -11,6 +13,83 @@ interface ReviewFeedbackTableProps {
   emptyMessage: string;
   promotingId: string | null;
   onMoveToRisks: (item: ReviewFeedbackSample) => void;
+}
+
+type FeedbackActionTooltipProps = {
+  label: string;
+  children: ReactElement;
+};
+
+function FeedbackActionTooltip({ label, children }: FeedbackActionTooltipProps) {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+
+  const updatePosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    setPosition({
+      top: rect.top + rect.height / 2,
+      left: rect.left - 8,
+    });
+  }, []);
+
+  const showTooltip = useCallback(() => {
+    updatePosition();
+    setVisible(true);
+  }, [updatePosition]);
+
+  const hideTooltip = useCallback(() => {
+    setVisible(false);
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const scrollRoot = anchorRef.current?.closest(".riskPage__tableScroll");
+    const onScroll = () => setVisible(false);
+
+    scrollRoot?.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      scrollRoot?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [visible]);
+
+  return (
+    <>
+      <span
+        ref={anchorRef}
+        className="reviewPage__feedbackActionAnchor"
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+        onFocus={showTooltip}
+        onBlur={hideTooltip}
+      >
+        {children}
+      </span>
+      {visible
+        ? createPortal(
+            <span
+              className="reviewPage__feedbackTooltipPortal"
+              style={{
+                top: `${position.top}px`,
+                left: `${position.left}px`,
+              }}
+              role="tooltip"
+            >
+              {label}
+            </span>,
+            document.body,
+          )
+        : null}
+    </>
+  );
 }
 
 export function ReviewFeedbackTable({
@@ -45,7 +124,10 @@ export function ReviewFeedbackTable({
                 <th scope="col" className="riskPage__th riskPage__th--left">
                   PRIMARY RISK
                 </th>
-                <th scope="col" className="riskPage__th riskPage__th--left">
+                <th
+                  scope="col"
+                  className="riskPage__th riskPage__th--left reviewPage__feedbackCol"
+                >
                   FEEDBACK
                 </th>
                 <th scope="col" className="riskPage__th riskPage__th--left">
@@ -100,7 +182,7 @@ export function ReviewFeedbackTable({
                         <span className="riskPage__domain">{item.domain}</span>
                       </td>
                       <td className="riskPage__td">{item.primaryRisk}</td>
-                      <td className="riskPage__td reviewPage__feedbackCell">
+                      <td className="riskPage__td reviewPage__feedbackCol reviewPage__feedbackCell">
                         {item.feedback ?? "—"}
                       </td>
                       <td className="riskPage__td riskPage__td--muted">
@@ -125,27 +207,28 @@ export function ReviewFeedbackTable({
                       <td className="riskPage__td riskPage__td--center riskPage__td--actions">
                         <div className="reviewPage__feedbackActions">
                           {canMove ? (
-                            <button
-                              type="button"
-                              className="reviewPage__feedbackActionBtn reviewPage__feedbackActionBtn--move"
-                              disabled={isPromoting}
-                              aria-busy={isPromoting}
-                              data-tooltip={
-                                isPromoting ? "Moving…" : "Move to Risks"
-                              }
-                              aria-label={
-                                isPromoting
-                                  ? `Moving ${item.displayId} to Risks`
-                                  : `Move ${item.displayId} to Risks`
-                              }
-                              onClick={() => onMoveToRisks(item)}
+                            <FeedbackActionTooltip
+                              label={isPromoting ? "Moving…" : "Move to Risks"}
                             >
-                              <ArrowRightToLine
-                                size={16}
-                                strokeWidth={2}
-                                aria-hidden
-                              />
-                            </button>
+                              <button
+                                type="button"
+                                className="reviewPage__feedbackActionBtn reviewPage__feedbackActionBtn--move"
+                                disabled={isPromoting}
+                                aria-busy={isPromoting}
+                                aria-label={
+                                  isPromoting
+                                    ? `Moving ${item.displayId} to Risks`
+                                    : `Move ${item.displayId} to Risks`
+                                }
+                                onClick={() => onMoveToRisks(item)}
+                              >
+                                <ArrowRightToLine
+                                  size={16}
+                                  strokeWidth={2}
+                                  aria-hidden
+                                />
+                              </button>
+                            </FeedbackActionTooltip>
                           ) : (
                             <span
                               className="reviewPage__feedbackActionSlot"
@@ -153,20 +236,21 @@ export function ReviewFeedbackTable({
                             />
                           )}
                           {item.articleUrl ? (
-                            <a
-                              className="reviewPage__feedbackActionBtn reviewPage__feedbackActionBtn--link"
-                              href={item.articleUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              data-tooltip="Source article"
-                              aria-label={`Open source article for ${item.displayId}`}
-                            >
-                              <ExternalLink
-                                size={16}
-                                strokeWidth={2}
-                                aria-hidden
-                              />
-                            </a>
+                            <FeedbackActionTooltip label="Source article">
+                              <a
+                                className="reviewPage__feedbackActionBtn reviewPage__feedbackActionBtn--link"
+                                href={item.articleUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open source article for ${item.displayId}`}
+                              >
+                                <ExternalLink
+                                  size={16}
+                                  strokeWidth={2}
+                                  aria-hidden
+                                />
+                              </a>
+                            </FeedbackActionTooltip>
                           ) : (
                             <span
                               className="reviewPage__feedbackActionSlot"

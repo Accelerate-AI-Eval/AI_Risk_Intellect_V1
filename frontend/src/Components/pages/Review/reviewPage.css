@@ -220,10 +220,17 @@
   min-width: 8rem;
 }
 
-.reviewPage__feedbackTable .riskPage__th:nth-child(5),
-.reviewPage__feedbackTable .riskPage__td:nth-child(5) {
-  min-width: 14rem;
-  max-width: 22rem;
+.reviewPage__feedbackTable .reviewPage__feedbackCol {
+  width: 18rem;
+  min-width: 18rem;
+  max-width: 18rem;
+  box-sizing: border-box;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.reviewPage__feedbackTable tbody .riskPage__td {
+  vertical-align: top;
 }
 
 .reviewPage__feedbackTable .riskPage__th:nth-child(6),
@@ -247,7 +254,15 @@
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
-  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.reviewPage__feedbackTable .riskPage__th:last-child,
+.reviewPage__feedbackTable .riskPage__td--actions {
+  width: 5.5rem;
+  min-width: 5.5rem;
+  max-width: 5.5rem;
+  box-sizing: border-box;
 }
 
 .reviewPage__feedbackActions {
@@ -256,6 +271,33 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.reviewPage__feedbackActionAnchor {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+}
+
+.reviewPage__feedbackTooltipPortal {
+  position: fixed;
+  z-index: 1200;
+  transform: translate(-100%, -50%);
+  padding: 0.3rem 0.55rem;
+  border-radius: 5px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: var(--rev-font-meta);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.28);
 }
 
 .reviewPage__feedbackActionSlot {
@@ -303,39 +345,6 @@
 .reviewPage__feedbackActionBtn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
-}
-
-.reviewPage__feedbackActionBtn[data-tooltip] {
-  position: relative;
-}
-
-.reviewPage__feedbackActionBtn[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.25rem 0.45rem;
-  border-radius: 6px;
-  background: #0f172a;
-  color: #f8fafc;
-  font-size: var(--rev-font-meta);
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.12s ease;
-  z-index: 2;
-}
-
-.reviewPage__feedbackActionBtn[data-tooltip]:hover::after,
-.reviewPage__feedbackActionBtn[data-tooltip]:focus-visible::after {
-  opacity: 1;
-}
-
-html:not(.app-theme-dark) .reviewPage__feedbackActionBtn[data-tooltip]::after {
-  background: #0f172a;
-  color: #f8fafc;
 }
 
 html:not(.app-theme-dark) .reviewPage__feedbackActionBtn {

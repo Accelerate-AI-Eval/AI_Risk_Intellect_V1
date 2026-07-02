@@ -1,4 +1,4 @@
-/** Risks at or below this unit score (0–1) require human review. */
+/** Risks strictly below this unit score (0–1) require human review. */
 
 export const REVIEW_QUALITY_THRESHOLD = 0.9;
 
@@ -177,7 +177,7 @@ export function needsQualityReview(input: {
 
   if (unit == null) return true;
 
-  return unit <= REVIEW_QUALITY_THRESHOLD;
+  return unit < REVIEW_QUALITY_THRESHOLD;
 
 }
 

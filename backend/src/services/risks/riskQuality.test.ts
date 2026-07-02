@@ -35,6 +35,17 @@ test("needsHumanReview routes high-quality non-English risks to review", () => {
   assert.equal(isRiskInReviewQueue(highQualityNonEnglish), true);
 });
 
+test("needsQualityReview excludes exactly 0.90 and includes scores below it", () => {
+  assert.equal(
+    needsQualityReview({ qualityScore: 90, extractionJson: {} }),
+    false,
+  );
+  assert.equal(
+    needsQualityReview({ qualityScore: 89, extractionJson: {} }),
+    true,
+  );
+});
+
 test("needsHumanReview keeps high-quality English risks on main list", () => {
   const highQualityEnglish = {
     domains: "discrimination",
