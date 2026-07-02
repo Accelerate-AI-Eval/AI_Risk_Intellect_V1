@@ -80,7 +80,7 @@ export function ModelTestResultDialog({
             ) : (
               <XCircle size={22} strokeWidth={2} aria-hidden />
             )}
-            <span>{isSuccess ? "Model is working" : result.message || "Model is not working"}</span>
+            <span>{isSuccess ? "Model is working" : "Model is not working"}</span>
           </div>
 
           <dl className="adminPage__modelTestDialogMeta">

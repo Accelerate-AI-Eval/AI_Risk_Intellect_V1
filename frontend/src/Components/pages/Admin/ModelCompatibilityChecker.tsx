@@ -46,6 +46,7 @@ export function ModelCompatibilityChecker({
   const [isApplying, setIsApplying] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [testResult, setTestResult] = useState<TestResult>(null);
+  const [testStatusMessage, setTestStatusMessage] = useState("");
   const [applyResult, setApplyResult] = useState<ApplyResult>(null);
   const [applyStatusMessage, setApplyStatusMessage] = useState("");
   const [testDialogOpen, setTestDialogOpen] = useState(false);
@@ -76,15 +77,7 @@ export function ModelCompatibilityChecker({
       setAppliedModel(result.config.modelId);
       setAppliedModelLabel(result.config.modelLabel);
       setApplyResult(null);
-
-      if (result.config.pythonSynced === false) {
-        setApplyStatusMessage(
-          "Python service could not be synced with the active model.",
-        );
-        setApplyResult("failure");
-      } else if (result.config.requiresPythonRestart) {
-        setApplyStatusMessage("Restart the Python service to use the new model.");
-      }
+      setApplyStatusMessage("");
     } finally {
       setOptionsLoading(false);
     }
@@ -107,9 +100,9 @@ export function ModelCompatibilityChecker({
     setSelectedModel(modelId);
     setSelectedModelLabel(modelLabelFor(options, modelId));
     setTestResult(null);
+    setTestStatusMessage("");
     setApplyResult(null);
     setValidatedModel(null);
-    setApplyStatusMessage("");
     setTestDialogOpen(false);
     setTestDialogResult(null);
   };
@@ -124,9 +117,8 @@ export function ModelCompatibilityChecker({
 
     setIsTesting(true);
     setTestResult(null);
-    setApplyResult(null);
+    setTestStatusMessage("");
     setValidatedModel(null);
-    setApplyStatusMessage("");
     setTestDialogOpen(false);
     setTestDialogResult(null);
 
@@ -137,6 +129,9 @@ export function ModelCompatibilityChecker({
 
       if (!result.ok) {
         setTestResult("failure");
+        setTestStatusMessage(
+          "Test failed — Apply is disabled until the test passes.",
+        );
         openTestDialog({
           success: false,
           message: result.message,
@@ -149,6 +144,9 @@ export function ModelCompatibilityChecker({
       if (result.result.success) {
         setTestResult("success");
         setValidatedModel(selectedModel);
+        setTestStatusMessage(
+          "Test passed — you can click Apply to set this as the active model.",
+        );
         openTestDialog({
           success: true,
           message: result.result.message,
@@ -163,6 +161,9 @@ export function ModelCompatibilityChecker({
       }
 
       setTestResult("failure");
+      setTestStatusMessage(
+        "Test failed — Apply is disabled until the test passes.",
+      );
       openTestDialog({
         success: false,
         message: result.result.message,
@@ -189,8 +190,8 @@ export function ModelCompatibilityChecker({
     }
 
     setIsApplying(true);
-    setApplyStatusMessage("");
     setApplyResult(null);
+    setApplyStatusMessage("");
 
     try {
       const result = await applyLlmModel(selectedModel);
@@ -205,15 +206,15 @@ export function ModelCompatibilityChecker({
       setSelectedModel(result.config.modelId);
       setSelectedModelLabel(result.config.modelLabel);
       setApplyResult("success");
+      setTestStatusMessage("");
+      setApplyStatusMessage(`Active model set to ${result.config.modelLabel}.`);
 
-      let message = `Active model set to ${result.config.modelLabel}.`;
       if (result.config.pythonSynced === false) {
-        message += " Warning: Python service sync failed.";
+        setApplyStatusMessage("Warning: Python service sync failed.");
         setApplyResult("failure");
       } else if (result.config.requiresPythonRestart) {
-        message += " Restart the Python service to apply the change.";
+        setApplyStatusMessage("Restart the Python service to apply the change.");
       }
-      setApplyStatusMessage(message);
     } finally {
       setIsApplying(false);
     }
@@ -234,10 +235,17 @@ export function ModelCompatibilityChecker({
     !optionsLoading &&
     options.length > 0;
 
-  const applyStatusClassName =
-    applyResult === "failure" || testResult === "failure"
+  const testStatusClassName =
+    testResult === "failure"
       ? "adminPage__modelStatus adminPage__modelStatus--error"
-      : applyResult === "success" || applyStatusMessage.includes("Active model")
+      : testResult === "success"
+        ? "adminPage__modelStatus adminPage__modelStatus--success"
+        : "adminPage__modelStatus";
+
+  const applyStatusClassName =
+    applyResult === "failure"
+      ? "adminPage__modelStatus adminPage__modelStatus--error"
+      : applyResult === "success"
         ? "adminPage__modelStatus adminPage__modelStatus--success"
         : "adminPage__modelStatus";
 
@@ -325,6 +333,16 @@ export function ModelCompatibilityChecker({
             </button>
           </div>
         </div>
+
+        {testStatusMessage ? (
+          <p
+            className={testStatusClassName}
+            role="status"
+            aria-live="polite"
+          >
+            {testStatusMessage}
+          </p>
+        ) : null}
 
         {applyStatusMessage ? (
           <p
