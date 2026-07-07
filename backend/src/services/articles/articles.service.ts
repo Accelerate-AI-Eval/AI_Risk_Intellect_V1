@@ -6,6 +6,7 @@ import {
   persistEnglishArticleTitle,
   resolveEnglishArticleTitle,
 } from "./articleTitleLocalization.js";
+import { decodeDisplayTitle } from "../../utils/decodeHtmlEntities.js";
 
 export type ArticleListItem = {
   id: number;
@@ -91,7 +92,7 @@ export async function listArticles(): Promise<{
 
     localizedRows.push({
       id: row.id,
-      title: displayTitle,
+      title: displayTitle ? decodeDisplayTitle(displayTitle) : null,
       url: row.url,
       riskCount: row.riskCount,
       createdAt: row.createdAt,

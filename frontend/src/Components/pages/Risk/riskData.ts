@@ -1,3 +1,5 @@
+import { decodeDisplayTitle } from "../../../utils/decodeHtmlEntities";
+
 export type CatalogRiskMatch = {
   riskId: string;
   title: string;
@@ -438,7 +440,7 @@ export function normalizeRisksFromApi(raw: unknown): {
     ...r,
     id: r.id ?? "",
     displayId: r.displayId?.trim() || undefined,
-    title: r.title ?? "Untitled risk",
+    title: decodeDisplayTitle(r.title, "Untitled risk"),
     domain: r.domain ?? "—",
     primaryRisk: r.primaryRisk ?? "—",
     secondaryRisk: r.secondaryRisk ?? "—",
@@ -454,7 +456,7 @@ export function normalizeRisksFromApi(raw: unknown): {
     observableIndicators: r.observableIndicators ?? "",
     timing: r.timing ?? "",
     articleId: r.articleId ?? undefined,
-    articleTitle: r.articleTitle ?? "",
+    articleTitle: decodeDisplayTitle(r.articleTitle, ""),
     articleUrl: r.articleUrl ?? "",
     ingestedAt: r.ingestedAt ?? "",
     createdAt: r.createdAt ?? r.ingestedAt ?? "",

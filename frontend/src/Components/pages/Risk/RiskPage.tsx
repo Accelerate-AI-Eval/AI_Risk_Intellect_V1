@@ -14,6 +14,7 @@ import { PageHeader } from "../../Layout/PageHeader";
 import "../Users/usersPage.css";
 import { authFetch } from "../../../utils/authFetch";
 import { formatDisplayDate } from "../../../utils/formatDate";
+import { exportRisksToExcel } from "../../../utils/risksExportApi";
 import {
   normalizeRisksFromApi,
   type RiskDetail,
@@ -85,6 +86,7 @@ export function RiskPage() {
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
+  const [exportPending, setExportPending] = useState(false);
 
   const loadRisks = useCallback(async () => {
     const token = sessionStorage.getItem("accessToken");
@@ -155,11 +157,20 @@ export function RiskPage() {
     toast.success("Risk list refreshed.", { autoClose: 2000 });
   }, [loadRisks]);
 
-  const handleExport = useCallback(() => {
-    toast.info("Export is not connected to the API yet.", {
-      autoClose: 3000,
-    });
-  }, []);
+  const handleExport = useCallback(async () => {
+    if (exportPending) return;
+    setExportPending(true);
+    try {
+      const result = await exportRisksToExcel();
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 3000 });
+        return;
+      }
+      toast.success(`Exported ${result.fileName}.`, { autoClose: 2800 });
+    } finally {
+      setExportPending(false);
+    }
+  }, [exportPending]);
 
   const clearFilters = useCallback(() => {
     setPrimaryRisk("all");
@@ -193,10 +204,12 @@ export function RiskPage() {
             <button
               type="button"
               className="usersPage__inviteBtn"
-              onClick={handleExport}
+              onClick={() => void handleExport()}
+              disabled={exportPending}
+              aria-busy={exportPending}
             >
               <Download size={18} strokeWidth={2} aria-hidden />
-              Export
+              {exportPending ? "Exporting…" : "Export"}
             </button>
           </>
         }

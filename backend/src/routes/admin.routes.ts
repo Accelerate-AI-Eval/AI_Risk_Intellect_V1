@@ -58,6 +58,11 @@ import {
 } from "../controllers/admin/cronJobs.controller.js";
 import { listCronJobLogsHandler } from "../controllers/admin/cronLogs.controller.js";
 import { listApplicationLogsHandler } from "../controllers/admin/applicationLogs.controller.js";
+import {
+  exportArticlesHandler,
+  exportReviewHandler,
+  exportRisksHandler,
+} from "../controllers/admin/dataManagement.controller.js";
 
 
 export const adminRouter: Router = Router();
@@ -283,4 +288,22 @@ adminRouter.get(
   "/etl/reports/logs",
   requireAuth,
   asyncHandler(listReportsLogsHandler),
+);
+
+adminRouter.get(
+  "/risks/export",
+  requireAuth,
+  asyncHandler(exportRisksHandler),
+);
+
+adminRouter.get(
+  "/articles/export",
+  requireAuth,
+  asyncHandler(exportArticlesHandler),
+);
+
+adminRouter.get(
+  "/review/export",
+  requireAuth,
+  asyncHandler(exportReviewHandler),
 );

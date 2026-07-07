@@ -49,6 +49,7 @@ app.use(
       "X-Requested-With",
     ],
     credentials: true,
+    exposedHeaders: ["Content-Disposition"],
     optionsSuccessStatus: 204,
   }),
 );

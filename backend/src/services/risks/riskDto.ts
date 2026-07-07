@@ -1,4 +1,5 @@
 import { normalizeNarrativeText } from "../../utils/normalizeNarrativeText.js";
+import { decodeDisplayTitle } from "../../utils/decodeHtmlEntities.js";
 import { parseCatalogMatchesFromExtraction } from "./riskCatalogMatch.service.js";
 import { resolveQualityScore100 } from "./riskQuality.js";
 
@@ -164,12 +165,12 @@ function resolveEnglishRiskTitle(
   ext: ExtractionJson,
   risk: Record<string, unknown>,
 ): string {
-  const english = str(ext.english_risk_title);
+  const english = decodeDisplayTitle(str(ext.english_risk_title));
   if (english) return english;
 
-  const fromJson = str(risk.risk_title);
-  const fromColumn = str(row.riskTitle);
-  const original = str(ext.original_risk_title);
+  const fromJson = decodeDisplayTitle(str(risk.risk_title));
+  const fromColumn = decodeDisplayTitle(str(row.riskTitle));
+  const original = decodeDisplayTitle(str(ext.original_risk_title));
 
   if (fromJson && original && fromJson !== original) return fromJson;
   if (fromColumn && original && fromColumn !== original) return fromColumn;
@@ -180,11 +181,11 @@ function resolveEnglishArticleTitle(
   row: Pick<RiskRowInput, "articleTitle" | "articleUrl">,
   ext: ExtractionJson,
 ): string {
-  const english = str(ext.english_article_title);
+  const english = decodeDisplayTitle(str(ext.english_article_title));
   if (english) return english;
 
-  const fromColumn = str(row.articleTitle);
-  const original = str(ext.original_article_title);
+  const fromColumn = decodeDisplayTitle(str(row.articleTitle));
+  const original = decodeDisplayTitle(str(ext.original_article_title));
   if (fromColumn && original && fromColumn !== original) return fromColumn;
   return fromColumn || row.articleUrl;
 }

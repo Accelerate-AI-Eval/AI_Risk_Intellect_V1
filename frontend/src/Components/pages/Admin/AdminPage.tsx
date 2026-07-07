@@ -2,19 +2,22 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "react-toastify";
 import type { LucideIcon } from "lucide-react";
 import {
-  AlertTriangle,
   Cpu,
   Database,
   Download,
-  RotateCw,
+  FileText,
+  ListChecks,
   Rss,
   Settings2,
-  Trash2,
-  Upload,
   Workflow,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
 import { startEtlReportsRun } from "../../../utils/etlReportsApi";
+import {
+  exportArticlesToExcel,
+  exportReviewToExcel,
+  exportRisksToExcel,
+} from "../../../utils/risksExportApi";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { PageHeader } from "../../Layout/PageHeader";
 import {
@@ -63,8 +66,9 @@ export function AdminPage() {
   // const [incidentsFile, setIncidentsFile] = useState<File | null>(null);
   // const [reportsFile, setReportsFile] = useState<File | null>(null);
   // const [dryRun, setDryRun] = useState(false);
-  const [backupFile, setBackupFile] = useState<File | null>(null);
-  const [resetConfirm, setResetConfirm] = useState("");
+  const [exportRisksPending, setExportRisksPending] = useState(false);
+  const [exportArticlesPending, setExportArticlesPending] = useState(false);
+  const [exportReviewPending, setExportReviewPending] = useState(false);
   useEffect(() => {
     const activeTab = ADMIN_TABS.find((item) => item.key === tab);
     setDocumentPageTitle(activeTab?.label ?? "Controls");
@@ -92,11 +96,36 @@ export function AdminPage() {
 
   const fid = (name: string) => `${baseId}-${name}`;
 
-  const stub = useCallback((action: string) => {
-    toast.info(`${action} is not connected to the API yet.`, {
-      autoClose: 3200,
-    });
-  }, []);
+  const runDataExport = useCallback(
+    async (
+      exportFn: () => Promise<
+        { ok: true; fileName: string } | { ok: false; message: string }
+      >,
+      setPending: (value: boolean) => void,
+    ) => {
+      setPending(true);
+      try {
+        const result = await exportFn();
+        if (result.ok === false) {
+          toast.error(result.message, { autoClose: 3000 });
+          return;
+        }
+        toast.success(`Exported ${result.fileName}.`, { autoClose: 2800 });
+      } finally {
+        setPending(false);
+      }
+    },
+    [],
+  );
+
+  const handleExportRisks = () =>
+    void runDataExport(exportRisksToExcel, setExportRisksPending);
+
+  const handleExportArticles = () =>
+    void runDataExport(exportArticlesToExcel, setExportArticlesPending);
+
+  const handleExportReview = () =>
+    void runDataExport(exportReviewToExcel, setExportReviewPending);
 
   const clearPending = useCallback((key: ServiceKey) => {
     setPendingAction((pending) => {
@@ -304,24 +333,6 @@ export function AdminPage() {
   //   );
   // };
 
-  const handleExportExcel = () => stub("Export risks to Excel");
-
-  const handleRestore = () => {
-    if (!backupFile) {
-      toast.error("Select a backup file to restore.", { autoClose: 2500 });
-      return;
-    }
-    stub("Restore backup");
-  };
-
-  const handleResetDatabase = () => {
-    if (resetConfirm !== "RESET") return;
-    stub("Reset database");
-    setResetConfirm("");
-  };
-
-  const resetEnabled = resetConfirm === "RESET";
-
   return (
     <main className="mainLayout__content adminPage">
       <PageHeader
@@ -501,7 +512,7 @@ export function AdminPage() {
               Data management
             </h2>
             <p className="adminPage__cardHint">
-              Export, backup, restore, or reset the database.
+              Export risks, articles, and review queue data to Excel.
             </p>
           </div>
         </div>
@@ -512,69 +523,56 @@ export function AdminPage() {
               Export risks
             </h3>
             <p className="adminPage__dataColDesc">
-              Download all risks as an Excel spreadsheet with Risks, Articles, and
-              Tags sheets.
+              Download all extracted risks with domain, taxonomy, quality score,
+              description, review status, and linked article details. Includes
+              Risks, Articles, and Tags sheets.
             </p>
             <button
               type="button"
               className="adminPage__ghostBtn"
-              onClick={handleExportExcel}
+              onClick={handleExportRisks}
+              disabled={exportRisksPending}
             >
               <Download size={18} strokeWidth={2} aria-hidden />
-              Export to Excel
+              {exportRisksPending ? "Exporting…" : "Export to Excel"}
             </button>
           </div>
           <div className="adminPage__dataCol">
             <h3 className="adminPage__dataColTitle">
-              <RotateCw size={16} strokeWidth={2} aria-hidden />
-              Restore backup
+              <FileText size={16} strokeWidth={2} aria-hidden />
+              Export articles
             </h3>
-            <div className="adminPage__fileField adminPage__fileField--tight">
-              <label className="adminPage__visuallyHidden" htmlFor={fid("backup")}>
-                Backup file
-              </label>
-              <input
-                id={fid("backup")}
-                type="file"
-                className="adminPage__fileInput"
-                onChange={(e) => setBackupFile(e.target.files?.[0] ?? null)}
-              />
-            </div>
+            <p className="adminPage__dataColDesc">
+              Download every ingested article with URL, title, risk count,
+              content hash (SHA-256), and created/updated timestamps.
+            </p>
             <button
               type="button"
               className="adminPage__ghostBtn"
-              onClick={handleRestore}
+              onClick={handleExportArticles}
+              disabled={exportArticlesPending}
             >
-              <Upload size={18} strokeWidth={2} aria-hidden />
-              Restore
+              <Download size={18} strokeWidth={2} aria-hidden />
+              {exportArticlesPending ? "Exporting…" : "Export to Excel"}
             </button>
           </div>
-          <div className="adminPage__dataCol adminPage__dataCol--danger">
+          <div className="adminPage__dataCol">
             <h3 className="adminPage__dataColTitle">
-              <Trash2 size={16} strokeWidth={2} aria-hidden />
-              Reset database
+              <ListChecks size={16} strokeWidth={2} aria-hidden />
+              Export review
             </h3>
             <p className="adminPage__dataColDesc">
-              Permanently deletes all articles, risks, and jobs. This cannot be
-              undone.
+              Download review queue items with domain, quality score, review
+              reason, status, reviewer feedback, and source article details.
             </p>
-            <input
-              type="text"
-              className="adminPage__dangerInput"
-              placeholder='Type "RESET" to confirm'
-              value={resetConfirm}
-              onChange={(e) => setResetConfirm(e.target.value)}
-              autoComplete="off"
-              aria-label="Type RESET to confirm database reset"
-            />
             <button
               type="button"
-              className="adminPage__dangerBtn"
-              disabled={!resetEnabled}
-              onClick={handleResetDatabase}
+              className="adminPage__ghostBtn"
+              onClick={handleExportReview}
+              disabled={exportReviewPending}
             >
-              <AlertTriangle size={18} strokeWidth={2} aria-hidden />
-              Reset Database
+              <Download size={18} strokeWidth={2} aria-hidden />
+              {exportReviewPending ? "Exporting…" : "Export to Excel"}
             </button>
           </div>
         </div>

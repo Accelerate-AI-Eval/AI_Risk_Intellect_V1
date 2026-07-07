@@ -9,6 +9,7 @@ import {
   Shield,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
+import { decodeDisplayTitle } from "../../../utils/decodeHtmlEntities";
 import { formatDisplayDate } from "../../../utils/formatDate";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePagination } from "../../../utils/usePagination";
@@ -50,7 +51,7 @@ function normalizeArticlesFromApi(raw: unknown): {
 
   const articles: ArticleRow[] = (data.articles ?? []).map((a) => ({
     id: a.id ?? 0,
-    title: a.title?.trim() || "Untitled",
+    title: decodeDisplayTitle(a.title, "Untitled"),
     url: a.url ?? "",
     risks: a.riskCount ?? 0,
     created: a.createdAt ? formatDisplayDate(a.createdAt) : "—",
