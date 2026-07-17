@@ -6,6 +6,7 @@ import {
   Database,
   Download,
   FileText,
+  Layers,
   ListChecks,
   Rss,
   Settings2,
@@ -27,6 +28,7 @@ import {
 } from "../Settings/SettingsSections";
 import "../Users/usersPage.css";
 import "../Settings/settingsPage.css";
+import { AdminBatchRunSection } from "./AdminBatchRunSection";
 import { AdminCronJobsSection } from "./AdminCronJobsSection";
 import { AdminRssFeedsSection } from "./AdminRssFeedsSection";
 import { EtlSection } from "./etl/EtlSection";
@@ -45,13 +47,14 @@ import {
 import { ModelCompatibilityChecker } from "./ModelCompatibilityChecker";
 import "./adminPage.css";
 
-type AdminTab = "controls" | "rss" | "etl";
+type AdminTab = "controls" | "rss" | "etl" | "batches";
 type RssSubTab = "links" | "logs";
 
 const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [
   { key: "controls", label: "Controls", icon: Settings2 },
   { key: "rss", label: "RSS Feeds", icon: Rss },
   { key: "etl", label: "ETL", icon: Workflow },
+  { key: "batches", label: "Batches", icon: Layers },
 ];
 
 export function AdminPage() {
@@ -191,22 +194,22 @@ export function AdminPage() {
     try {
       const discoveryPayload =
         key === "discovery" &&
-        options &&
-        ((options.ingestLinkIds?.length ?? 0) > 0 ||
-          (options.ingestLinkItemIds?.length ?? 0) > 0)
+          options &&
+          ((options.ingestLinkIds?.length ?? 0) > 0 ||
+            (options.ingestLinkItemIds?.length ?? 0) > 0)
           ? {
-              ingestLinkIds: options.ingestLinkIds,
-              ingestLinkItemIds: options.ingestLinkItemIds,
-            }
+            ingestLinkIds: options.ingestLinkIds,
+            ingestLinkItemIds: options.ingestLinkItemIds,
+          }
           : null;
 
       const res = await authFetch(path, {
         method: "POST",
         ...(discoveryPayload
           ? {
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(discoveryPayload),
-            }
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(discoveryPayload),
+          }
           : {}),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -222,7 +225,7 @@ export function AdminPage() {
         }
         toast.error(
           data.error?.message ??
-            `Could not start ${key === "worker" ? "worker" : "discovery"} service.`,
+          `Could not start ${key === "worker" ? "worker" : "discovery"} service.`,
           { autoClose: 3500 },
         );
         void loadServiceStatus();
@@ -294,7 +297,7 @@ export function AdminPage() {
         clearPending(key);
         toast.error(
           data.error?.message ??
-            `Could not stop ${key === "worker" ? "worker" : "discovery"} service.`,
+          `Could not stop ${key === "worker" ? "worker" : "discovery"} service.`,
           { autoClose: 3500 },
         );
         void loadServiceStatus();
@@ -358,87 +361,89 @@ export function AdminPage() {
 
       {tab === "controls" && (
         <>
-      <div className="adminPage__topRow">
-        <section className="adminPage__card adminPage__topRowCell" aria-labelledby={fid("services-title")}>
-        <div className="adminPage__cardHead">
-          <span className="settingsPage__cardIconWrap" aria-hidden>
-            <Cpu size={20} strokeWidth={2} />
-          </span>
-          <div className="adminPage__cardHeadText">
-            <h2 id={fid("services-title")} className="adminPage__cardTitle">
-              System services
-            </h2>
-            <p className="adminPage__cardHint">
-              Start and stop the worker service and choose the LLM for risk extraction.
-            </p>
+          <div className="adminPage__topRow">
+            <section className="adminPage__card adminPage__topRowCell" aria-labelledby={fid("services-title")}>
+              <div className="adminPage__cardHead">
+                <span className="settingsPage__cardIconWrap" aria-hidden>
+                  <Cpu size={20} strokeWidth={2} />
+                </span>
+                <div className="adminPage__cardHeadText">
+                  <h2 id={fid("services-title")} className="adminPage__cardTitle">
+                    System services
+                  </h2>
+                  <p className="adminPage__cardHint">
+                    Start and stop the worker service and choose the LLM for risk extraction.
+                  </p>
+                </div>
+              </div>
+              <ul className="adminPage__serviceList">
+                <AdminServiceRow
+                  label="Worker Service"
+                  status={displayServiceStatus("worker", apiStatus, pendingAction)}
+                  apiRunning={apiStatus.worker === "running"}
+                  onStart={() => void handleStart("worker")}
+                  onStop={() => void handleStop("worker")}
+                />
+              </ul>
+
+              <ModelCompatibilityChecker idPrefix={fid("llm-model")} />
+            </section>
+
+            <div className="settingsPage adminPage__topRowCell">
+              <SettingsApiSection />
+            </div>
           </div>
-        </div>
-        <ul className="adminPage__serviceList">
-          <AdminServiceRow
-            label="Worker Service"
-            status={displayServiceStatus("worker", apiStatus, pendingAction)}
-            apiRunning={apiStatus.worker === "running"}
-            onStart={() => void handleStart("worker")}
-            onStop={() => void handleStop("worker")}
+
+
+
+          <AdminCronJobsSection
+            idPrefix={baseId}
+            discoveryStatus={displayServiceStatus(
+              "discovery",
+              apiStatus,
+              pendingAction,
+            )}
+            onScheduleSaved={async (job) => {
+              void loadServiceStatus();
+              if (!job.running) {
+                return;
+              }
+              setPendingAction((pending) => ({
+                ...pending,
+                worker: "starting",
+              }));
+              const workerUp = await waitForWorkerRunning(15_000);
+              clearPending("worker");
+              void loadServiceStatus();
+              if (!workerUp) {
+                toast.warning(
+                  "Discovery started, but the worker has not reported running yet. It may still be starting, or Python ingest may be unavailable.",
+                  { autoClose: 5000 },
+                );
+              }
+            }}
+            onScheduleStopped={async () => {
+              setPendingAction((pending) => ({
+                ...pending,
+                discovery: "stopping",
+              }));
+              const stopped = await waitForServiceApiState("discovery", false);
+              clearPending("discovery");
+              void loadServiceStatus();
+              if (!stopped) {
+                toast.warning(
+                  "CRON job stop requested, but discovery has not reported stopped yet.",
+                  { autoClose: 4000 },
+                );
+              }
+            }}
           />
-        </ul>
 
-        <ModelCompatibilityChecker idPrefix={fid("llm-model")} />
-      </section>
+          <div className="settingsPage adminPage__settings">
+            <SettingsSections />
+          </div>
 
-        <div className="settingsPage adminPage__topRowCell">
-          <SettingsApiSection />
-        </div>
-      </div>
-
-      <AdminCronJobsSection
-        idPrefix={baseId}
-        discoveryStatus={displayServiceStatus(
-          "discovery",
-          apiStatus,
-          pendingAction,
-        )}
-        onScheduleSaved={async (job) => {
-          void loadServiceStatus();
-          if (!job.running) {
-            return;
-          }
-          setPendingAction((pending) => ({
-            ...pending,
-            worker: "starting",
-          }));
-          const workerUp = await waitForWorkerRunning(15_000);
-          clearPending("worker");
-          void loadServiceStatus();
-          if (!workerUp) {
-            toast.warning(
-              "Discovery started, but the worker has not reported running yet. It may still be starting, or Python ingest may be unavailable.",
-              { autoClose: 5000 },
-            );
-          }
-        }}
-        onScheduleStopped={async () => {
-          setPendingAction((pending) => ({
-            ...pending,
-            discovery: "stopping",
-          }));
-          const stopped = await waitForServiceApiState("discovery", false);
-          clearPending("discovery");
-          void loadServiceStatus();
-          if (!stopped) {
-            toast.warning(
-              "CRON job stop requested, but discovery has not reported stopped yet.",
-              { autoClose: 4000 },
-            );
-          }
-        }}
-      />
-
-      <div className="settingsPage adminPage__settings">
-        <SettingsSections />
-      </div>
-
-      {/* AIID import — disabled until API is connected
+          {/* AIID import — disabled until API is connected
       <section className="adminPage__card" aria-labelledby={fid("aiid-title")}>
           <div className="adminPage__cardHead">
             <span className="adminPage__cardIconWrap" aria-hidden>
@@ -502,85 +507,85 @@ export function AdminPage() {
       </section>
       */}
 
-      <section className="adminPage__card" aria-labelledby={fid("data-title")}>
-        <div className="adminPage__cardHead">
-          <span className="settingsPage__cardIconWrap" aria-hidden>
-            <Database size={20} strokeWidth={2} />
-          </span>
-          <div className="adminPage__cardHeadText">
-            <h2 id={fid("data-title")} className="adminPage__cardTitle">
-              Data management
-            </h2>
-            <p className="adminPage__cardHint">
-              Export risks, articles, and review queue data to Excel.
-            </p>
-          </div>
-        </div>
-        <div className="adminPage__dataGrid">
-          <div className="adminPage__dataCol">
-            <h3 className="adminPage__dataColTitle">
-              <Download size={16} strokeWidth={2} aria-hidden />
-              Export risks
-            </h3>
-            <p className="adminPage__dataColDesc">
-              Download all extracted risks with domain, taxonomy, quality score,
-              description, review status, and linked article details. Includes
-              Risks, Articles, and Tags sheets.
-            </p>
-            <button
-              type="button"
-              className="adminPage__ghostBtn"
-              onClick={handleExportRisks}
-              disabled={exportRisksPending}
-            >
-              <Download size={18} strokeWidth={2} aria-hidden />
-              {exportRisksPending ? "Exporting…" : "Export to Excel"}
-            </button>
-          </div>
-          <div className="adminPage__dataCol">
-            <h3 className="adminPage__dataColTitle">
-              <FileText size={16} strokeWidth={2} aria-hidden />
-              Export articles
-            </h3>
-            <p className="adminPage__dataColDesc">
-              Download every ingested article with URL, title, risk count,
-              content hash (SHA-256), and created/updated timestamps.
-            </p>
-            <button
-              type="button"
-              className="adminPage__ghostBtn"
-              onClick={handleExportArticles}
-              disabled={exportArticlesPending}
-            >
-              <Download size={18} strokeWidth={2} aria-hidden />
-              {exportArticlesPending ? "Exporting…" : "Export to Excel"}
-            </button>
-          </div>
-          <div className="adminPage__dataCol">
-            <h3 className="adminPage__dataColTitle">
-              <ListChecks size={16} strokeWidth={2} aria-hidden />
-              Export review
-            </h3>
-            <p className="adminPage__dataColDesc">
-              Download review queue items with domain, quality score, review
-              reason, status, reviewer feedback, and source article details.
-            </p>
-            <button
-              type="button"
-              className="adminPage__ghostBtn"
-              onClick={handleExportReview}
-              disabled={exportReviewPending}
-            >
-              <Download size={18} strokeWidth={2} aria-hidden />
-              {exportReviewPending ? "Exporting…" : "Export to Excel"}
-            </button>
-          </div>
-        </div>
-      </section>
+          <section className="adminPage__card" aria-labelledby={fid("data-title")}>
+            <div className="adminPage__cardHead">
+              <span className="settingsPage__cardIconWrap" aria-hidden>
+                <Database size={20} strokeWidth={2} />
+              </span>
+              <div className="adminPage__cardHeadText">
+                <h2 id={fid("data-title")} className="adminPage__cardTitle">
+                  Data management
+                </h2>
+                <p className="adminPage__cardHint">
+                  Export risks, articles, and review queue data to Excel.
+                </p>
+              </div>
+            </div>
+            <div className="adminPage__dataGrid">
+              <div className="adminPage__dataCol">
+                <h3 className="adminPage__dataColTitle">
+                  <Download size={16} strokeWidth={2} aria-hidden />
+                  Export risks
+                </h3>
+                <p className="adminPage__dataColDesc">
+                  Download all extracted risks with domain, taxonomy, quality score,
+                  description, review status, and linked article details. Includes
+                  Risks, Articles, and Tags sheets.
+                </p>
+                <button
+                  type="button"
+                  className="adminPage__ghostBtn"
+                  onClick={handleExportRisks}
+                  disabled={exportRisksPending}
+                >
+                  <Download size={18} strokeWidth={2} aria-hidden />
+                  {exportRisksPending ? "Exporting…" : "Export to Excel"}
+                </button>
+              </div>
+              <div className="adminPage__dataCol">
+                <h3 className="adminPage__dataColTitle">
+                  <FileText size={16} strokeWidth={2} aria-hidden />
+                  Export articles
+                </h3>
+                <p className="adminPage__dataColDesc">
+                  Download every ingested article with URL, title, risk count,
+                  content hash (SHA-256), and created/updated timestamps.
+                </p>
+                <button
+                  type="button"
+                  className="adminPage__ghostBtn"
+                  onClick={handleExportArticles}
+                  disabled={exportArticlesPending}
+                >
+                  <Download size={18} strokeWidth={2} aria-hidden />
+                  {exportArticlesPending ? "Exporting…" : "Export to Excel"}
+                </button>
+              </div>
+              <div className="adminPage__dataCol">
+                <h3 className="adminPage__dataColTitle">
+                  <ListChecks size={16} strokeWidth={2} aria-hidden />
+                  Export review
+                </h3>
+                <p className="adminPage__dataColDesc">
+                  Download review queue items with domain, quality score, review
+                  reason, status, reviewer feedback, and source article details.
+                </p>
+                <button
+                  type="button"
+                  className="adminPage__ghostBtn"
+                  onClick={handleExportReview}
+                  disabled={exportReviewPending}
+                >
+                  <Download size={18} strokeWidth={2} aria-hidden />
+                  {exportReviewPending ? "Exporting…" : "Export to Excel"}
+                </button>
+              </div>
+            </div>
+          </section>
 
-      <div className="settingsPage settingsPage__sections adminPage__settingsAbout">
-        <SettingsAboutSection />
-      </div>
+          <div className="settingsPage settingsPage__sections adminPage__settingsAbout">
+            <SettingsAboutSection />
+          </div>
         </>
       )}
 
@@ -616,6 +621,27 @@ export function AdminPage() {
           workerApiRunning={apiStatus.worker === "running"}
           onReportsStart={(selection) => void handleReportsStart(selection)}
           onWorkerStop={() => void handleStop("worker")}
+        />
+      )}
+
+      {tab === "batches" && (
+        <AdminBatchRunSection
+          idPrefix={baseId}
+          busy={Boolean(pendingAction.discovery || pendingAction.worker)}
+          onRunStart={({ rss, etl }) =>
+            setPendingAction((pending) => ({
+              ...pending,
+              ...(rss ? { discovery: "starting" as const } : {}),
+              ...(rss || etl ? { worker: "starting" as const } : {}),
+            }))
+          }
+          onRunEnd={() => {
+            clearPending("discovery");
+            clearPending("worker");
+          }}
+          onServicesChanged={() => {
+            void loadServiceStatus();
+          }}
         />
       )}
     </main>

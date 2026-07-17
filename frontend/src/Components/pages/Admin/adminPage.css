@@ -2321,6 +2321,376 @@ html.app-theme-dark
   padding-top: 0.25rem;
 }
 
+.adminPage__batchCard {
+  margin-top: 0;
+}
+
+.adminPage__batchHistory {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--adm-border);
+}
+
+.adminPage__batchHistoryHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.adminPage__batchHistoryTitle {
+  margin: 0;
+  margin-right: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--adm-text);
+}
+
+.adminPage__batchRefreshBtn {
+  width: 9.5rem;
+  min-width: 9.5rem;
+  max-width: 9.5rem;
+  min-height: 40px;
+  padding: 0.5rem 0.85rem;
+  margin-top: 0;
+  margin-left: auto;
+  font-size: 0.85rem;
+  flex: 0 0 9.5rem;
+  white-space: nowrap;
+}
+
+.adminPage__batchDetailsHint {
+  margin: 0 0 0.85rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--adm-muted);
+}
+
+.adminPage__batchAssignedModel {
+  margin: 0.65rem 0 0.35rem;
+  font-size: 0.8rem;
+  color: var(--adm-muted);
+}
+
+.adminPage__batchAssignedModel strong {
+  color: var(--adm-text);
+  font-weight: 600;
+}
+
+.adminPage__batchModel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.adminPage__batchModelHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.adminPage__batchModelHead .adminPage__modelLabelRow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.adminPage__batchModelHead .adminPage__batchRunBtn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.adminPage__batchModelNotes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+.adminPage__batchModelNote {
+  flex: 1 1 16rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--adm-muted);
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-sizing: border-box;
+}
+
+.adminPage__batchActiveNotice {
+  flex: 1 1 16rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.32);
+  box-sizing: border-box;
+}
+
+.adminPage__batchActiveNotice strong {
+  color: #a7f3d0;
+  font-weight: 600;
+}
+
+.adminPage__batchRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.85rem;
+}
+
+.adminPage__batchBox {
+  flex: 1 1 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--adm-border);
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.adminPage__batchBoxTitle {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--adm-text);
+}
+
+.adminPage__batchBoxMeta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--adm-muted);
+}
+
+.adminPage__batchBox .adminPage__ghostBtn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.adminPage__batchRunWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+  padding: 0.25rem 0;
+  min-width: 9.5rem;
+}
+
+.adminPage__batchRunBtn,
+.adminPage__batchDetailsBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 9.5rem;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.adminPage__batchDetailsBtn {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .adminPage__batchModelHead .adminPage__batchRunBtn {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .adminPage__batchRunWrap {
+    width: 100%;
+  }
+
+  .adminPage__batchRunBtn,
+  .adminPage__batchDetailsBtn {
+    width: 100%;
+  }
+}
+
+.adminPage__batchHistoryEmpty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--adm-muted);
+}
+
+.adminPage__batchHistoryList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.adminPage__batchHistoryItem {
+  border: 1px solid var(--adm-border);
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.04);
+  overflow: hidden;
+}
+
+.adminPage__batchHistoryToggle {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 1rem;
+  padding: 0.7rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.adminPage__batchHistoryToggle:hover {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.adminPage__batchHistoryToggleMain {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.adminPage__batchHistoryId {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.adminPage__batchHistoryMeta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.85rem;
+  font-size: 0.78rem;
+  color: var(--adm-muted);
+}
+
+.adminPage__batchHistoryDetail {
+  padding: 0 0.85rem 0.85rem;
+  border-top: 1px solid var(--adm-border);
+}
+
+.adminPage__batchUrlList {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.adminPage__batchUrlRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem 0.75rem;
+  align-items: start;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid var(--adm-border);
+}
+
+.adminPage__batchUrlSource {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.adminPage__batchUrlSource--rss {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.14);
+}
+
+.adminPage__batchUrlSource--etl {
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.14);
+}
+
+.adminPage__batchUrlText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.adminPage__batchUrlLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--adm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adminPage__batchUrlLink {
+  font-size: 0.75rem;
+  color: var(--adm-primary);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adminPage__batchUrlLink:hover {
+  text-decoration: underline;
+}
+
+.adminPage__batchUrlStatus {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.adminPage__statusPill--done {
+  color: var(--adm-status-ok);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.adminPage__statusPill--error {
+  color: var(--adm-status-bad);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.adminPage__statusPill--not-processed {
+  color: var(--adm-muted);
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
 .adminPage__dataGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2638,6 +3008,27 @@ html:not(.app-theme-dark) .adminPage__dataCol--danger {
 
 html:not(.app-theme-dark) .adminPage__ghostBtn {
   background: #fff;
+}
+
+html:not(.app-theme-dark) .adminPage__batchUrlRow {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+html:not(.app-theme-dark) .adminPage__batchModelNote {
+  color: #64748b;
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+html:not(.app-theme-dark) .adminPage__batchActiveNotice {
+  color: #047857;
+  background: rgba(209, 250, 229, 0.95);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+html:not(.app-theme-dark) .adminPage__batchActiveNotice strong {
+  color: #065f46;
 }
 
 html:not(.app-theme-dark) .adminPage__fileInput::file-selector-button {

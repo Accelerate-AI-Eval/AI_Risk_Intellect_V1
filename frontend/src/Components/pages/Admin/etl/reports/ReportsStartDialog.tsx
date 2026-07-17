@@ -14,6 +14,10 @@ export type ReportsStartDialogProps = {
   uploads: EtlReportUploadRow[];
   uploadsLoading?: boolean;
   starting?: boolean;
+  title?: string;
+  hint?: string;
+  confirmLabel?: string;
+  confirmingLabel?: string;
   onClose: () => void;
   onStart: (selection: {
     uploadIds: number[];
@@ -34,6 +38,10 @@ export function ReportsStartDialog({
   uploads,
   uploadsLoading = false,
   starting = false,
+  title = "Start reports worker",
+  hint = "Choose report URLs to ingest. Selected URLs will be queued as jobs and the worker service will start to process them.",
+  confirmLabel = "Start worker",
+  confirmingLabel = "Starting…",
   onClose,
   onStart,
 }: ReportsStartDialogProps) {
@@ -232,7 +240,7 @@ export function ReportsStartDialog({
       >
         <div className="usersPage__dialogHead">
           <h2 id={titleId} className="usersPage__dialogTitle">
-            Start reports worker
+            {title}
           </h2>
           <button
             type="button"
@@ -246,8 +254,7 @@ export function ReportsStartDialog({
         </div>
         <div className="usersPage__dialogBody">
           <p className="adminPage__discoveryDialogHint">
-            Choose report URLs to ingest. Selected URLs will be queued as jobs
-            and the worker service will start to process them.
+            {hint}
           </p>
 
           {uploadsLoading || itemsLoading ? (
@@ -425,7 +432,7 @@ export function ReportsStartDialog({
               }
             >
               <Play size={16} strokeWidth={2} aria-hidden />
-              {starting ? "Starting…" : "Start worker"}
+              {starting ? confirmingLabel : confirmLabel}
             </button>
           </div>
         </div>

@@ -269,6 +269,14 @@ async function syncPythonModel(modelId: string): Promise<{
   }
 }
 
+/** Sync the running Python service to a specific model id (not only process env). */
+export async function syncPythonLlmModel(modelId: string): Promise<boolean> {
+  const trimmed = modelId.trim();
+  if (!trimmed) return false;
+  const result = await syncPythonModel(trimmed);
+  return result.ok;
+}
+
 export type LlmModelConfig = {
   backend: LlmBackend;
   modelId: string;

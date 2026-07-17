@@ -25,6 +25,9 @@ export type CreateJobInput = {
   allowDuplicates?: boolean;
   ingestLinkId?: number | null;
   ingestLinkItemId?: number | null;
+  batchRunId?: number | null;
+  modelName?: string | null;
+  modelLabel?: string | null;
 };
 
 export type CreateJobResult = {
@@ -122,6 +125,13 @@ export async function createJob(
       ...(input.ingestLinkItemId != null
         ? { ingestLinkItemId: input.ingestLinkItemId }
         : {}),
+      ...(input.batchRunId != null ? { batchRunId: input.batchRunId } : {}),
+      ...(input.modelName?.trim()
+        ? { modelName: input.modelName.trim() }
+        : {}),
+      ...(input.modelLabel?.trim()
+        ? { modelLabel: input.modelLabel.trim() }
+        : {}),
     })
     .returning();
 
@@ -193,6 +203,9 @@ export async function createArticleWithIngestJob(
     allowDuplicates?: boolean;
     ingestLinkId?: number | null;
     ingestLinkItemId?: number | null;
+    batchRunId?: number | null;
+    modelName?: string | null;
+    modelLabel?: string | null;
   },
 ): Promise<{
   article: { id: number; url: string; createdAt: Date };
@@ -213,6 +226,9 @@ export async function createArticleWithIngestJob(
     allowDuplicates: input.allowDuplicates,
     ingestLinkId: input.ingestLinkId,
     ingestLinkItemId: input.ingestLinkItemId,
+    batchRunId: input.batchRunId,
+    modelName: input.modelName,
+    modelLabel: input.modelLabel,
   });
 
   return {

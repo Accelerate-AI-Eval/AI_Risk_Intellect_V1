@@ -38,11 +38,10 @@ import "./reviewPage.css";
 
 
 
-type ReviewTab = "queue" | "feedback" | "prompts";
+type ReviewTab = "queue" | "feedback"; // | "prompts"
 
-/** Placeholder until prompt versions are loaded from the API. */
-
-const MOCK_PROMPT_VERSIONS: { id: string }[] = [];
+// /** Placeholder until prompt versions are loaded from the API. */
+// const MOCK_PROMPT_VERSIONS: { id: string }[] = [];
 
 
 
@@ -80,15 +79,15 @@ const REVIEW_TAB_METAS: readonly ReviewTabMeta[] = [
 
   },
 
-  {
+  // {
 
-    id: "prompts",
+  //   id: "prompts",
 
-    label: "Prompts",
+  //   label: "Prompts",
 
-    ariaLabel: (n) => `Prompts, ${n} version${n === 1 ? "" : "s"}`,
+  //   ariaLabel: (n) => `Prompts, ${n} version${n === 1 ? "" : "s"}`,
 
-  },
+  // },
 
 ];
 
@@ -135,10 +134,6 @@ export function ReviewPage() {
   >("idle");
 
   const fid = (name: string) => `${baseId}-${name}`;
-
-  const stub = useCallback((action: string) => {
-    toast.info(`${action} is not wired to the API yet.`, { autoClose: 2800 });
-  }, []);
 
   const loadReviewQueue = useCallback(async () => {
     const token = sessionStorage.getItem("accessToken");
@@ -266,7 +261,7 @@ export function ReviewPage() {
 
       feedback: feedbackCounts.total,
 
-      prompts: MOCK_PROMPT_VERSIONS.length,
+      // prompts: MOCK_PROMPT_VERSIONS.length,
 
     }),
 
@@ -295,8 +290,6 @@ export function ReviewPage() {
 
     }
 
-    setRefreshing(false);
-
     if (tab === "feedback") {
 
       await loadFeedbackSamples();
@@ -305,13 +298,9 @@ export function ReviewPage() {
 
       toast.success("Feedback samples refreshed.", { autoClose: 2000 });
 
-      return;
-
     }
 
-    stub("Refresh prompt versions");
-
-  }, [loadReviewQueue, loadFeedbackSamples, stub, tab]);
+  }, [loadReviewQueue, loadFeedbackSamples, tab]);
 
 
 
@@ -721,23 +710,9 @@ export function ReviewPage() {
 
 
 
-  const searchPlaceholder =
+  const searchPlaceholder = "Search feedback samples…";
 
-    tab === "feedback"
-
-      ? "Search feedback samples…"
-
-      : "Search prompt versions…";
-
-
-
-  const searchAriaLabel =
-
-    tab === "feedback"
-
-      ? "Search feedback samples"
-
-      : "Search prompt versions";
+  const searchAriaLabel = "Search feedback samples";
 
 
 
@@ -767,15 +742,7 @@ export function ReviewPage() {
 
             aria-label={
 
-              tab === "queue"
-
-                ? "Refresh review queue"
-
-                : tab === "feedback"
-
-                  ? "Refresh feedback samples"
-
-                  : "Refresh prompt versions"
+              tab === "queue" ? "Refresh review queue" : "Refresh feedback samples"
 
             }
 
@@ -993,7 +960,7 @@ export function ReviewPage() {
 
 
 
-      {tab === "prompts" ? (
+      {/* {tab === "prompts" ? (
 
         <section
 
@@ -1017,7 +984,7 @@ export function ReviewPage() {
 
         </section>
 
-      ) : null}
+      ) : null} */}
 
 
 

@@ -56,6 +56,7 @@ class ExtractRiskBody(BaseModel):
     url: str = ""
     title: str = ""
     text: str = ""
+    modelId: str | None = None
 
 
 class SetLlmModelBody(BaseModel):
@@ -200,6 +201,9 @@ def extract_risk(body: ExtractRiskBody) -> dict[str, object]:
         return _error_payload("EmptyText", "no text to extract")
 
     try:
+        if body.modelId and body.modelId.strip():
+            set_model(body.modelId.strip())
+
         schema = load_risk_schema()
         obj, source_flag, metrics = extract_with_auto_chunking(
             body.text,

@@ -116,6 +116,7 @@ async function runExtractHttp(payload: {
   text: string;
   title: string;
   url: string;
+  modelId?: string;
 }): Promise<PythonExtractResult> {
   const base = pythonUrl();
   let res: Response;
@@ -127,6 +128,9 @@ async function runExtractHttp(payload: {
         text: payload.text,
         title: payload.title,
         url: payload.url,
+        ...(payload.modelId?.trim()
+          ? { modelId: payload.modelId.trim() }
+          : {}),
       }),
       signal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS),
     });
@@ -152,6 +156,7 @@ function runExtractCli(payload: {
   text: string;
   title: string;
   url: string;
+  modelId?: string;
 }): Promise<PythonExtractResult> {
   return new Promise((resolve, reject) => {
     const py = pythonCommand();
@@ -179,6 +184,9 @@ function runExtractCli(payload: {
         text: payload.text,
         title: payload.title,
         url: payload.url,
+        ...(payload.modelId?.trim()
+          ? { modelId: payload.modelId.trim() }
+          : {}),
       }),
     );
     child.stdin.end();
@@ -212,11 +220,13 @@ export async function pythonExtractRisk(payload: {
   text: string;
   title?: string;
   url?: string;
+  modelId?: string;
 }): Promise<PythonExtractResult> {
   const body = {
     text: payload.text,
     title: payload.title ?? "",
     url: payload.url ?? "",
+    ...(payload.modelId?.trim() ? { modelId: payload.modelId.trim() } : {}),
   };
   if (useCliBridge()) {
     return runExtractCli(body);

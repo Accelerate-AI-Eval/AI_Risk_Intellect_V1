@@ -1,7 +1,11 @@
 import { db } from "../../db/index.js";
 import { createArticleWithIngestJob } from "../../jobs/jobFactory.js";
 import { normalizeUrl } from "../../utils/fetchUtils.js";
-import { getActiveJobUrls } from "./discoveryEnqueue.service.js";
+import {
+  getActiveJobUrls,
+  resolveEnqueueModel,
+  type EnqueueModelOptions,
+} from "./discoveryEnqueue.service.js";
 import type { ReportItemRef } from "./etlReportUploads.service.js";
 
 export type ReportsEnqueueItem = {
@@ -17,11 +21,14 @@ function isMissingEtlReportsSourceError(err: unknown): boolean {
 /**
  * Queue report URLs as article shell + pending ingest job.
  * Uses source `etl_reports` so jobs appear as ETL Reports in the jobs table.
+ * Snapshots the assigned LLM model onto each job at enqueue time.
  */
 export async function enqueueReportsBatch(
   items: ReportsEnqueueItem[],
+  options?: EnqueueModelOptions,
 ): Promise<number> {
   const activeJobs = await getActiveJobUrls();
+  const model = await resolveEnqueueModel(options);
   let count = 0;
 
   for (const item of items) {
@@ -41,6 +48,9 @@ export async function enqueueReportsBatch(
           url: normalized,
           source: "etl_reports",
           title: item.title,
+          batchRunId: options?.batchRunId ?? null,
+          modelName: model.modelName,
+          modelLabel: model.modelLabel,
         }),
       );
     } catch (err) {
@@ -52,6 +62,9 @@ export async function enqueueReportsBatch(
           url: normalized,
           source: "api",
           title: item.title,
+          batchRunId: options?.batchRunId ?? null,
+          modelName: model.modelName,
+          modelLabel: model.modelLabel,
         }),
       );
     }
@@ -65,11 +78,15 @@ export async function enqueueReportsBatch(
   return count;
 }
 
-export async function enqueueReportRefs(refs: ReportItemRef[]): Promise<number> {
+export async function enqueueReportRefs(
+  refs: ReportItemRef[],
+  options?: EnqueueModelOptions,
+): Promise<number> {
   return enqueueReportsBatch(
     refs.map((ref) => ({
       url: ref.url,
       title: ref.title,
     })),
+    options,
   );
 }

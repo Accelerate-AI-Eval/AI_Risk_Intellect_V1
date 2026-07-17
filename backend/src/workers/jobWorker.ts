@@ -6,7 +6,8 @@
  */
 import "../bootstrap.js";
 import { createLogger } from "../logger/index.js";
-import { runOneJob, hasPendingJobs } from "../services/worker/jobWorker.service.js";
+import { runOneJob, hasActiveIngestJobs } from "../services/worker/jobWorker.service.js";
+import { hasRunningBatchRun } from "../services/admin/batchRuns.service.js";
 import {
   assertPythonServiceReady,
   syncPythonLlmFromEnv,
@@ -83,12 +84,15 @@ async function workerLoop(): Promise<void> {
       }
 
       if (AUTO_STOP_WHEN_IDLE) {
-        const pending = await hasPendingJobs();
-        if (!pending) {
+        const [activeJobs, batchProcessing] = await Promise.all([
+          hasActiveIngestJobs(),
+          hasRunningBatchRun(),
+        ]);
+        if (!activeJobs && !batchProcessing) {
           idlePolls += 1;
           if (idlePolls >= IDLE_POLLS_BEFORE_STOP) {
             log.info(
-              "no pending jobs — stopping managed worker (idle_polls=%d)",
+              "no active jobs or processing batches — stopping managed worker (idle_polls=%d)",
               idlePolls,
             );
             break;

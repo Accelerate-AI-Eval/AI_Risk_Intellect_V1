@@ -101,6 +101,41 @@ export const startReportsRunSchema = z
 
 export type StartReportsRunInput = z.infer<typeof startReportsRunSchema>;
 
+export const startBatchRunSchema = z
+  .object({
+    modelId: z.string().trim().min(1).max(256).optional(),
+    ingestLinkIds: z
+      .array(z.coerce.number().int().positive())
+      .optional(),
+    ingestLinkItemIds: z
+      .array(z.coerce.number().int().positive())
+      .optional(),
+    uploadIds: z
+      .array(z.coerce.number().int().positive())
+      .optional(),
+    reportIds: z
+      .array(z.coerce.number().int().positive())
+      .optional(),
+  })
+  .refine(
+    (value) =>
+      (value.ingestLinkIds?.length ?? 0) > 0 ||
+      (value.ingestLinkItemIds?.length ?? 0) > 0 ||
+      (value.uploadIds?.length ?? 0) > 0 ||
+      (value.reportIds?.length ?? 0) > 0,
+    {
+      message: "Select at least one RSS feed URL or ETL report URL to run.",
+    },
+  );
+
+export type StartBatchRunInput = z.infer<typeof startBatchRunSchema>;
+
+export const batchRunIdSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+export type BatchRunIdParams = z.infer<typeof batchRunIdSchema>;
+
 const cronDateSchema = z
   .string()
   .trim()

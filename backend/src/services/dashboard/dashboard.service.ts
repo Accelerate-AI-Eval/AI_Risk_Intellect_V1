@@ -3,6 +3,7 @@ import { db } from "../../db/index.js";
 import { articles } from "../../schema/articles/articles.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { risks } from "../../schema/risks/risks.js";
+import { resolveQualityScore100 } from "../risks/riskQuality.js";
 
 export type DashboardMetricCard = {
   value: string;
@@ -145,16 +146,19 @@ function primaryCategoryKey(primary: string | null): "technical" | "operational"
 
 function severityKey(score: number | null): "low" | "medium" | "high" | "critical" {
   if (score == null) return "low";
-  if (score >= 90) return "critical";
-  if (score >= 75) return "high";
-  if (score >= 50) return "medium";
+  // Accept both unit (0–1) and percent (0–100) quality scores.
+  const pct = score <= 1 ? score * 100 : score;
+  if (pct >= 90) return "critical";
+  if (pct >= 75) return "high";
+  if (pct >= 50) return "medium";
   return "low";
 }
 
 function confidenceKey(score: number | null): "high" | "medium" | "low" {
   if (score == null) return "low";
-  if (score >= 85) return "high";
-  if (score >= 65) return "medium";
+  const pct = score <= 1 ? score * 100 : score;
+  if (pct >= 85) return "high";
+  if (pct >= 65) return "medium";
   return "low";
 }
 
@@ -333,6 +337,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       sector: risks.sector,
       industry: risks.industry,
       qualityScore: risks.qualityScore,
+      extractionJson: risks.extractionJson,
       createdAt: risks.createdAt,
     })
     .from(risks);
@@ -389,7 +394,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   let scoreCount = 0;
 
   for (const row of riskRows) {
-    const score = row.qualityScore;
+    const score = resolveQualityScore100({
+      qualityScore: row.qualityScore,
+      extractionJson: row.extractionJson,
+    });
     severityCounts[severityKey(score)] += 1;
     confidenceCounts[confidenceKey(score)] += 1;
 

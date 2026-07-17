@@ -2,10 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict GPr3NQ4XAaS9h4tOZIgYaho1rO6uUnbXUXfNGXFs0TZHgNrsDCbj0weyLqg2Zeg
+\restrict z8EOWhAE4KRBCOGdCZLSabQXLabxJxrQv70CtwqwQ2e8PjPhescdg0nLbUEhWcO
 
--- Dumped from database version 17.8
--- Dumped by pg_dump version 17.8
+-- Dumped from database version 17.6
+-- Dumped by pg_dump version 17.6
+
+-- Started on 2026-07-17 14:55:43
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -20,6 +22,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- TOC entry 6 (class 2615 OID 252733)
 -- Name: drizzle; Type: SCHEMA; Schema: -; Owner: postgres
 --
 
@@ -29,6 +32,50 @@ CREATE SCHEMA drizzle;
 ALTER SCHEMA drizzle OWNER TO postgres;
 
 --
+-- TOC entry 959 (class 1247 OID 271800)
+-- Name: batch_run_item_source; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.batch_run_item_source AS ENUM (
+    'rss',
+    'etl'
+);
+
+
+ALTER TYPE public.batch_run_item_source OWNER TO postgres;
+
+--
+-- TOC entry 962 (class 1247 OID 271806)
+-- Name: batch_run_item_status; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.batch_run_item_status AS ENUM (
+    'pending',
+    'started',
+    'failed'
+);
+
+
+ALTER TYPE public.batch_run_item_status OWNER TO postgres;
+
+--
+-- TOC entry 956 (class 1247 OID 271788)
+-- Name: batch_run_status; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.batch_run_status AS ENUM (
+    'pending',
+    'running',
+    'completed',
+    'partial',
+    'failed'
+);
+
+
+ALTER TYPE public.batch_run_status OWNER TO postgres;
+
+--
+-- TOC entry 881 (class 1247 OID 252735)
 -- Name: cron_job_event_type; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -43,6 +90,7 @@ CREATE TYPE public.cron_job_event_type AS ENUM (
 ALTER TYPE public.cron_job_event_type OWNER TO postgres;
 
 --
+-- TOC entry 884 (class 1247 OID 252740)
 -- Name: cron_repeat_unit; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -57,6 +105,7 @@ CREATE TYPE public.cron_repeat_unit AS ENUM (
 ALTER TYPE public.cron_repeat_unit OWNER TO postgres;
 
 --
+-- TOC entry 887 (class 1247 OID 252750)
 -- Name: job_source; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -71,6 +120,7 @@ CREATE TYPE public.job_source AS ENUM (
 ALTER TYPE public.job_source OWNER TO postgres;
 
 --
+-- TOC entry 890 (class 1247 OID 252760)
 -- Name: job_status; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -88,6 +138,7 @@ CREATE TYPE public.job_status AS ENUM (
 ALTER TYPE public.job_status OWNER TO postgres;
 
 --
+-- TOC entry 893 (class 1247 OID 252776)
 -- Name: job_type; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -101,6 +152,7 @@ CREATE TYPE public.job_type AS ENUM (
 ALTER TYPE public.job_type OWNER TO postgres;
 
 --
+-- TOC entry 896 (class 1247 OID 252784)
 -- Name: user_account_status; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -118,6 +170,7 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- TOC entry 218 (class 1259 OID 252791)
 -- Name: __drizzle_migrations; Type: TABLE; Schema: drizzle; Owner: postgres
 --
 
@@ -131,6 +184,7 @@ CREATE TABLE drizzle.__drizzle_migrations (
 ALTER TABLE drizzle.__drizzle_migrations OWNER TO postgres;
 
 --
+-- TOC entry 219 (class 1259 OID 252796)
 -- Name: __drizzle_migrations_id_seq; Type: SEQUENCE; Schema: drizzle; Owner: postgres
 --
 
@@ -146,6 +200,8 @@ CREATE SEQUENCE drizzle.__drizzle_migrations_id_seq
 ALTER SEQUENCE drizzle.__drizzle_migrations_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5198 (class 0 OID 0)
+-- Dependencies: 219
 -- Name: __drizzle_migrations_id_seq; Type: SEQUENCE OWNED BY; Schema: drizzle; Owner: postgres
 --
 
@@ -153,6 +209,7 @@ ALTER SEQUENCE drizzle.__drizzle_migrations_id_seq OWNED BY drizzle.__drizzle_mi
 
 
 --
+-- TOC entry 220 (class 1259 OID 252797)
 -- Name: aiid_reports; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -175,6 +232,7 @@ CREATE TABLE public.aiid_reports (
 ALTER TABLE public.aiid_reports OWNER TO postgres;
 
 --
+-- TOC entry 221 (class 1259 OID 252803)
 -- Name: aiid_reports_new_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -190,6 +248,8 @@ CREATE SEQUENCE public.aiid_reports_new_id_seq
 ALTER SEQUENCE public.aiid_reports_new_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5199 (class 0 OID 0)
+-- Dependencies: 221
 -- Name: aiid_reports_new_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -197,6 +257,7 @@ ALTER SEQUENCE public.aiid_reports_new_id_seq OWNED BY public.aiid_reports.id;
 
 
 --
+-- TOC entry 222 (class 1259 OID 252804)
 -- Name: application_logs; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -221,6 +282,7 @@ CREATE TABLE public.application_logs (
 ALTER TABLE public.application_logs OWNER TO postgres;
 
 --
+-- TOC entry 223 (class 1259 OID 252811)
 -- Name: application_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -236,6 +298,8 @@ CREATE SEQUENCE public.application_logs_id_seq
 ALTER SEQUENCE public.application_logs_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5200 (class 0 OID 0)
+-- Dependencies: 223
 -- Name: application_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -243,6 +307,7 @@ ALTER SEQUENCE public.application_logs_id_seq OWNED BY public.application_logs.i
 
 
 --
+-- TOC entry 224 (class 1259 OID 252812)
 -- Name: articles; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -262,6 +327,7 @@ CREATE TABLE public.articles (
 ALTER TABLE public.articles OWNER TO postgres;
 
 --
+-- TOC entry 225 (class 1259 OID 252820)
 -- Name: articles_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -277,6 +343,8 @@ CREATE SEQUENCE public.articles_id_seq
 ALTER SEQUENCE public.articles_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5201 (class 0 OID 0)
+-- Dependencies: 225
 -- Name: articles_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -284,6 +352,103 @@ ALTER SEQUENCE public.articles_id_seq OWNED BY public.articles.id;
 
 
 --
+-- TOC entry 252 (class 1259 OID 271828)
+-- Name: batch_run_items; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.batch_run_items (
+    id integer NOT NULL,
+    batch_run_id integer NOT NULL,
+    source_type public.batch_run_item_source NOT NULL,
+    ingest_link_id integer,
+    ingest_link_item_id integer,
+    feed_name character varying(512),
+    upload_id integer,
+    report_id integer,
+    url character varying(2048) NOT NULL,
+    title text,
+    status public.batch_run_item_status DEFAULT 'pending'::public.batch_run_item_status NOT NULL,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.batch_run_items OWNER TO postgres;
+
+--
+-- TOC entry 251 (class 1259 OID 271827)
+-- Name: batch_run_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.batch_run_items_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.batch_run_items_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 5202 (class 0 OID 0)
+-- Dependencies: 251
+-- Name: batch_run_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.batch_run_items_id_seq OWNED BY public.batch_run_items.id;
+
+
+--
+-- TOC entry 250 (class 1259 OID 271814)
+-- Name: batch_runs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.batch_runs (
+    id integer NOT NULL,
+    model_name character varying(128) NOT NULL,
+    model_label character varying(256),
+    status public.batch_run_status DEFAULT 'pending'::public.batch_run_status NOT NULL,
+    rss_item_count integer DEFAULT 0 NOT NULL,
+    etl_item_count integer DEFAULT 0 NOT NULL,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE public.batch_runs OWNER TO postgres;
+
+--
+-- TOC entry 249 (class 1259 OID 271813)
+-- Name: batch_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.batch_runs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.batch_runs_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 5203 (class 0 OID 0)
+-- Dependencies: 249
+-- Name: batch_runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.batch_runs_id_seq OWNED BY public.batch_runs.id;
+
+
+--
+-- TOC entry 226 (class 1259 OID 252821)
 -- Name: cron_job_events; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -299,6 +464,7 @@ CREATE TABLE public.cron_job_events (
 ALTER TABLE public.cron_job_events OWNER TO postgres;
 
 --
+-- TOC entry 227 (class 1259 OID 252827)
 -- Name: cron_job_events_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -314,6 +480,8 @@ CREATE SEQUENCE public.cron_job_events_id_seq
 ALTER SEQUENCE public.cron_job_events_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5204 (class 0 OID 0)
+-- Dependencies: 227
 -- Name: cron_job_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -321,6 +489,7 @@ ALTER SEQUENCE public.cron_job_events_id_seq OWNED BY public.cron_job_events.id;
 
 
 --
+-- TOC entry 228 (class 1259 OID 252828)
 -- Name: cron_job_schedule_feeds; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -333,6 +502,7 @@ CREATE TABLE public.cron_job_schedule_feeds (
 ALTER TABLE public.cron_job_schedule_feeds OWNER TO postgres;
 
 --
+-- TOC entry 229 (class 1259 OID 252831)
 -- Name: cron_job_schedules; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -355,6 +525,7 @@ CREATE TABLE public.cron_job_schedules (
 ALTER TABLE public.cron_job_schedules OWNER TO postgres;
 
 --
+-- TOC entry 230 (class 1259 OID 252844)
 -- Name: etl_report_upload_items; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -373,6 +544,7 @@ CREATE TABLE public.etl_report_upload_items (
 ALTER TABLE public.etl_report_upload_items OWNER TO postgres;
 
 --
+-- TOC entry 231 (class 1259 OID 252849)
 -- Name: etl_report_upload_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -388,6 +560,8 @@ CREATE SEQUENCE public.etl_report_upload_items_id_seq
 ALTER SEQUENCE public.etl_report_upload_items_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5205 (class 0 OID 0)
+-- Dependencies: 231
 -- Name: etl_report_upload_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -395,6 +569,7 @@ ALTER SEQUENCE public.etl_report_upload_items_id_seq OWNED BY public.etl_report_
 
 
 --
+-- TOC entry 232 (class 1259 OID 252850)
 -- Name: etl_report_uploads; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -418,6 +593,7 @@ CREATE TABLE public.etl_report_uploads (
 ALTER TABLE public.etl_report_uploads OWNER TO postgres;
 
 --
+-- TOC entry 233 (class 1259 OID 252863)
 -- Name: etl_report_uploads_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -433,6 +609,8 @@ CREATE SEQUENCE public.etl_report_uploads_id_seq
 ALTER SEQUENCE public.etl_report_uploads_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5206 (class 0 OID 0)
+-- Dependencies: 233
 -- Name: etl_report_uploads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -440,6 +618,7 @@ ALTER SEQUENCE public.etl_report_uploads_id_seq OWNED BY public.etl_report_uploa
 
 
 --
+-- TOC entry 234 (class 1259 OID 252864)
 -- Name: ingest_link_items; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -454,6 +633,7 @@ CREATE TABLE public.ingest_link_items (
 ALTER TABLE public.ingest_link_items OWNER TO postgres;
 
 --
+-- TOC entry 235 (class 1259 OID 252870)
 -- Name: ingest_link_items_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -469,6 +649,8 @@ CREATE SEQUENCE public.ingest_link_items_id_seq
 ALTER SEQUENCE public.ingest_link_items_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5207 (class 0 OID 0)
+-- Dependencies: 235
 -- Name: ingest_link_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -476,6 +658,7 @@ ALTER SEQUENCE public.ingest_link_items_id_seq OWNED BY public.ingest_link_items
 
 
 --
+-- TOC entry 236 (class 1259 OID 252871)
 -- Name: ingest_links; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -492,6 +675,7 @@ CREATE TABLE public.ingest_links (
 ALTER TABLE public.ingest_links OWNER TO postgres;
 
 --
+-- TOC entry 237 (class 1259 OID 252879)
 -- Name: ingest_links_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -507,6 +691,8 @@ CREATE SEQUENCE public.ingest_links_id_seq
 ALTER SEQUENCE public.ingest_links_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5208 (class 0 OID 0)
+-- Dependencies: 237
 -- Name: ingest_links_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -514,6 +700,7 @@ ALTER SEQUENCE public.ingest_links_id_seq OWNED BY public.ingest_links.id;
 
 
 --
+-- TOC entry 238 (class 1259 OID 252880)
 -- Name: jobs; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -530,13 +717,17 @@ CREATE TABLE public.jobs (
     error_message text,
     started_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    batch_run_id integer,
+    model_name character varying(128),
+    model_label character varying(256)
 );
 
 
 ALTER TABLE public.jobs OWNER TO postgres;
 
 --
+-- TOC entry 239 (class 1259 OID 252891)
 -- Name: jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -552,6 +743,8 @@ CREATE SEQUENCE public.jobs_id_seq
 ALTER SEQUENCE public.jobs_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5209 (class 0 OID 0)
+-- Dependencies: 239
 -- Name: jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -559,6 +752,7 @@ ALTER SEQUENCE public.jobs_id_seq OWNED BY public.jobs.id;
 
 
 --
+-- TOC entry 240 (class 1259 OID 252892)
 -- Name: llm_observability; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -576,6 +770,7 @@ CREATE TABLE public.llm_observability (
 ALTER TABLE public.llm_observability OWNER TO postgres;
 
 --
+-- TOC entry 241 (class 1259 OID 252898)
 -- Name: llm_observability_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -591,6 +786,8 @@ CREATE SEQUENCE public.llm_observability_id_seq
 ALTER SEQUENCE public.llm_observability_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5210 (class 0 OID 0)
+-- Dependencies: 241
 -- Name: llm_observability_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -598,6 +795,7 @@ ALTER SEQUENCE public.llm_observability_id_seq OWNED BY public.llm_observability
 
 
 --
+-- TOC entry 242 (class 1259 OID 252899)
 -- Name: password_reset_tokens; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -614,6 +812,7 @@ CREATE TABLE public.password_reset_tokens (
 ALTER TABLE public.password_reset_tokens OWNER TO postgres;
 
 --
+-- TOC entry 243 (class 1259 OID 252906)
 -- Name: refresh_tokens; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -634,6 +833,7 @@ CREATE TABLE public.refresh_tokens (
 ALTER TABLE public.refresh_tokens OWNER TO postgres;
 
 --
+-- TOC entry 244 (class 1259 OID 252914)
 -- Name: risk_mappings; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -660,6 +860,7 @@ CREATE TABLE public.risk_mappings (
 ALTER TABLE public.risk_mappings OWNER TO postgres;
 
 --
+-- TOC entry 245 (class 1259 OID 252919)
 -- Name: risk_mappings_risk_mapping_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
@@ -675,6 +876,8 @@ CREATE SEQUENCE public.risk_mappings_risk_mapping_id_seq
 ALTER SEQUENCE public.risk_mappings_risk_mapping_id_seq OWNER TO postgres;
 
 --
+-- TOC entry 5211 (class 0 OID 0)
+-- Dependencies: 245
 -- Name: risk_mappings_risk_mapping_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
@@ -682,6 +885,7 @@ ALTER SEQUENCE public.risk_mappings_risk_mapping_id_seq OWNED BY public.risk_map
 
 
 --
+-- TOC entry 246 (class 1259 OID 252920)
 -- Name: risks; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -707,6 +911,7 @@ CREATE TABLE public.risks (
 ALTER TABLE public.risks OWNER TO postgres;
 
 --
+-- TOC entry 247 (class 1259 OID 252928)
 -- Name: user_profile_update_logs; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -723,6 +928,7 @@ CREATE TABLE public.user_profile_update_logs (
 ALTER TABLE public.user_profile_update_logs OWNER TO postgres;
 
 --
+-- TOC entry 248 (class 1259 OID 252935)
 -- Name: users; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -742,6 +948,7 @@ CREATE TABLE public.users (
 ALTER TABLE public.users OWNER TO postgres;
 
 --
+-- TOC entry 4816 (class 2604 OID 264389)
 -- Name: __drizzle_migrations id; Type: DEFAULT; Schema: drizzle; Owner: postgres
 --
 
@@ -749,6 +956,7 @@ ALTER TABLE ONLY drizzle.__drizzle_migrations ALTER COLUMN id SET DEFAULT nextva
 
 
 --
+-- TOC entry 4817 (class 2604 OID 264390)
 -- Name: aiid_reports id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -756,6 +964,7 @@ ALTER TABLE ONLY public.aiid_reports ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- TOC entry 4819 (class 2604 OID 264391)
 -- Name: application_logs id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -763,6 +972,7 @@ ALTER TABLE ONLY public.application_logs ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- TOC entry 4822 (class 2604 OID 264392)
 -- Name: articles id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -770,6 +980,23 @@ ALTER TABLE ONLY public.articles ALTER COLUMN id SET DEFAULT nextval('public.art
 
 
 --
+-- TOC entry 4883 (class 2604 OID 271831)
+-- Name: batch_run_items id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items ALTER COLUMN id SET DEFAULT nextval('public.batch_run_items_id_seq'::regclass);
+
+
+--
+-- TOC entry 4877 (class 2604 OID 271817)
+-- Name: batch_runs id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_runs ALTER COLUMN id SET DEFAULT nextval('public.batch_runs_id_seq'::regclass);
+
+
+--
+-- TOC entry 4826 (class 2604 OID 264393)
 -- Name: cron_job_events id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -777,6 +1004,7 @@ ALTER TABLE ONLY public.cron_job_events ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
+-- TOC entry 4836 (class 2604 OID 264394)
 -- Name: etl_report_upload_items id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -784,6 +1012,7 @@ ALTER TABLE ONLY public.etl_report_upload_items ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- TOC entry 4837 (class 2604 OID 264395)
 -- Name: etl_report_uploads id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -791,6 +1020,7 @@ ALTER TABLE ONLY public.etl_report_uploads ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- TOC entry 4846 (class 2604 OID 264396)
 -- Name: ingest_link_items id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -798,6 +1028,7 @@ ALTER TABLE ONLY public.ingest_link_items ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- TOC entry 4848 (class 2604 OID 264397)
 -- Name: ingest_links id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -805,6 +1036,7 @@ ALTER TABLE ONLY public.ingest_links ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- TOC entry 4852 (class 2604 OID 264398)
 -- Name: jobs id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -812,6 +1044,7 @@ ALTER TABLE ONLY public.jobs ALTER COLUMN id SET DEFAULT nextval('public.jobs_id
 
 
 --
+-- TOC entry 4859 (class 2604 OID 264399)
 -- Name: llm_observability id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -819,6 +1052,7 @@ ALTER TABLE ONLY public.llm_observability ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- TOC entry 4866 (class 2604 OID 264400)
 -- Name: risk_mappings risk_mapping_id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -826,6 +1060,8 @@ ALTER TABLE ONLY public.risk_mappings ALTER COLUMN risk_mapping_id SET DEFAULT n
 
 
 --
+-- TOC entry 5158 (class 0 OID 252791)
+-- Dependencies: 218
 -- Data for Name: __drizzle_migrations; Type: TABLE DATA; Schema: drizzle; Owner: postgres
 --
 
@@ -868,12 +1104,17 @@ COPY drizzle.__drizzle_migrations (id, hash, created_at) FROM stdin;
 37	c5d742737193ee73637a47a80accce4c149fefe74b849dc1dd5cdd3f47e063ba	1781900000000
 38	f07c75481dc8302f83b535bc399adfae911305688e9b57ec66c8749f28cdced1	1782000000000
 39	21b288fdcd9b58820477009b6e015e35f57b06733b862e4e83c796e517028efd	1782100000000
-44	f2224402d645f9233875252ba95f0163dc6e5742d386a0a143b039dec7f990f8	1782200000000
-45	d78fdd6b5aac9da7a3ff05d5db4df2003c0535c3fadf303c74e62dbd0d3f7c47	1782300000000
+46	f2224402d645f9233875252ba95f0163dc6e5742d386a0a143b039dec7f990f8	1782200000000
+47	d78fdd6b5aac9da7a3ff05d5db4df2003c0535c3fadf303c74e62dbd0d3f7c47	1782300000000
+48	6b120136e749f3476e1886fb8b8c7bfa4e32a85f07c4a4dae2c9dae6ef591bbb	1782400000000
+49	453de6255537a4a5501716b3ade655316e08cf466d60a3844848b2d7a95acca7	1782500000000
+50	22851003ae1da2f45a00326b4e4c95f511226b360e22c0ed6fcf0f85230d15a9	1782600000000
 \.
 
 
 --
+-- TOC entry 5160 (class 0 OID 252797)
+-- Dependencies: 220
 -- Data for Name: aiid_reports; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -882,20 +1123,19 @@ COPY public.aiid_reports (id, object_id, date_published, report_number, source_d
 
 
 --
+-- TOC entry 5162 (class 0 OID 252804)
+-- Dependencies: 222
 -- Data for Name: application_logs; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.application_logs (id, level, label, message, ip_address, user_agent, browser, browser_version, os, os_version, device, device_type, meta, created_at) FROM stdin;
-1	warn	http	GET /api/v1/jobs	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 22}	2026-06-18 14:33:12.214+05:30
-2	warn	http	POST /api/v1/auth/refresh	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 11}	2026-06-18 14:33:12.252+05:30
-3	warn	http	GET /api/v1/jobs	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 3}	2026-06-18 14:33:15.197+05:30
-4	warn	http	GET /api/v1/notifications	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 2}	2026-06-18 14:33:15.228+05:30
-5	warn	http	POST /api/v1/auth/refresh	::1	Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:152.0) Gecko/20100101 Firefox/152.0	Firefox	152.0	Windows	10	\N	unknown	{"status": 401, "durationMs": 2}	2026-06-18 14:33:16.16+05:30
-6	info	job	risk extract skipped	\N	\N	\N	\N	\N	\N	\N	\N	{"jobId": 1, "reason": "LLM returned stub/fallback extraction: 'charmap' codec can't encode characters in position 35-50: character maps to <undefined>"}	2026-06-18 14:33:19.662+05:30
+1	info	migrate	Running database migrations...	\N	\N	\N	\N	\N	\N	\N	\N	{}	2026-07-17 14:51:36.404+05:30
 \.
 
 
 --
+-- TOC entry 5164 (class 0 OID 252812)
+-- Dependencies: 224
 -- Data for Name: articles; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -904,6 +1144,28 @@ COPY public.articles (id, url, title, raw_text, html, sha256, risk_count, create
 
 
 --
+-- TOC entry 5192 (class 0 OID 271828)
+-- Dependencies: 252
+-- Data for Name: batch_run_items; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.batch_run_items (id, batch_run_id, source_type, ingest_link_id, ingest_link_item_id, feed_name, upload_id, report_id, url, title, status, error_message, created_at) FROM stdin;
+\.
+
+
+--
+-- TOC entry 5190 (class 0 OID 271814)
+-- Dependencies: 250
+-- Data for Name: batch_runs; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.batch_runs (id, model_name, model_label, status, rss_item_count, etl_item_count, error_message, created_at, started_at, completed_at, updated_at) FROM stdin;
+\.
+
+
+--
+-- TOC entry 5166 (class 0 OID 252821)
+-- Dependencies: 226
 -- Data for Name: cron_job_events; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -912,6 +1174,8 @@ COPY public.cron_job_events (id, job_id, event_type, message, created_at) FROM s
 
 
 --
+-- TOC entry 5168 (class 0 OID 252828)
+-- Dependencies: 228
 -- Data for Name: cron_job_schedule_feeds; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -920,6 +1184,8 @@ COPY public.cron_job_schedule_feeds (schedule_id, ingest_link_id) FROM stdin;
 
 
 --
+-- TOC entry 5169 (class 0 OID 252831)
+-- Dependencies: 229
 -- Data for Name: cron_job_schedules; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -928,6 +1194,8 @@ COPY public.cron_job_schedules (id, start_date, start_time, repeat, repeat_inter
 
 
 --
+-- TOC entry 5170 (class 0 OID 252844)
+-- Dependencies: 230
 -- Data for Name: etl_report_upload_items; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -936,6 +1204,8 @@ COPY public.etl_report_upload_items (id, upload_id, row_order, object_id, url, t
 
 
 --
+-- TOC entry 5172 (class 0 OID 252850)
+-- Dependencies: 232
 -- Data for Name: etl_report_uploads; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -944,30 +1214,2615 @@ COPY public.etl_report_uploads (id, suggested_name, report_file_path, status, to
 
 
 --
+-- TOC entry 5174 (class 0 OID 252864)
+-- Dependencies: 234
 -- Data for Name: ingest_link_items; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.ingest_link_items (id, ingest_link_id, url, created_at) FROM stdin;
+1	1	https://deepmind.google/blog/unlocking-uk-house-building-with-ai-accelerated-planning	2026-06-18 15:13:24.438418+05:30
+2	1	https://deepmind.google/blog/diffusiongemma-4x-faster-text-generation	2026-06-18 15:13:24.438418+05:30
+3	1	https://deepmind.google/blog/investing-in-multi-agent-ai-safety-research	2026-06-18 15:13:24.438418+05:30
+4	1	https://deepmind.google/blog/fluid-natural-voice-translation-with-gemini-35-live-translate	2026-06-18 15:13:24.438418+05:30
+5	1	https://deepmind.google/blog/introducing-gemma-4-12b-a-unified-encoder-free-multimodal-model	2026-06-18 15:13:24.438418+05:30
+6	1	https://deepmind.google/blog/powering-the-future-of-robotics-in-europe	2026-06-18 15:13:24.438418+05:30
+7	1	https://deepmind.google/blog/measuring-the-impact-of-learning-with-ai-in-sierra-leone-and-beyond	2026-06-18 15:13:24.438418+05:30
+8	1	https://deepmind.google/blog/were-launching-the-google-deepmind-accelerator-program-in-asia-pacific-to-tackle-environmental-risks	2026-06-18 15:13:24.438418+05:30
+9	1	https://deepmind.google/blog/fast-tracking-genetic-leads-to-reverse-cellular-aging	2026-06-18 15:13:24.438418+05:30
+10	1	https://deepmind.google/blog/simulate-real-world-places-with-project-genie-and-street-view	2026-06-18 15:13:24.438418+05:30
+11	1	https://deepmind.google/blog/introducing-gemini-omni	2026-06-18 15:13:24.438418+05:30
+12	1	https://deepmind.google/blog/introducing-google-antigravity-2-0	2026-06-18 15:13:24.438418+05:30
+13	1	https://deepmind.google/blog/gemini-for-science-ai-experiments-and-tools-for-a-new-era-of-discovery	2026-06-18 15:13:24.438418+05:30
+14	1	https://deepmind.google/blog/making-it-easier-to-understand-how-content-was-created-and-edited	2026-06-18 15:13:24.438418+05:30
+15	1	https://deepmind.google/blog/strengthening-singapores-ai-future-a-new-national-partnership	2026-06-18 15:13:24.438418+05:30
+16	1	https://deepmind.google/blog/finding-the-molecular-switches-behind-new-infectious-diseases	2026-06-18 15:13:24.438418+05:30
+17	1	https://deepmind.google/blog/opening-new-paths-in-aging-research	2026-06-18 15:13:24.438418+05:30
+18	1	https://deepmind.google/blog/accelerating-discovery-of-liver-disease-mechanisms	2026-06-18 15:13:24.438418+05:30
+19	1	https://deepmind.google/blog/uniting-biological-toolkits-for-a-new-approach-to-als	2026-06-18 15:13:24.438418+05:30
+20	1	https://deepmind.google/blog/uncovering-repurposed-medicines-to-fight-liver-fibrosis	2026-06-18 15:13:24.438418+05:30
+21	1	https://deepmind.google/blog/how-weathernext-helped-the-national-hurricane-center-better-predict-hurricane-melissas-historic-landfall-in-jamaica	2026-06-18 15:13:24.438418+05:30
+22	1	https://deepmind.google/blog/gemini-3-5-frontier-intelligence-with-action	2026-06-18 15:13:24.438418+05:30
+23	1	https://deepmind.google/blog/co-scientist-a-multi-agent-ai-partner-to-accelerate-research	2026-06-18 15:13:24.438418+05:30
+24	1	https://deepmind.google/blog/alphaevolve-impact	2026-06-18 15:13:24.438418+05:30
+25	1	https://deepmind.google/blog/ai-co-clinician	2026-06-18 15:13:24.438418+05:30
+26	1	https://deepmind.google/blog/announcing-our-partnership-with-the-republic-of-korea	2026-06-18 15:13:24.438418+05:30
+27	1	https://deepmind.google/blog/decoupled-diloco	2026-06-18 15:13:24.438418+05:30
+28	1	https://deepmind.google/blog/partnering-with-industry-leaders-to-accelerate-ai-transformation	2026-06-18 15:13:24.438418+05:30
+29	1	https://deepmind.google/blog/gemini-3-1-flash-tts-the-next-generation-of-expressive-ai-speech	2026-06-18 15:13:24.438418+05:30
+30	1	https://deepmind.google/blog/gemini-robotics-er-1-6	2026-06-18 15:13:24.438418+05:30
+31	1	https://deepmind.google/blog/gemma-4-byte-for-byte-the-most-capable-open-models	2026-06-18 15:13:24.438418+05:30
+32	1	https://deepmind.google/blog/ai-pointer	2026-06-18 15:13:24.438418+05:30
+33	1	https://deepmind.google/blog/gemini-3-1-flash-live-making-audio-ai-more-natural-and-reliable	2026-06-18 15:13:24.438418+05:30
+34	1	https://deepmind.google/blog/protecting-people-from-harmful-manipulation	2026-06-18 15:13:24.438418+05:30
+35	1	https://deepmind.google/blog/lyria-3-pro-create-longer-tracks-in-more	2026-06-18 15:13:24.438418+05:30
+36	1	https://deepmind.google/blog/measuring-progress-toward-agi-a-cognitive-framework	2026-06-18 15:13:24.438418+05:30
+37	1	https://deepmind.google/blog/10-years-of-alphago	2026-06-18 15:13:24.438418+05:30
+38	1	https://deepmind.google/blog/gemini-3-1-flash-lite-built-for-intelligence-at-scale	2026-06-18 15:13:24.438418+05:30
+39	1	https://deepmind.google/blog/nano-banana-2-combining-pro-capabilities-with-lightning-fast-speed	2026-06-18 15:13:24.438418+05:30
+40	1	https://deepmind.google/blog/gemini-3-1-pro-a-smarter-model-for-your-most-complex-tasks	2026-06-18 15:13:24.438418+05:30
+41	1	https://deepmind.google/blog/a-new-way-to-express-yourself-gemini-can-now-create-music	2026-06-18 15:13:24.438418+05:30
+42	1	https://deepmind.google/blog/accelerating-discovery-in-india-through-ai-powered-science-and-education	2026-06-18 15:13:24.438418+05:30
+43	1	https://deepmind.google/blog/gemini-3-deep-think-advancing-science-research-and-engineering	2026-06-18 15:13:24.438418+05:30
+44	1	https://deepmind.google/blog/accelerating-mathematical-and-scientific-discovery-with-gemini-deep-think	2026-06-18 15:13:24.438418+05:30
+45	1	https://deepmind.google/blog/project-genie-experimenting-with-infinite-interactive-worlds	2026-06-18 15:13:24.438418+05:30
+46	1	https://deepmind.google/blog/d4rt-teaching-ai-to-see-the-world-in-four-dimensions	2026-06-18 15:13:24.438418+05:30
+47	1	https://deepmind.google/blog/veo-3-1-ingredients-to-video-more-consistency-creativity-and-control	2026-06-18 15:13:24.438418+05:30
+48	1	https://deepmind.google/blog/googles-year-in-review-8-areas-with-research-breakthroughs-in-2025	2026-06-18 15:13:24.438418+05:30
+49	1	https://deepmind.google/blog/gemini-3-flash-frontier-intelligence-built-for-speed	2026-06-18 15:13:24.438418+05:30
+50	1	https://deepmind.google/blog/gemma-scope-2-helping-the-ai-safety-community-deepen-understanding-of-complex-language-model-behavior	2026-06-18 15:13:24.438418+05:30
+51	1	https://deepmind.google/blog/improved-gemini-audio-models-for-powerful-voice-experiences	2026-06-18 15:13:24.438418+05:30
+52	1	https://deepmind.google/blog/deepening-our-partnership-with-the-uk-ai-security-institute	2026-06-18 15:13:24.438418+05:30
+53	1	https://deepmind.google/blog/strengthening-our-partnership-with-the-uk-government-to-support-prosperity-and-security-in-the-ai-era	2026-06-18 15:13:24.438418+05:30
+54	1	https://deepmind.google/blog/facts-benchmark-suite-systematically-evaluating-the-factuality-of-large-language-models	2026-06-18 15:13:24.438418+05:30
+55	1	https://deepmind.google/blog/engineering-more-resilient-crops-for-a-warming-climate	2026-06-18 15:13:24.438418+05:30
+56	1	https://deepmind.google/blog/alphafold-five-years-of-impact	2026-06-18 15:13:24.438418+05:30
+57	1	https://deepmind.google/blog/revealing-a-key-protein-behind-heart-disease	2026-06-18 15:13:24.438418+05:30
+58	1	https://deepmind.google/blog/google-deepmind-supports-us-department-of-energy-on-genesis	2026-06-18 15:13:24.438418+05:30
+59	1	https://deepmind.google/blog/how-were-bringing-ai-image-verification-to-the-gemini-app	2026-06-18 15:13:24.438418+05:30
+60	1	https://deepmind.google/blog/build-with-nano-banana-pro-our-gemini-3-pro-image-model	2026-06-18 15:13:24.438418+05:30
+61	1	https://deepmind.google/blog/introducing-nano-banana-pro	2026-06-18 15:13:24.438418+05:30
+62	1	https://deepmind.google/blog/start-building-with-gemini-3	2026-06-18 15:13:24.438418+05:30
+63	1	https://deepmind.google/blog/were-expanding-our-presence-in-singapore-to-advance-ai-in-the-asia-pacific-region	2026-06-18 15:13:24.438418+05:30
+64	1	https://deepmind.google/blog/a-new-era-of-intelligence-with-gemini-3	2026-06-18 15:13:24.438418+05:30
+65	1	https://deepmind.google/blog/introducing-google-antigravity	2026-06-18 15:13:24.438418+05:30
+66	1	https://deepmind.google/blog/weathernext-2-our-most-advanced-weather-forecasting-model	2026-06-18 15:13:24.438418+05:30
+67	1	https://deepmind.google/blog/sima-2-an-agent-that-plays-reasons-and-learns-with-you-in-virtual-3d-worlds	2026-06-18 15:13:24.438418+05:30
+68	1	https://deepmind.google/blog/teaching-ai-to-see-the-world-more-like-we-do	2026-06-18 15:13:24.438418+05:30
+69	1	https://deepmind.google/blog/how-ai-is-giving-northern-ireland-teachers-time-back	2026-06-18 15:13:24.438418+05:30
+70	1	https://deepmind.google/blog/mapping-modeling-and-understanding-nature-with-ai	2026-06-18 15:13:24.438418+05:30
+71	1	https://deepmind.google/blog/accelerating-discovery-with-the-ai-for-math-initiative	2026-06-18 15:13:24.438418+05:30
+72	1	https://deepmind.google/blog/t5gemma-a-new-collection-of-encoder-decoder-gemma-models	2026-06-18 15:13:24.438418+05:30
+73	1	https://deepmind.google/blog/medgemma-our-most-capable-open-models-for-health-ai-development	2026-06-18 15:13:24.438418+05:30
+74	1	https://deepmind.google/blog/introducing-gemma-3n-the-developer-guide	2026-06-18 15:13:24.438418+05:30
+75	1	https://deepmind.google/blog/gemini-25-flash-lite-is-now-ready-for-scaled-production-use	2026-06-18 15:13:24.438418+05:30
+76	1	https://deepmind.google/blog/behind-ancestra-combining-veo-with-live-action-filmmaking	2026-06-18 15:13:24.438418+05:30
+77	1	https://deepmind.google/blog/alphaearth-foundations-helps-map-our-planet-in-unprecedented-detail	2026-06-18 15:13:24.438418+05:30
+78	1	https://deepmind.google/blog/exploring-the-context-of-online-images-with-backstory	2026-06-18 15:13:24.438418+05:30
+79	1	https://deepmind.google/blog/advanced-version-of-gemini-with-deep-think-officially-achieves-gold-medal-standard-at-the-international-mathematical-olympiad	2026-06-18 15:13:24.438418+05:30
+80	1	https://deepmind.google/blog/aeneas-transforms-how-historians-connect-the-past	2026-06-18 15:13:24.438418+05:30
+81	1	https://deepmind.google/blog/genie-3-a-new-frontier-for-world-models	2026-06-18 15:13:24.438418+05:30
+82	1	https://deepmind.google/blog/how-ai-is-helping-advance-the-science-of-bioacoustics-to-save-endangered-species	2026-06-18 15:13:24.438418+05:30
+83	1	https://deepmind.google/blog/using-ai-to-perceive-the-universe-in-greater-depth	2026-06-18 15:13:24.438418+05:30
+84	1	https://deepmind.google/blog/gemini-achieves-gold-medal-level-at-the-international-collegiate-programming-contest-world-finals	2026-06-18 15:13:24.438418+05:30
+85	1	https://deepmind.google/blog/discovering-new-solutions-to-century-old-problems-in-fluid-dynamics	2026-06-18 15:13:24.438418+05:30
+86	1	https://deepmind.google/blog/strengthening-our-frontier-safety-framework	2026-06-18 15:13:24.438418+05:30
+87	1	https://deepmind.google/blog/gemini-robotics-15-brings-ai-agents-into-the-physical-world	2026-06-18 15:13:24.438418+05:30
+88	1	https://deepmind.google/blog/introducing-codemender-an-ai-agent-for-code-security	2026-06-18 15:13:24.438418+05:30
+89	1	https://deepmind.google/blog/bringing-ai-to-the-next-generation-of-fusion-energy	2026-06-18 15:13:24.438418+05:30
+90	1	https://deepmind.google/blog/try-deep-think-in-the-gemini-app	2026-06-18 15:13:24.438418+05:30
+91	1	https://deepmind.google/blog/rethinking-how-we-measure-ai-intelligence	2026-06-18 15:13:24.438418+05:30
+92	1	https://deepmind.google/blog/introducing-gemma-3-270m-the-compact-model-for-hyper-efficient-ai	2026-06-18 15:13:24.438418+05:30
+93	1	https://deepmind.google/blog/image-editing-in-gemini-just-got-a-major-upgrade	2026-06-18 15:13:24.438418+05:30
+94	1	https://deepmind.google/blog/vaultgemma-the-worlds-most-capable-differentially-private-llm	2026-06-18 15:13:24.438418+05:30
+95	1	https://deepmind.google/blog/introducing-the-gemini-25-computer-use-model	2026-06-18 15:13:24.438418+05:30
+96	1	https://deepmind.google/blog/introducing-veo-31-and-advanced-creative-capabilities	2026-06-18 15:13:24.438418+05:30
+97	1	https://deepmind.google/blog/how-a-gemma-model-helped-discover-a-new-potential-cancer-therapy-pathway	2026-06-18 15:13:24.438418+05:30
+98	1	https://deepmind.google/blog/alphagenome-ai-for-better-understanding-the-genome	2026-06-18 15:13:24.438418+05:30
+99	1	https://deepmind.google/blog/gemini-robotics-on-device-brings-ai-to-local-robotic-devices	2026-06-18 15:13:24.438418+05:30
+100	1	https://deepmind.google/blog/gemini-25-updates-to-our-family-of-thinking-models	2026-06-18 15:13:24.438418+05:30
+101	2	https://www.technologyreview.com/2026/06/18/1138755/search-for-dark-matter-blown-wide-open	2026-06-18 15:13:28.906009+05:30
+102	2	https://www.technologyreview.com/2026/06/17/1139200/the-download-solar-geoengineering-interoception	2026-06-18 15:13:28.906009+05:30
+103	2	https://www.technologyreview.com/2026/06/17/1138600/entrepreneurs-nairobi-case-for-going-solar	2026-06-18 15:13:28.906009+05:30
+104	2	https://www.technologyreview.com/2026/06/17/1138743/hacking-atmosphere-geoengineering-reality-check	2026-06-18 15:13:28.906009+05:30
+105	2	https://www.technologyreview.com/2026/06/16/1138905/exclusive-ebook-how-ai-is-becoming-the-next-military-advisor	2026-06-18 15:13:28.906009+05:30
+106	2	https://www.technologyreview.com/2026/06/16/1139010/the-download-brain-implant-power-user-bci-south-korea-ai-obsession	2026-06-18 15:13:28.906009+05:30
+107	2	https://www.technologyreview.com/2026/06/16/1138591/data-center-online-quickly-electric-grid-flex	2026-06-18 15:13:28.906009+05:30
+108	2	https://www.technologyreview.com/2026/06/15/1138983/why-do-south-koreans-love-ai-so-much	2026-06-18 15:13:28.906009+05:30
+109	2	https://www.technologyreview.com/2026/06/15/1138953/man-als-first-power-user-brain-implant-speak-bci	2026-06-18 15:13:28.906009+05:30
+110	2	https://www.technologyreview.com/2026/06/15/1138948/the-download-solid-state-air-conditioning-animal-drugs	2026-06-18 15:13:28.906009+05:30
+111	3	https://www.artificialintelligence-news.com/news/microsoft-sells-openai-models-china	2026-06-18 15:13:33.55+05:30
+112	3	https://www.artificialintelligence-news.com/news/google-cloud-generative-ai-automates-council-planning-operations	2026-06-18 15:13:33.55+05:30
+113	3	https://www.artificialintelligence-news.com/news/insurers-pivot-ai-strategy-toward-core-risk-underwriting	2026-06-18 15:13:33.55+05:30
+114	3	https://www.artificialintelligence-news.com/news/ai-content-labelling-eu-code-of-practice	2026-06-18 15:13:33.55+05:30
+115	3	https://www.artificialintelligence-news.com/news/ai-red-teaming-explained-what-it-is-and-why-you-need-it	2026-06-18 15:13:33.55+05:30
+116	3	https://www.artificialintelligence-news.com/news/how-ai-powered-cms-platforms-are-transforming-enterprise-content-operations	2026-06-18 15:13:33.55+05:30
+117	3	https://www.artificialintelligence-news.com/news/harmonyos-7-china-ai-apple-gap	2026-06-18 15:13:33.55+05:30
+118	3	https://www.artificialintelligence-news.com/news/ai-shopping-agents-consumer-trust-accenture-report	2026-06-18 15:13:33.55+05:30
+119	3	https://www.artificialintelligence-news.com/news/anthropic-export-controls-ai-sovereignty	2026-06-18 15:13:33.55+05:30
+120	3	https://www.artificialintelligence-news.com/news/coinbase-for-agents-automating-portfolio-trading-with-ai	2026-06-18 15:13:33.55+05:30
+121	3	https://www.artificialintelligence-news.com/news/visa-chatgpt-integration-enables-ai-agent-retail-purchasing	2026-06-18 15:13:33.55+05:30
+122	3	https://www.artificialintelligence-news.com/news/xebia-on-building-the-data-foundation-for-ai-agents-and-then-accelerating	2026-06-18 15:13:33.55+05:30
+123	4	https://kallxo.com/krypometer/fotografia-e-manipuluar-permes-inteligjences-artificiale-e-besnik-tahirit-e-duda-baljes	2026-06-18 15:13:37.170738+05:30
+124	4	https://kallxo.com/krypometer/fotografia-e-gjeneruar-me-inteligjence-artificiale-e-sami-lushtakut-dhe-millan-radoiciqit	2026-06-18 15:13:37.170738+05:30
+125	4	https://kallxo.com/krypometer/fotografia-e-fabrikuar-e-dejona-mihalit-me-vuciqin	2026-06-18 15:13:37.170738+05:30
+126	4	https://www.bradfordtoday.ca/local-news/senior-loses-almost-1m-in-increasingly-common-deepfake-scam-12390782	2026-06-18 15:13:37.170738+05:30
+127	4	https://www.sootoday.com/city-police-beat/sault-retiree-lost-almost-a-million-dollars-in-crypto-scam-12367526	2026-06-18 15:13:37.170738+05:30
+128	4	https://www.nytimes.com/2026/06/09/us/ai-lawyers-sanctioned-mississippi.html	2026-06-18 15:13:37.170738+05:30
+129	4	https://www.nytimes.com/2026/06/12/technology/google-lawsuit-china-ai-scams.html	2026-06-18 15:13:37.170738+05:30
+130	4	https://cn.nytimes.com/technology/20260615/google-lawsuit-china-ai-scams	2026-06-18 15:13:37.170738+05:30
+131	4	https://cn.nytimes.com/technology/20260615/google-lawsuit-china-ai-scams/zh-hant	2026-06-18 15:13:37.170738+05:30
+132	4	https://www.theguardian.com/technology/2026/jun/11/canada-mother-chatgpt-daughter-suicide-lawsuit	2026-06-18 15:13:37.170738+05:30
+133	4	https://www.anthropic.com/news/fable-mythos-access	2026-06-18 15:13:37.170738+05:30
+134	4	https://interestingengineering.com/ai-robotics/viral-humanoid-robot-kicks-child-in-stomach	2026-06-18 15:13:37.170738+05:30
+135	4	https://www.sina.cn/news/detail/5305654094072633.html	2026-06-18 15:13:37.170738+05:30
+136	4	https://www.8world.com/greater-china/xinjiang-boy-hit-in-abdomen-by-robot-3171176	2026-06-18 15:13:37.170738+05:30
+137	4	https://m.sohu.com/a/1034146448_115479	2026-06-18 15:13:37.170738+05:30
+138	4	https://futurism.com/robots-and-machines/robot-clown-wig-roundhouse-kicks-child	2026-06-18 15:13:37.170738+05:30
+139	4	https://hibrid.info/en/ne-tiktok-qarkullojne-video-te-gjeneruara-nga-inteligjenca-artificiale-si-kronika-televizive	2026-06-18 15:13:37.170738+05:30
+140	4	https://kallxo.com/krypometer/keqperdorimi-i-imazhit-te-gazetareve-te-rtk-per-te-mashtruar-qytetaret	2026-06-18 15:13:37.170738+05:30
+141	4	https://kallxo.com/gjate/identitete-te-vjedhura-si-po-perdoret-ai-per-mashtrime-ne-shendetesi-duke-perdorur-figurat-publike	2026-06-18 15:13:37.170738+05:30
+142	4	https://kallxo.com/krypometer/seri-te-videove-te-fabrikuara-te-albin-kurtit-dhe-vjosa-osmanit	2026-06-18 15:13:37.170738+05:30
+143	4	https://kallxo.com/krypometer/video-te-gjeneruara-me-inteligjence-artificiale-te-vjosa-osmanit	2026-06-18 15:13:37.170738+05:30
+144	4	https://kallxo.com/krypometer/me-shpalljen-e-zgjedhjeve-rikthehen-videot-e-fabrikuara-permes-inteligjences-artificiale	2026-06-18 15:13:37.170738+05:30
+145	4	https://hibrid.info/en/AI-generated-videos-related-to-the-elections-are-circulating-on-social-media.	2026-06-18 15:13:37.170738+05:30
+146	4	https://kallxo.com/krypometer/video-te-fabrikuara-permes-inteligjences-artificiale-te-kandidateve-per-deputete	2026-06-18 15:13:37.170738+05:30
+147	4	https://kallxo.com/krypometer/publikohen-video-te-manipuluara-me-inteligjence-artificiale-te-ish-deputetit-paris-guri	2026-06-18 15:13:37.170738+05:30
+148	4	https://mfcc.mn/factcheck-1581	2026-06-18 15:13:37.170738+05:30
+149	4	https://www.bitdefender.com/en-us/blog/hotforsecurity/reddit-scam-ads-impersonate-bbc-and-the-guardian	2026-06-18 15:13:37.170738+05:30
+150	4	https://mashable.com/tech/reddit-scam-ads-pose-as-outlets-to-promote-ai	2026-06-18 15:13:37.170738+05:30
+151	4	https://www.telegraph.co.uk/business/2026/06/08/bank-of-england-fights-andrew-bailey-deepfakes-on-musks-x	2026-06-18 15:13:37.170738+05:30
+152	4	https://futurism.com/health-medicine/ai-surgery-tool-injuring-patients-lawsuits	2026-06-18 15:13:37.170738+05:30
+153	4	https://www.404media.co/hackers-simply-asked-meta-ai-to-give-them-access-to-high-profile-instagram-accounts-it-worked	2026-06-18 15:13:37.170738+05:30
+154	4	https://www.theatlantic.com/technology/2026/06/data-centers-activism-ai-slop/687396	2026-06-18 15:13:37.170738+05:30
+155	4	https://www.bellingcat.com/news/2026/02/10/grok-epstein-photos	2026-06-18 15:13:37.170738+05:30
+156	4	https://www.smh.com.au/national/uni-academic-admits-she-used-ai-to-write-opinion-piece-in-defence-of-ai-20260602-p6038j.html	2026-06-18 15:13:37.170738+05:30
+157	4	https://www.nytimes.com/2026/06/02/technology/scientists-find-way-to-supercharge-dangerous-computer-worms-with-ai.html	2026-06-18 15:13:37.170738+05:30
+158	4	https://www.heraldscotland.com/news/26149682.edinburgh-festival-fringe-acts-get-ai-transparency-guidelines	2026-06-18 15:13:37.170738+05:30
+159	4	https://prishtinainsight.com/ai-generated-content-threaten-information-credibility-in-kosovo-mag	2026-06-18 15:13:37.170738+05:30
+160	4	https://kallxo.com/lajm/permbajtja-e-gjeneruar-me-inteligjence-artificiale-kercenon-besueshmerine-e-informacionit-ne-kosove	2026-06-18 15:13:37.170738+05:30
+161	4	https://kallxo.com/krypometer/fabrikimi-me-inteligjence-artificiale-hykmete-bajrami-shenjester-e-nje-videoje-te-rreme	2026-06-18 15:13:37.170738+05:30
+162	4	https://hibrid.info/en/artificial-intelligence-video-claiming-that-migrants-will-arrive-on-December-28-to-vote-for-Albin-Kurti	2026-06-18 15:13:37.170738+05:30
+163	4	https://kallxo.com/krypometer/te-rreme-videot-e-fabrikuara-te-mergimtareve-duke-folur-per-zgjedhje	2026-06-18 15:13:37.170738+05:30
+164	4	https://hibrid.info/en/Review-of-the-week%3A-fake-videos-produced-with-IA-for-the-December-28-elections-and-conspiratorial-claims-in-the-Serbian-media-about-pressure-on-Kosovo-Serbs	2026-06-18 15:13:37.170738+05:30
+165	4	https://hibrid.info/en/artificial-intelligence-video-claiming-that-migrants-will-not-vote-for-albin-kurti-on-december-28	2026-06-18 15:13:37.170738+05:30
+166	4	https://hibrid.info/en/Review-of-the-week%27s-exit-polls-and-fake-polls-and-videos-with-him-about-the-elections	2026-06-18 15:13:37.170738+05:30
+167	4	https://www.wsj.com/tech/ai/openai-sued-by-floridas-attorney-general-over-ai-harms-8a5113a8	2026-06-18 15:13:37.170738+05:30
+168	4	https://www.scmp.com/news/people-culture/trending-china/article/3352777/china-tv-variety-show-exposes-scam-linking-peace-sign-selfies-privacy-risks	2026-06-18 15:13:37.170738+05:30
+169	4	https://www.thetimes.com/business/companies-markets/article/graduate-jobs-alan-milburn-neets-wmgsjw7df	2026-06-18 15:13:37.170738+05:30
+170	4	https://www.thehindu.com/news/national/cbse-says-onmark-portal-vulnerabilities-contained-amid-security-concerns/article71044420.ece	2026-06-18 15:13:37.170738+05:30
+171	4	https://www.ilfattoquotidiano.it/2026/05/31/siamo-tutti-in-un-mare-di-guai-noi-e-i-nostri-figli-hanno-rubato-la-mia-immagine-con-lai-per-chiedere-soldi-molte-persone-sono-cadute-nella-truffa-la-denuncia-di-safiria-leccese/8404552	2026-06-18 15:13:37.170738+05:30
+172	4	https://www.ilmessaggero.it/en/safiria_leccese_caught_in_deepfake_loan_scam-9565595.html	2026-06-18 15:13:37.170738+05:30
+173	4	https://www.mirror.co.uk/news/world-news/dad-four-loses-140000-cryptocurrency-37228335	2026-06-18 15:13:37.170738+05:30
+174	4	https://www.dailymail.com/news/article-15861981/Meta-faces-multi-billion-pound-UK-group-legal-action-scam-ads-Facebook-Instagram.html	2026-06-18 15:13:37.170738+05:30
+175	4	https://www.nytimes.com/2026/05/25/us/politics/artificial-intelliegence-courts.html	2026-06-18 15:13:37.170738+05:30
+176	4	https://www.motherjones.com/media/2026/05/openai-chatgpt-mass-shooting-guardrails-fail	2026-06-18 15:13:37.170738+05:30
+177	4	https://www.motherjones.com/media/2026/04/chatgpt-tumbler-ridge-fsu-openai-chatbots-mass-shootings	2026-06-18 15:13:37.170738+05:30
+178	4	https://www.courtwatch.news/p/chatgpt-told-a-violent-stalker-to-embrace-the-haters-indictment-says	2026-06-18 15:13:37.170738+05:30
+179	4	https://www.justice.gov/usao-wdpa/pr/whitehall-borough-resident-pleads-guilty-11-counts-cyberstalking-interstate-stalking	2026-06-18 15:13:37.170738+05:30
+180	4	https://www.washingtonpost.com/education/2026/05/24/schools-turn-ai-graduation-ceremonies-drawing-mixed-success	2026-06-18 15:13:37.170738+05:30
+181	4	https://www.nytimes.com/2026/05/19/business/media/future-of-truth-ai-quotes.html	2026-06-18 15:13:37.170738+05:30
+182	4	https://abc7news.com/post/bay-area-mom-thousands-scammers-use-ai-mimic-daughters-voice-fake-kidnapping-part-growing-trend/19154381	2026-06-18 15:13:37.170738+05:30
+183	4	https://www.tomshardware.com/tech-industry/artificial-intelligence/claude-powered-ai-coding-agent-deletes-entire-company-database-in-9-seconds-backups-zapped-after-cursor-tool-powered-by-anthropics-claude-goes-rogue	2026-06-18 15:13:37.170738+05:30
+184	4	https://www.trt4.jus.br/portais/trt4/modulos/noticias/50981781	2026-06-18 15:13:37.170738+05:30
+185	4	https://www.reuters.com/legal/transactional/lawyer-apologizes-phantom-ai-quotes-trump-layoffs-case-2026-05-18	2026-06-18 15:13:37.170738+05:30
+186	4	https://fingfx.thomsonreuters.com/gfx/legaldocs/myvmylgokvr/Binnall%20AI%20apology.pdf	2026-06-18 15:13:37.170738+05:30
+187	4	https://apnews.com/article/deepfake-ai-take-it-down-2e0c0ab83fe967d1db1f45af90a03fc2	2026-06-18 15:13:37.170738+05:30
+188	4	https://www.justice.gov/usao-edny/pr/two-individuals-arrested-publishing-ai-deepfake-pornography-violation-take-it-down-act	2026-06-18 15:13:37.170738+05:30
+189	4	https://www.linkedin.com/posts/kaarelkotkas_when-was-the-last-time-your-strong-accent-share-7449805709669654528-t4I6	2026-06-18 15:13:37.170738+05:30
+190	4	https://www.washingtonpost.com/national-security/2026/03/11/us-strike-iran-elementary-school-ai-target-list	2026-06-18 15:13:37.170738+05:30
+191	4	https://www.theguardian.com/global-development/2026/mar/17/atrocity-ai-slop-verify-facts-iran-minab-graves	2026-06-18 15:13:37.170738+05:30
+192	4	https://cedmohub.eu/fake-ai-satellite-imagery-spurs-us-iran-war-disinformation	2026-06-18 15:13:37.170738+05:30
+193	4	https://www.reuters.com/world/middle-east/netanyahu-posts-video-response-iran-rumours-that-he-is-dead-2026-03-15	2026-06-18 15:13:37.170738+05:30
+194	4	https://www.euronews.com/my-europe/2026/03/18/netanyahu-denies-death-rumours-in-social-media-clip-which-grok-falsely-branded-ai	2026-06-18 15:13:37.170738+05:30
+195	4	https://www.washingtonpost.com/technology/2026/03/10/epstein-files-pro-iran-propaganda	2026-06-18 15:13:37.170738+05:30
+196	4	https://apnews.com/article/ai-meme-war-iran-trump-6622aa77b833cbd470b53ed7d43be9bd	2026-06-18 15:13:37.170738+05:30
+197	4	https://www.bbc.com/portuguese/articles/c2d2045p0z6o	2026-06-18 15:13:37.170738+05:30
+198	4	https://www.npr.org/2026/04/29/nx-s1-5798896/tumbler-ridge-mass-shooting-chat-gpt-lawsuit	2026-06-18 15:13:37.170738+05:30
+199	4	https://globalnews.ca/news/11821359/tumbler-ridge-bc-lawsuit-filed-california-court-openai	2026-06-18 15:13:37.170738+05:30
+200	4	https://www.theguardian.com/technology/2026/apr/29/openai-tumbler-ridge-shooter-chatgpt-lawsuit	2026-06-18 15:13:37.170738+05:30
+201	4	https://www.reuters.com/world/families-canadian-mass-shooting-victims-sue-openai-ceo-altman-us-court-2026-04-29	2026-06-18 15:13:37.170738+05:30
+202	4	https://www.reuters.com/world/openais-ban-canada-school-shooters-account-raises-scrutiny-other-online-activity-2026-02-25	2026-06-18 15:13:37.170738+05:30
+203	4	https://globalnews.ca/news/11687903/openai-tumbler-ridge-shooting-duty-to-inform	2026-06-18 15:13:37.170738+05:30
+204	4	https://apnews.com/article/canada-mass-shooting-chatgpt-openai-lawsuit-de6c2b89cea94bde3b1c288b0e1581ca	2026-06-18 15:13:37.170738+05:30
+205	4	https://www.reuters.com/world/americas/canada-press-openai-safety-officials-wake-school-shooting-2026-02-24	2026-06-18 15:13:37.170738+05:30
+206	4	https://globalnews.ca/news/11717336/openai-mass-shooting	2026-06-18 15:13:37.170738+05:30
+207	4	https://tumblerridgelines.com/2026/04/24/openai-apologizes-to-tumbler-ridge	2026-06-18 15:13:37.170738+05:30
+208	4	https://apnews.com/article/openai-altman-tumbler-ridge-killings-apology-dec2adaad3946583519370eede6a99e2	2026-06-18 15:13:37.170738+05:30
+209	4	https://www.reuters.com/sustainability/society-equity/openai-chief-apologizes-not-reporting-shooting-suspect-police-2026-04-25	2026-06-18 15:13:37.170738+05:30
+210	4	https://apnews.com/article/openai-chatgpt-tumbler-ridge-26d632a065e8420a263655c8ee29f961	2026-06-18 15:13:37.170738+05:30
+211	4	https://techcrunch.com/2026/02/21/openai-debated-calling-police-about-suspected-canadian-shooters-chats	2026-06-18 15:13:37.170738+05:30
+212	4	https://techcrunch.com/2026/04/25/openai-ceo-apologizes-to-tumbler-ridge-community	2026-06-18 15:13:37.170738+05:30
+213	4	https://www.theverge.com/ai-artificial-intelligence/920479/tumbler-ridge-chagpt-openai-lawsuit	2026-06-18 15:13:37.170738+05:30
+214	4	https://www.sfchronicle.com/politics/article/openai-school-shooting-lawsuit-22232661.php	2026-06-18 15:13:37.170738+05:30
+215	4	https://www.kqed.org/news/12082064/openai-back-in-court-over-canada-school-shooters-use-of-chatgpt	2026-06-18 15:13:37.170738+05:30
+216	4	https://www.jurist.org/news/2026/03/british-columbia-chief-coroner-orders-inquest-into-tumbler-ridge-mass-shooting	2026-06-18 15:13:37.170738+05:30
+217	4	https://kitchener.citynews.ca/2026/04/10/minister-says-ai-safety-institute-now-looking-at-openai-protocols	2026-06-18 15:13:37.170738+05:30
+218	4	https://www.narcity.com/ottawa-to-wait-for-openai-info-on-tumbler-ridge	2026-06-18 15:13:37.170738+05:30
+219	4	https://www.lemonde.fr/international/article/2026/03/02/au-canada-openai-questionnee-apres-la-tuerie-de-tumbler-ridge_6669290_3210.html	2026-06-18 15:13:37.170738+05:30
+220	5	https://arxiv.org/abs/2606.18271	2026-06-18 15:13:41.223997+05:30
+221	5	https://arxiv.org/abs/2606.18385	2026-06-18 15:13:41.223997+05:30
+222	5	https://arxiv.org/abs/2606.18413	2026-06-18 15:13:41.223997+05:30
+223	5	https://arxiv.org/abs/2606.18543	2026-06-18 15:13:41.223997+05:30
+224	5	https://arxiv.org/abs/2606.18557	2026-06-18 15:13:41.223997+05:30
+225	5	https://arxiv.org/abs/2606.18598	2026-06-18 15:13:41.223997+05:30
+226	5	https://arxiv.org/abs/2606.18686	2026-06-18 15:13:41.223997+05:30
+227	5	https://arxiv.org/abs/2606.18746	2026-06-18 15:13:41.223997+05:30
+228	5	https://arxiv.org/abs/2606.18786	2026-06-18 15:13:41.223997+05:30
+229	5	https://arxiv.org/abs/2606.18803	2026-06-18 15:13:41.223997+05:30
+230	5	https://arxiv.org/abs/2606.18847	2026-06-18 15:13:41.223997+05:30
+231	5	https://arxiv.org/abs/2606.18874	2026-06-18 15:13:41.223997+05:30
+232	5	https://arxiv.org/abs/2606.18888	2026-06-18 15:13:41.223997+05:30
+233	5	https://arxiv.org/abs/2606.18890	2026-06-18 15:13:41.223997+05:30
+234	5	https://arxiv.org/abs/2606.18936	2026-06-18 15:13:41.223997+05:30
+235	5	https://arxiv.org/abs/2606.18947	2026-06-18 15:13:41.223997+05:30
+236	5	https://arxiv.org/abs/2606.18950	2026-06-18 15:13:41.223997+05:30
+237	5	https://arxiv.org/abs/2606.18988	2026-06-18 15:13:41.223997+05:30
+238	5	https://arxiv.org/abs/2606.19047	2026-06-18 15:13:41.223997+05:30
+239	5	https://arxiv.org/abs/2606.19079	2026-06-18 15:13:41.223997+05:30
+240	5	https://arxiv.org/abs/2606.19116	2026-06-18 15:13:41.223997+05:30
+241	5	https://arxiv.org/abs/2606.19118	2026-06-18 15:13:41.223997+05:30
+242	5	https://arxiv.org/abs/2606.19144	2026-06-18 15:13:41.223997+05:30
+243	5	https://arxiv.org/abs/2606.19168	2026-06-18 15:13:41.223997+05:30
+244	5	https://arxiv.org/abs/2606.19172	2026-06-18 15:13:41.223997+05:30
+245	5	https://arxiv.org/abs/2606.19245	2026-06-18 15:13:41.223997+05:30
+246	5	https://arxiv.org/abs/2606.19256	2026-06-18 15:13:41.223997+05:30
+247	5	https://arxiv.org/abs/2606.19279	2026-06-18 15:13:41.223997+05:30
+248	5	https://arxiv.org/abs/2606.19327	2026-06-18 15:13:41.223997+05:30
+249	5	https://arxiv.org/abs/2605.27729	2026-06-18 15:13:41.223997+05:30
+250	5	https://arxiv.org/abs/2606.18256	2026-06-18 15:13:41.223997+05:30
+251	5	https://arxiv.org/abs/2606.18257	2026-06-18 15:13:41.223997+05:30
+252	5	https://arxiv.org/abs/2606.18258	2026-06-18 15:13:41.223997+05:30
+253	5	https://arxiv.org/abs/2606.18259	2026-06-18 15:13:41.223997+05:30
+254	5	https://arxiv.org/abs/2606.18263	2026-06-18 15:13:41.223997+05:30
+255	5	https://arxiv.org/abs/2606.18264	2026-06-18 15:13:41.223997+05:30
+256	5	https://arxiv.org/abs/2606.18265	2026-06-18 15:13:41.223997+05:30
+257	5	https://arxiv.org/abs/2606.18266	2026-06-18 15:13:41.223997+05:30
+258	5	https://arxiv.org/abs/2606.18268	2026-06-18 15:13:41.223997+05:30
+259	5	https://arxiv.org/abs/2606.18272	2026-06-18 15:13:41.223997+05:30
+260	5	https://arxiv.org/abs/2606.18273	2026-06-18 15:13:41.223997+05:30
+261	5	https://arxiv.org/abs/2606.18280	2026-06-18 15:13:41.223997+05:30
+262	5	https://arxiv.org/abs/2606.18284	2026-06-18 15:13:41.223997+05:30
+263	5	https://arxiv.org/abs/2606.18288	2026-06-18 15:13:41.223997+05:30
+264	5	https://arxiv.org/abs/2606.18293	2026-06-18 15:13:41.223997+05:30
+265	5	https://arxiv.org/abs/2606.18303	2026-06-18 15:13:41.223997+05:30
+266	5	https://arxiv.org/abs/2606.18304	2026-06-18 15:13:41.223997+05:30
+267	5	https://arxiv.org/abs/2606.18307	2026-06-18 15:13:41.223997+05:30
+268	5	https://arxiv.org/abs/2606.18308	2026-06-18 15:13:41.223997+05:30
+269	5	https://arxiv.org/abs/2606.18309	2026-06-18 15:13:41.223997+05:30
+270	5	https://arxiv.org/abs/2606.18310	2026-06-18 15:13:41.223997+05:30
+271	5	https://arxiv.org/abs/2606.18315	2026-06-18 15:13:41.223997+05:30
+272	5	https://arxiv.org/abs/2606.18319	2026-06-18 15:13:41.223997+05:30
+273	5	https://arxiv.org/abs/2606.18322	2026-06-18 15:13:41.223997+05:30
+274	5	https://arxiv.org/abs/2606.18324	2026-06-18 15:13:41.223997+05:30
+275	5	https://arxiv.org/abs/2606.18325	2026-06-18 15:13:41.223997+05:30
+276	5	https://arxiv.org/abs/2606.18327	2026-06-18 15:13:41.223997+05:30
+277	5	https://arxiv.org/abs/2606.18356	2026-06-18 15:13:41.223997+05:30
+278	5	https://arxiv.org/abs/2606.18363	2026-06-18 15:13:41.223997+05:30
+279	5	https://arxiv.org/abs/2606.18372	2026-06-18 15:13:41.223997+05:30
+280	5	https://arxiv.org/abs/2606.18379	2026-06-18 15:13:41.223997+05:30
+281	5	https://arxiv.org/abs/2606.18388	2026-06-18 15:13:41.223997+05:30
+282	5	https://arxiv.org/abs/2606.18393	2026-06-18 15:13:41.223997+05:30
+283	5	https://arxiv.org/abs/2606.18395	2026-06-18 15:13:41.223997+05:30
+284	5	https://arxiv.org/abs/2606.18402	2026-06-18 15:13:41.223997+05:30
+285	5	https://arxiv.org/abs/2606.18424	2026-06-18 15:13:41.223997+05:30
+286	5	https://arxiv.org/abs/2606.18425	2026-06-18 15:13:41.223997+05:30
+287	5	https://arxiv.org/abs/2606.18429	2026-06-18 15:13:41.223997+05:30
+288	5	https://arxiv.org/abs/2606.18444	2026-06-18 15:13:41.223997+05:30
+289	5	https://arxiv.org/abs/2606.18454	2026-06-18 15:13:41.223997+05:30
+290	5	https://arxiv.org/abs/2606.18465	2026-06-18 15:13:41.223997+05:30
+291	5	https://arxiv.org/abs/2606.18469	2026-06-18 15:13:41.223997+05:30
+292	5	https://arxiv.org/abs/2606.18485	2026-06-18 15:13:41.223997+05:30
+293	5	https://arxiv.org/abs/2606.18487	2026-06-18 15:13:41.223997+05:30
+294	5	https://arxiv.org/abs/2606.18496	2026-06-18 15:13:41.223997+05:30
+295	5	https://arxiv.org/abs/2606.18518	2026-06-18 15:13:41.223997+05:30
+296	5	https://arxiv.org/abs/2606.18519	2026-06-18 15:13:41.223997+05:30
+297	5	https://arxiv.org/abs/2606.18521	2026-06-18 15:13:41.223997+05:30
+298	5	https://arxiv.org/abs/2606.18532	2026-06-18 15:13:41.223997+05:30
+299	5	https://arxiv.org/abs/2606.18548	2026-06-18 15:13:41.223997+05:30
+300	5	https://arxiv.org/abs/2606.18561	2026-06-18 15:13:41.223997+05:30
+301	5	https://arxiv.org/abs/2606.18566	2026-06-18 15:13:41.223997+05:30
+302	5	https://arxiv.org/abs/2606.18586	2026-06-18 15:13:41.223997+05:30
+303	5	https://arxiv.org/abs/2606.18587	2026-06-18 15:13:41.223997+05:30
+304	5	https://arxiv.org/abs/2606.18594	2026-06-18 15:13:41.223997+05:30
+305	5	https://arxiv.org/abs/2606.18596	2026-06-18 15:13:41.223997+05:30
+306	5	https://arxiv.org/abs/2606.18599	2026-06-18 15:13:41.223997+05:30
+307	5	https://arxiv.org/abs/2606.18606	2026-06-18 15:13:41.223997+05:30
+308	5	https://arxiv.org/abs/2606.18611	2026-06-18 15:13:41.223997+05:30
+309	5	https://arxiv.org/abs/2606.18613	2026-06-18 15:13:41.223997+05:30
+310	5	https://arxiv.org/abs/2606.18617	2026-06-18 15:13:41.223997+05:30
+311	5	https://arxiv.org/abs/2606.18619	2026-06-18 15:13:41.223997+05:30
+312	5	https://arxiv.org/abs/2606.18620	2026-06-18 15:13:41.223997+05:30
+313	5	https://arxiv.org/abs/2606.18634	2026-06-18 15:13:41.223997+05:30
+314	5	https://arxiv.org/abs/2606.18636	2026-06-18 15:13:41.223997+05:30
+315	5	https://arxiv.org/abs/2606.18645	2026-06-18 15:13:41.223997+05:30
+316	5	https://arxiv.org/abs/2606.18661	2026-06-18 15:13:41.223997+05:30
+317	5	https://arxiv.org/abs/2606.18664	2026-06-18 15:13:41.223997+05:30
+318	5	https://arxiv.org/abs/2606.18672	2026-06-18 15:13:41.223997+05:30
+319	5	https://arxiv.org/abs/2606.18677	2026-06-18 15:13:41.223997+05:30
+320	5	https://arxiv.org/abs/2606.18688	2026-06-18 15:13:41.223997+05:30
+321	5	https://arxiv.org/abs/2606.18698	2026-06-18 15:13:41.223997+05:30
+322	5	https://arxiv.org/abs/2606.18699	2026-06-18 15:13:41.223997+05:30
+323	5	https://arxiv.org/abs/2606.18717	2026-06-18 15:13:41.223997+05:30
+324	5	https://arxiv.org/abs/2606.18726	2026-06-18 15:13:41.223997+05:30
+325	5	https://arxiv.org/abs/2606.18730	2026-06-18 15:13:41.223997+05:30
+326	5	https://arxiv.org/abs/2606.18733	2026-06-18 15:13:41.223997+05:30
+327	5	https://arxiv.org/abs/2606.18747	2026-06-18 15:13:41.223997+05:30
+328	5	https://arxiv.org/abs/2606.18773	2026-06-18 15:13:41.223997+05:30
+329	5	https://arxiv.org/abs/2606.18782	2026-06-18 15:13:41.223997+05:30
+330	5	https://arxiv.org/abs/2606.18785	2026-06-18 15:13:41.223997+05:30
+331	5	https://arxiv.org/abs/2606.18790	2026-06-18 15:13:41.223997+05:30
+332	5	https://arxiv.org/abs/2606.18801	2026-06-18 15:13:41.223997+05:30
+333	5	https://arxiv.org/abs/2606.18810	2026-06-18 15:13:41.223997+05:30
+334	5	https://arxiv.org/abs/2606.18811	2026-06-18 15:13:41.223997+05:30
+335	5	https://arxiv.org/abs/2606.18812	2026-06-18 15:13:41.223997+05:30
+336	5	https://arxiv.org/abs/2606.18816	2026-06-18 15:13:41.223997+05:30
+337	5	https://arxiv.org/abs/2606.18820	2026-06-18 15:13:41.223997+05:30
+338	5	https://arxiv.org/abs/2606.18828	2026-06-18 15:13:41.223997+05:30
+339	5	https://arxiv.org/abs/2606.18831	2026-06-18 15:13:41.223997+05:30
+340	5	https://arxiv.org/abs/2606.18832	2026-06-18 15:13:41.223997+05:30
+341	5	https://arxiv.org/abs/2606.18836	2026-06-18 15:13:41.223997+05:30
+342	5	https://arxiv.org/abs/2606.18837	2026-06-18 15:13:41.223997+05:30
+343	5	https://arxiv.org/abs/2606.18852	2026-06-18 15:13:41.223997+05:30
+344	5	https://arxiv.org/abs/2606.18861	2026-06-18 15:13:41.223997+05:30
+345	5	https://arxiv.org/abs/2606.18864	2026-06-18 15:13:41.223997+05:30
+346	5	https://arxiv.org/abs/2606.18882	2026-06-18 15:13:41.223997+05:30
+347	5	https://arxiv.org/abs/2606.18897	2026-06-18 15:13:41.223997+05:30
+348	5	https://arxiv.org/abs/2606.18922	2026-06-18 15:13:41.223997+05:30
+349	5	https://arxiv.org/abs/2606.18932	2026-06-18 15:13:41.223997+05:30
+350	5	https://arxiv.org/abs/2606.18970	2026-06-18 15:13:41.223997+05:30
+351	5	https://arxiv.org/abs/2606.18976	2026-06-18 15:13:41.223997+05:30
+352	5	https://arxiv.org/abs/2606.18986	2026-06-18 15:13:41.223997+05:30
+353	5	https://arxiv.org/abs/2606.18989	2026-06-18 15:13:41.223997+05:30
+354	5	https://arxiv.org/abs/2606.18996	2026-06-18 15:13:41.223997+05:30
+355	5	https://arxiv.org/abs/2606.19004	2026-06-18 15:13:41.223997+05:30
+356	5	https://arxiv.org/abs/2606.19025	2026-06-18 15:13:41.223997+05:30
+357	5	https://arxiv.org/abs/2606.19026	2026-06-18 15:13:41.223997+05:30
+358	5	https://arxiv.org/abs/2606.19042	2026-06-18 15:13:41.223997+05:30
+359	5	https://arxiv.org/abs/2606.19103	2026-06-18 15:13:41.223997+05:30
+360	5	https://arxiv.org/abs/2606.19111	2026-06-18 15:13:41.223997+05:30
+361	5	https://arxiv.org/abs/2606.19133	2026-06-18 15:13:41.223997+05:30
+362	5	https://arxiv.org/abs/2606.19134	2026-06-18 15:13:41.223997+05:30
+363	5	https://arxiv.org/abs/2606.19135	2026-06-18 15:13:41.223997+05:30
+364	5	https://arxiv.org/abs/2606.19145	2026-06-18 15:13:41.223997+05:30
+365	5	https://arxiv.org/abs/2606.19152	2026-06-18 15:13:41.223997+05:30
+366	5	https://arxiv.org/abs/2606.19164	2026-06-18 15:13:41.223997+05:30
+367	5	https://arxiv.org/abs/2606.19174	2026-06-18 15:13:41.223997+05:30
+368	5	https://arxiv.org/abs/2606.19176	2026-06-18 15:13:41.223997+05:30
+369	5	https://arxiv.org/abs/2606.19179	2026-06-18 15:13:41.223997+05:30
+370	5	https://arxiv.org/abs/2606.19183	2026-06-18 15:13:41.223997+05:30
+371	5	https://arxiv.org/abs/2606.19197	2026-06-18 15:13:41.223997+05:30
+372	5	https://arxiv.org/abs/2606.19199	2026-06-18 15:13:41.223997+05:30
+373	5	https://arxiv.org/abs/2606.19220	2026-06-18 15:13:41.223997+05:30
+374	5	https://arxiv.org/abs/2606.19222	2026-06-18 15:13:41.223997+05:30
+375	5	https://arxiv.org/abs/2606.19236	2026-06-18 15:13:41.223997+05:30
+376	5	https://arxiv.org/abs/2606.19247	2026-06-18 15:13:41.223997+05:30
+377	5	https://arxiv.org/abs/2606.19253	2026-06-18 15:13:41.223997+05:30
+378	5	https://arxiv.org/abs/2606.19259	2026-06-18 15:13:41.223997+05:30
+379	5	https://arxiv.org/abs/2606.19266	2026-06-18 15:13:41.223997+05:30
+380	5	https://arxiv.org/abs/2606.19286	2026-06-18 15:13:41.223997+05:30
+381	5	https://arxiv.org/abs/2606.19317	2026-06-18 15:13:41.223997+05:30
+382	5	https://arxiv.org/abs/2606.19319	2026-06-18 15:13:41.223997+05:30
+383	5	https://arxiv.org/abs/2606.19325	2026-06-18 15:13:41.223997+05:30
+384	5	https://arxiv.org/abs/2606.19328	2026-06-18 15:13:41.223997+05:30
+385	5	https://arxiv.org/abs/2310.05753	2026-06-18 15:13:41.223997+05:30
+386	5	https://arxiv.org/abs/2402.08128	2026-06-18 15:13:41.223997+05:30
+387	5	https://arxiv.org/abs/2505.12369	2026-06-18 15:13:41.223997+05:30
+388	5	https://arxiv.org/abs/2508.21720	2026-06-18 15:13:41.223997+05:30
+389	5	https://arxiv.org/abs/2510.05107	2026-06-18 15:13:41.223997+05:30
+390	5	https://arxiv.org/abs/2510.09905	2026-06-18 15:13:41.223997+05:30
+391	5	https://arxiv.org/abs/2510.27353	2026-06-18 15:13:41.223997+05:30
+392	5	https://arxiv.org/abs/2512.04144	2026-06-18 15:13:41.223997+05:30
+393	5	https://arxiv.org/abs/2602.06774	2026-06-18 15:13:41.223997+05:30
+394	5	https://arxiv.org/abs/2602.23092	2026-06-18 15:13:41.223997+05:30
+395	5	https://arxiv.org/abs/2603.00656	2026-06-18 15:13:41.223997+05:30
+396	5	https://arxiv.org/abs/2603.09344	2026-06-18 15:13:41.223997+05:30
+397	5	https://arxiv.org/abs/2604.23716	2026-06-18 15:13:41.223997+05:30
+398	5	https://arxiv.org/abs/2604.25848	2026-06-18 15:13:41.223997+05:30
+399	5	https://arxiv.org/abs/2605.03460	2026-06-18 15:13:41.223997+05:30
+400	5	https://arxiv.org/abs/2605.29649	2026-06-18 15:13:41.223997+05:30
+401	5	https://arxiv.org/abs/2605.29676	2026-06-18 15:13:41.223997+05:30
+402	5	https://arxiv.org/abs/2606.00729	2026-06-18 15:13:41.223997+05:30
+403	5	https://arxiv.org/abs/2606.01139	2026-06-18 15:13:41.223997+05:30
+404	5	https://arxiv.org/abs/2606.08532	2026-06-18 15:13:41.223997+05:30
+405	5	https://arxiv.org/abs/2606.10376	2026-06-18 15:13:41.223997+05:30
+406	5	https://arxiv.org/abs/2606.11918	2026-06-18 15:13:41.223997+05:30
+407	5	https://arxiv.org/abs/2606.12618	2026-06-18 15:13:41.223997+05:30
+408	5	https://arxiv.org/abs/2606.15504	2026-06-18 15:13:41.223997+05:30
+409	5	https://arxiv.org/abs/2606.16276	2026-06-18 15:13:41.223997+05:30
+410	5	https://arxiv.org/abs/2606.17453	2026-06-18 15:13:41.223997+05:30
+411	5	https://arxiv.org/abs/2606.17454	2026-06-18 15:13:41.223997+05:30
+412	5	https://arxiv.org/abs/2606.18101	2026-06-18 15:13:41.223997+05:30
+413	5	https://arxiv.org/abs/2606.18142	2026-06-18 15:13:41.223997+05:30
+414	5	https://arxiv.org/abs/2606.18192	2026-06-18 15:13:41.223997+05:30
+415	5	https://arxiv.org/abs/2303.18031	2026-06-18 15:13:41.223997+05:30
+416	5	https://arxiv.org/abs/2307.05623	2026-06-18 15:13:41.223997+05:30
+417	5	https://arxiv.org/abs/2409.03500	2026-06-18 15:13:41.223997+05:30
+418	5	https://arxiv.org/abs/2411.16206	2026-06-18 15:13:41.223997+05:30
+419	5	https://arxiv.org/abs/2502.07531	2026-06-18 15:13:41.223997+05:30
+420	5	https://arxiv.org/abs/2502.10239	2026-06-18 15:13:41.223997+05:30
+421	5	https://arxiv.org/abs/2503.01805	2026-06-18 15:13:41.223997+05:30
+422	5	https://arxiv.org/abs/2503.08038	2026-06-18 15:13:41.223997+05:30
+423	5	https://arxiv.org/abs/2505.03646	2026-06-18 15:13:41.223997+05:30
+424	5	https://arxiv.org/abs/2505.16057	2026-06-18 15:13:41.223997+05:30
+425	5	https://arxiv.org/abs/2505.21954	2026-06-18 15:13:41.223997+05:30
+426	5	https://arxiv.org/abs/2505.23851	2026-06-18 15:13:41.223997+05:30
+427	5	https://arxiv.org/abs/2506.09046	2026-06-18 15:13:41.223997+05:30
+428	5	https://arxiv.org/abs/2506.11139	2026-06-18 15:13:41.223997+05:30
+429	5	https://arxiv.org/abs/2506.14126	2026-06-18 15:13:41.223997+05:30
+430	5	https://arxiv.org/abs/2507.04219	2026-06-18 15:13:41.223997+05:30
+431	5	https://arxiv.org/abs/2507.16859	2026-06-18 15:13:41.223997+05:30
+432	5	https://arxiv.org/abs/2508.03483	2026-06-18 15:13:41.223997+05:30
+433	5	https://arxiv.org/abs/2508.09191	2026-06-18 15:13:41.223997+05:30
+434	5	https://arxiv.org/abs/2509.02555	2026-06-18 15:13:41.223997+05:30
+435	5	https://arxiv.org/abs/2510.04120	2026-06-18 15:13:41.223997+05:30
+436	5	https://arxiv.org/abs/2510.15551	2026-06-18 15:13:41.223997+05:30
+437	5	https://arxiv.org/abs/2510.18085	2026-06-18 15:13:41.223997+05:30
+438	5	https://arxiv.org/abs/2511.14555	2026-06-18 15:13:41.223997+05:30
+439	5	https://arxiv.org/abs/2511.20002	2026-06-18 15:13:41.223997+05:30
+440	5	https://arxiv.org/abs/2512.09185	2026-06-18 15:13:41.223997+05:30
+441	5	https://arxiv.org/abs/2601.00567	2026-06-18 15:13:41.223997+05:30
+442	5	https://arxiv.org/abs/2601.12805	2026-06-18 15:13:41.223997+05:30
+443	5	https://arxiv.org/abs/2601.14288	2026-06-18 15:13:41.223997+05:30
+444	5	https://arxiv.org/abs/2601.14968	2026-06-18 15:13:41.223997+05:30
+445	5	https://arxiv.org/abs/2601.17226	2026-06-18 15:13:41.223997+05:30
+446	5	https://arxiv.org/abs/2601.19792	2026-06-18 15:13:41.223997+05:30
+447	5	https://arxiv.org/abs/2601.21626	2026-06-18 15:13:41.223997+05:30
+448	5	https://arxiv.org/abs/2602.00161	2026-06-18 15:13:41.223997+05:30
+449	5	https://arxiv.org/abs/2602.00176	2026-06-18 15:13:41.223997+05:30
+450	5	https://arxiv.org/abs/2602.06470	2026-06-18 15:13:41.223997+05:30
+451	5	https://arxiv.org/abs/2602.09234	2026-06-18 15:13:41.223997+05:30
+452	5	https://arxiv.org/abs/2602.15851	2026-06-18 15:13:41.223997+05:30
+453	5	https://arxiv.org/abs/2602.19591	2026-06-18 15:13:41.223997+05:30
+454	5	https://arxiv.org/abs/2603.00026	2026-06-18 15:13:41.223997+05:30
+455	5	https://arxiv.org/abs/2603.10827	2026-06-18 15:13:41.223997+05:30
+456	5	https://arxiv.org/abs/2603.15988	2026-06-18 15:13:41.223997+05:30
+457	5	https://arxiv.org/abs/2603.28707	2026-06-18 15:13:41.223997+05:30
+458	5	https://arxiv.org/abs/2603.29247	2026-06-18 15:13:41.223997+05:30
+459	5	https://arxiv.org/abs/2604.00730	2026-06-18 15:13:41.223997+05:30
+460	5	https://arxiv.org/abs/2604.03275	2026-06-18 15:13:41.223997+05:30
+461	5	https://arxiv.org/abs/2604.04089	2026-06-18 15:13:41.223997+05:30
+462	5	https://arxiv.org/abs/2604.06367	2026-06-18 15:13:41.223997+05:30
+463	5	https://arxiv.org/abs/2604.13082	2026-06-18 15:13:41.223997+05:30
+464	5	https://arxiv.org/abs/2604.13899	2026-06-18 15:13:41.223997+05:30
+465	5	https://arxiv.org/abs/2604.23130	2026-06-18 15:13:41.223997+05:30
+466	5	https://arxiv.org/abs/2604.28076	2026-06-18 15:13:41.223997+05:30
+467	5	https://arxiv.org/abs/2605.10840	2026-06-18 15:13:41.223997+05:30
+468	5	https://arxiv.org/abs/2605.11287	2026-06-18 15:13:41.223997+05:30
+469	5	https://arxiv.org/abs/2605.12567	2026-06-18 15:13:41.223997+05:30
+470	5	https://arxiv.org/abs/2605.12713	2026-06-18 15:13:41.223997+05:30
+471	5	https://arxiv.org/abs/2605.16385	2026-06-18 15:13:41.223997+05:30
+472	5	https://arxiv.org/abs/2605.17131	2026-06-18 15:13:41.223997+05:30
+473	5	https://arxiv.org/abs/2605.17986	2026-06-18 15:13:41.223997+05:30
+474	5	https://arxiv.org/abs/2605.21028	2026-06-18 15:13:41.223997+05:30
+475	5	https://arxiv.org/abs/2605.21528	2026-06-18 15:13:41.223997+05:30
+476	5	https://arxiv.org/abs/2605.22142	2026-06-18 15:13:41.223997+05:30
+477	5	https://arxiv.org/abs/2605.26903	2026-06-18 15:13:41.223997+05:30
+478	5	https://arxiv.org/abs/2605.30880	2026-06-18 15:13:41.223997+05:30
+479	5	https://arxiv.org/abs/2606.00182	2026-06-18 15:13:41.223997+05:30
+480	5	https://arxiv.org/abs/2606.00491	2026-06-18 15:13:41.223997+05:30
+481	5	https://arxiv.org/abs/2606.02045	2026-06-18 15:13:41.223997+05:30
+482	5	https://arxiv.org/abs/2606.02800	2026-06-18 15:13:41.223997+05:30
+483	5	https://arxiv.org/abs/2606.03827	2026-06-18 15:13:41.223997+05:30
+484	5	https://arxiv.org/abs/2606.06133	2026-06-18 15:13:41.223997+05:30
+485	5	https://arxiv.org/abs/2606.06564	2026-06-18 15:13:41.223997+05:30
+486	5	https://arxiv.org/abs/2606.07150	2026-06-18 15:13:41.223997+05:30
+487	5	https://arxiv.org/abs/2606.07591	2026-06-18 15:13:41.223997+05:30
+488	5	https://arxiv.org/abs/2606.10466	2026-06-18 15:13:41.223997+05:30
+489	5	https://arxiv.org/abs/2606.12629	2026-06-18 15:13:41.223997+05:30
+490	5	https://arxiv.org/abs/2606.12808	2026-06-18 15:13:41.223997+05:30
+491	5	https://arxiv.org/abs/2606.13768	2026-06-18 15:13:41.223997+05:30
+492	5	https://arxiv.org/abs/2606.14202	2026-06-18 15:13:41.223997+05:30
+493	5	https://arxiv.org/abs/2606.15091	2026-06-18 15:13:41.223997+05:30
+494	5	https://arxiv.org/abs/2606.16214	2026-06-18 15:13:41.223997+05:30
+495	5	https://arxiv.org/abs/2606.17372	2026-06-18 15:13:41.223997+05:30
+496	5	https://arxiv.org/abs/2606.17412	2026-06-18 15:13:41.223997+05:30
+497	6	https://arxiv.org/abs/2606.18436	2026-06-18 15:13:44.42453+05:30
+498	6	https://arxiv.org/abs/2606.18467	2026-06-18 15:13:44.42453+05:30
+499	6	https://arxiv.org/abs/2606.18520	2026-06-18 15:13:44.42453+05:30
+500	6	https://arxiv.org/abs/2606.18527	2026-06-18 15:13:44.42453+05:30
+501	6	https://arxiv.org/abs/2606.18531	2026-06-18 15:13:44.42453+05:30
+502	6	https://arxiv.org/abs/2606.18567	2026-06-18 15:13:44.42453+05:30
+503	6	https://arxiv.org/abs/2606.18729	2026-06-18 15:13:44.42453+05:30
+504	6	https://arxiv.org/abs/2606.18853	2026-06-18 15:13:44.42453+05:30
+505	6	https://arxiv.org/abs/2606.18972	2026-06-18 15:13:44.42453+05:30
+506	6	https://arxiv.org/abs/2606.18993	2026-06-18 15:13:44.42453+05:30
+507	6	https://arxiv.org/abs/2606.19057	2026-06-18 15:13:44.42453+05:30
+508	6	https://arxiv.org/abs/2606.19147	2026-06-18 15:13:44.42453+05:30
+509	6	https://arxiv.org/abs/2606.19212	2026-06-18 15:13:44.42453+05:30
+510	6	https://arxiv.org/abs/2602.11557	2026-06-18 15:13:44.42453+05:30
+511	6	https://arxiv.org/abs/2606.18281	2026-06-18 15:13:44.42453+05:30
+512	6	https://arxiv.org/abs/2606.18306	2026-06-18 15:13:44.42453+05:30
+513	6	https://arxiv.org/abs/2606.18412	2026-06-18 15:13:44.42453+05:30
+514	6	https://arxiv.org/abs/2606.18420	2026-06-18 15:13:44.42453+05:30
+515	6	https://arxiv.org/abs/2606.18463	2026-06-18 15:13:44.42453+05:30
+516	6	https://arxiv.org/abs/2606.18503	2026-06-18 15:13:44.42453+05:30
+517	6	https://arxiv.org/abs/2606.18509	2026-06-18 15:13:44.42453+05:30
+518	6	https://arxiv.org/abs/2606.18515	2026-06-18 15:13:44.42453+05:30
+519	6	https://arxiv.org/abs/2606.18538	2026-06-18 15:13:44.42453+05:30
+520	6	https://arxiv.org/abs/2606.18539	2026-06-18 15:13:44.42453+05:30
+521	6	https://arxiv.org/abs/2606.18611	2026-06-18 15:13:44.42453+05:30
+522	6	https://arxiv.org/abs/2606.18778	2026-06-18 15:13:44.42453+05:30
+523	6	https://arxiv.org/abs/2606.18867	2026-06-18 15:13:44.42453+05:30
+524	6	https://arxiv.org/abs/2606.18969	2026-06-18 15:13:44.42453+05:30
+525	6	https://arxiv.org/abs/2606.19084	2026-06-18 15:13:44.42453+05:30
+526	6	https://arxiv.org/abs/2606.19105	2026-06-18 15:13:44.42453+05:30
+527	6	https://arxiv.org/abs/2606.19117	2026-06-18 15:13:44.42453+05:30
+528	6	https://arxiv.org/abs/2606.19138	2026-06-18 15:13:44.42453+05:30
+529	6	https://arxiv.org/abs/2606.19179	2026-06-18 15:13:44.42453+05:30
+530	6	https://arxiv.org/abs/2606.19230	2026-06-18 15:13:44.42453+05:30
+531	6	https://arxiv.org/abs/2505.15215	2026-06-18 15:13:44.42453+05:30
+532	6	https://arxiv.org/abs/2507.07156	2026-06-18 15:13:44.42453+05:30
+533	6	https://arxiv.org/abs/2511.00366	2026-06-18 15:13:44.42453+05:30
+534	6	https://arxiv.org/abs/2602.17187	2026-06-18 15:13:44.42453+05:30
+535	6	https://arxiv.org/abs/2602.21160	2026-06-18 15:13:44.42453+05:30
+536	6	https://arxiv.org/abs/2602.23006	2026-06-18 15:13:44.42453+05:30
+537	6	https://arxiv.org/abs/2603.04895	2026-06-18 15:13:44.42453+05:30
+538	6	https://arxiv.org/abs/2605.27478	2026-06-18 15:13:44.42453+05:30
+539	6	https://arxiv.org/abs/2606.04404	2026-06-18 15:13:44.42453+05:30
+540	6	https://arxiv.org/abs/2606.17491	2026-06-18 15:13:44.42453+05:30
+541	6	https://arxiv.org/abs/2406.14399	2026-06-18 15:13:44.42453+05:30
+542	6	https://arxiv.org/abs/2502.07641	2026-06-18 15:13:44.42453+05:30
+543	6	https://arxiv.org/abs/2507.18824	2026-06-18 15:13:44.42453+05:30
+544	6	https://arxiv.org/abs/2509.14969	2026-06-18 15:13:44.42453+05:30
+545	6	https://arxiv.org/abs/2602.02056	2026-06-18 15:13:44.42453+05:30
+546	6	https://arxiv.org/abs/2602.06518	2026-06-18 15:13:44.42453+05:30
+547	6	https://arxiv.org/abs/2602.14789	2026-06-18 15:13:44.42453+05:30
+548	6	https://arxiv.org/abs/2603.09344	2026-06-18 15:13:44.42453+05:30
+549	6	https://arxiv.org/abs/2604.04342	2026-06-18 15:13:44.42453+05:30
+550	6	https://arxiv.org/abs/2605.17232	2026-06-18 15:13:44.42453+05:30
+551	6	https://arxiv.org/abs/2605.20726	2026-06-18 15:13:44.42453+05:30
+552	6	https://arxiv.org/abs/2606.11136	2026-06-18 15:13:44.42453+05:30
+553	3	https://www.artificialintelligence-news.com/news/hsbc-google-cloud-ai-partnership	2026-06-18 15:32:15.445898+05:30
+554	1	https://deepmind.google/blog/securing-the-future-of-ai-agents	2026-06-18 18:38:35.219053+05:30
+555	2	https://www.technologyreview.com/2026/06/23/1139483/the-download-chipmaking-future-asml-ai-anthropic-government-clash	2026-06-23 18:30:08.103931+05:30
+556	2	https://www.technologyreview.com/2026/06/23/1138562/elephant-alert-ai-warning-systems-avoid-deadly-clashes-india	2026-06-23 18:30:08.103931+05:30
+557	2	https://www.technologyreview.com/2026/06/23/1138837/asml-400-million-dollar-machine-powering-future-of-chipmaking	2026-06-23 18:30:08.103931+05:30
+558	2	https://www.technologyreview.com/2026/06/22/1139424/three-things-to-watch-amid-anthropics-latest-feud-with-the-government	2026-06-23 18:30:08.103931+05:30
+559	2	https://www.technologyreview.com/2026/06/22/1139385/the-download-rogfast-subsea-tunnel-flexible-data-centers	2026-06-23 18:30:08.103931+05:30
+560	2	https://www.technologyreview.com/2026/06/22/1138821/inside-worlds-deepest-longest-subsea-road-tunnel	2026-06-23 18:30:08.103931+05:30
+561	2	https://www.technologyreview.com/2026/06/19/1139327/the-download-llms-bottleneck-breakthrough-bci-trials-take-off	2026-06-23 18:30:08.103931+05:30
+562	2	https://www.technologyreview.com/2026/06/19/1139313/a-startup-claims-it-broke-through-a-bottleneck-thats-holding-back-llms	2026-06-23 18:30:08.103931+05:30
+563	2	https://www.technologyreview.com/2026/06/19/1138778/inevitable-weakness-metrics-quantified-life-book-review	2026-06-23 18:30:08.103931+05:30
+564	2	https://www.technologyreview.com/2026/06/19/1139270/brain-computer-interface-trials-are-taking-off	2026-06-23 18:30:08.103931+05:30
+565	3	https://www.artificialintelligence-news.com/news/five-eyes-warning-ai-cyber-threats	2026-06-23 18:30:09.177876+05:30
+566	3	https://www.artificialintelligence-news.com/news/mitigating-vendor-lock-in-sakana-ai-fugu-multi-agent-models	2026-06-23 18:30:09.177876+05:30
+567	3	https://www.artificialintelligence-news.com/news/loreal-maybelline-virtual-try-on-chatgpt	2026-06-23 18:30:09.177876+05:30
+568	3	https://www.artificialintelligence-news.com/news/sap-and-google-cloud-deploy-agentic-commerce-architecture	2026-06-23 18:30:09.177876+05:30
+569	3	https://www.artificialintelligence-news.com/news/e2e-assure-introduces-cumulo-the-u-k-s-only-sovereign-ai-driven-zero-day-soc-platform-to-secure-it-and-ot-environments	2026-06-23 18:30:09.177876+05:30
+570	3	https://www.artificialintelligence-news.com/news/computer-vision-deployments-drive-retail-productivity-gains	2026-06-23 18:30:09.177876+05:30
+571	4	https://www.thesun.ie/news/17132948/micheal-martin-social-media-warning-deepfake-scam	2026-06-23 18:30:09.382584+05:30
+572	4	https://timesofindia.indiatimes.com/city/bengaluru/kannada-actor-doddanna-files-a-plaint-after-ai-made-post-declares-him-dead/articleshow/131808104.cms	2026-06-23 18:30:09.382584+05:30
+573	4	https://www.reuters.com/legal/litigation/waymo-recall-over-3800-robotaxis-over-risk-entering-closed-construction-zones-2026-06-18	2026-06-23 18:30:09.382584+05:30
+574	4	https://www.cnbc.com/2026/06/18/waymo-nhtsa-voluntary-recall-robotaxis-entered-freeway-construction-zones.html	2026-06-23 18:30:09.382584+05:30
+575	4	https://www.theguardian.com/news/2026/mar/26/ai-got-the-blame-for-the-iran-school-bombing-the-truth-is-far-more-worrying	2026-06-23 18:30:09.382584+05:30
+576	4	https://www.bbc.com/news/articles/ckgplyxxl75o	2026-06-23 18:30:09.382584+05:30
+577	4	https://www.npr.org/2026/05/14/nx-s1-5822441/jury-award-737-max-crash-ethiopian-airlines	2026-06-23 18:30:09.382584+05:30
+578	4	https://www.wsj.com/tech/ai/google-gemini-jonathan-gavalas-death-07351ab2	2026-06-23 18:30:09.382584+05:30
+579	4	https://www.scmp.com/news/people-culture/trending-china/article/3334109/china-consumers-use-ai-alter-product-photos-claim-refunds-goods-appear-damaged	2026-06-23 18:30:09.382584+05:30
+580	4	https://futurism.com/artificial-intelligence/rogue-ai-agent-triggers-emergency-at-meta	2026-06-23 18:30:09.382584+05:30
+581	4	https://www.nbcnews.com/news/us-news/openai-sued-chatgpts-alleged-role-guiding-fsu-shooter-rcna344443	2026-06-23 18:30:09.382584+05:30
+582	4	https://www.citizen.co.za/news/home-affairs-officials-suspended-ai-hallucinations	2026-06-23 18:30:09.382584+05:30
+583	4	https://www.sfchronicle.com/bayarea/article/s-f-cyclist-sues-waymo-doored-robotaxi-20385289.php	2026-06-23 18:30:09.382584+05:30
+584	4	https://cnevpost.com/2025/12/16/chinese-city-suspends-hellobike-robotaxi-collision-pedestrians	2026-06-23 18:30:09.382584+05:30
+585	4	https://m.jiemian.com/article/13750947.html	2026-06-23 18:30:09.382584+05:30
+586	4	https://carnewschina.com/2025/12/06/baidus-robotaxi-causes-accident-in-a-central-city-of-china-leaves-two-in-intensive-care	2026-06-23 18:30:09.382584+05:30
+587	4	https://www.tmtpost.com/8020300.html	2026-06-23 18:30:09.382584+05:30
+588	4	https://www.reuters.com/business/autos-transportation/amazons-zoox-recall-332-us-vehicles-over-software-error-nhtsa-says-2025-12-23	2026-06-23 18:30:09.382584+05:30
+589	4	https://techcrunch.com/2025/12/23/zoox-issues-software-recall-over-lane-crossings	2026-06-23 18:30:09.382584+05:30
+590	4	https://techcrunch.com/2026/01/28/san-francisco-police-department-investigating-zoox-collision-with-a-parked-car	2026-06-23 18:30:09.382584+05:30
+591	4	https://www.azfamily.com/2026/01/08/waymo-passenger-flees-after-car-drives-phoenix-light-rail-tracks	2026-06-23 18:30:09.382584+05:30
+592	4	https://www.businessinsider.com/meta-ai-alignment-director-openclaw-email-deletion-2026-2	2026-06-23 18:30:09.382584+05:30
+593	4	https://www.axios.com/local/austin/2026/03/02/waymo-vehicle-blocks-ems-austin-mass-shooting	2026-06-23 18:30:09.382584+05:30
+594	4	https://www.fox7austin.com/news/waymo-car-swept-away-san-antonio-operations-suspended	2026-06-23 18:30:09.382584+05:30
+595	4	https://sanantonioreport.org/waymo-pauses-passenger-service-san-antonio-floods-recall	2026-06-23 18:30:09.382584+05:30
+596	4	https://www.aclu.org/press-releases/florida-man-sues-police-over-wrongful-arrest-due-to-false-facial-recognition-match	2026-06-23 18:30:09.382584+05:30
+597	4	https://www.gulfcoastnewsnow.com/article/ai-leads-to-wrongful-arrest-of-lee-county-man/63745255	2026-06-23 18:30:09.382584+05:30
+598	4	https://www.wsj.com/finance/state-farms-ai-plan-for-sales-agents-sparks-uproar-a-real-slap-in-the-face-6453e2cb	2026-06-23 18:30:09.382584+05:30
+599	4	https://www.haberturk.com/ankara-haberleri/31787173-bbc-google-alerts-deprem-bildirim-sistemi-kahramanmaras-merkezli-depremlerde-devreye	2026-06-23 18:30:09.382584+05:30
+600	4	https://turkishminute.com/2023/07/28/google-alert-failed-warn-people-in-turkey-earthquake-report	2026-06-23 18:30:09.382584+05:30
+601	4	https://www.haberturk.com/google-dan-kahramanmaras-depremi-itirafi-10-milyon-kisiye-uyari-gonderilmedi-3810420-teknoloji	2026-06-23 18:30:09.382584+05:30
+602	4	https://gazeteoksijen.com/dunya/maras-depreminde-gonderilen-mesaj-sadece-469-kisiye-ulasti-google-erken-uyari-sistemi-sinifta-kaldi-hafif-sarsinti-247549	2026-06-23 18:30:09.382584+05:30
+603	4	https://www.androidcentral.com/phones/google-pixel/google-admits-its-alert-system-failed-to-accurately-warn-people-in-turkeys-2023-quake	2026-06-23 18:30:09.382584+05:30
+604	4	https://www.bbc.com/news/technology-66316462	2026-06-23 18:30:09.382584+05:30
+605	1	https://deepmind.google/blog/introducing-computer-use-in-gemini-3-5-flash	2026-06-30 18:30:23.091697+05:30
+606	2	https://www.technologyreview.com/2026/06/30/1139954/the-download-ai-agents-coworkers-solar-powered-internet	2026-06-30 18:30:23.181432+05:30
+607	2	https://www.technologyreview.com/2026/06/30/1139513/agriculture-is-ready-for-ai-but-its-data-isnt	2026-06-30 18:30:23.181432+05:30
+608	2	https://www.technologyreview.com/2026/06/30/1139661/building-tech-in-the-worlds-secret-rd-hub	2026-06-30 18:30:23.181432+05:30
+609	2	https://www.technologyreview.com/2026/06/29/1139849/ai-agents-are-not-your-coworkers	2026-06-30 18:30:23.181432+05:30
+610	2	https://www.technologyreview.com/2026/06/29/1139635/agent-confidence-on-the-technical-frontier	2026-06-30 18:30:23.181432+05:30
+611	2	https://www.technologyreview.com/2026/06/29/1139834/the-download-metric-weaknesses-ai-elephant-warnings	2026-06-30 18:30:23.181432+05:30
+612	2	https://www.technologyreview.com/2026/06/26/1139780/the-download-heatwaves-brain-health-openai-restrictions	2026-06-30 18:30:23.181432+05:30
+613	2	https://www.technologyreview.com/2026/06/26/1139760/heat-waves-mess-with-your-brain-scientists-are-trying-to-figure-out-why	2026-06-30 18:30:23.181432+05:30
+614	2	https://www.technologyreview.com/2026/06/25/1137848/repositioning-retail-for-the-ai-era	2026-06-30 18:30:23.181432+05:30
+615	2	https://www.technologyreview.com/2026/06/25/1139738/the-download-europe-heat-wave-ibm-chip-moores-law	2026-06-30 18:30:23.181432+05:30
+616	3	https://www.artificialintelligence-news.com/news/hp-accelerates-enterprise-workflows-openai-frontier	2026-06-30 18:30:26.581731+05:30
+617	3	https://www.artificialintelligence-news.com/news/wimbledon-ibm-ai-tools-live-match-coverage	2026-06-30 18:30:26.581731+05:30
+618	3	https://www.artificialintelligence-news.com/news/advances-in-natural-language-processing-are-changing-professional-networking	2026-06-30 18:30:26.581731+05:30
+619	3	https://www.artificialintelligence-news.com/news/best-automated-security-testing-tools-for-modern-devsecops	2026-06-30 18:30:26.581731+05:30
+620	3	https://www.artificialintelligence-news.com/news/xfusion-scales-enterprise-ai-from-edge-workstations-to-liquid-cooled-data-centres	2026-06-30 18:30:26.581731+05:30
+621	3	https://www.artificialintelligence-news.com/news/scam-ai-announces-qualcomm-partnership-launches-halo-deepfake-detection-model-at-computex-2026	2026-06-30 18:30:26.581731+05:30
+622	3	https://www.artificialintelligence-news.com/news/sap-aligns-commerce-data-for-ai-personalisation	2026-06-30 18:30:26.581731+05:30
+623	3	https://www.artificialintelligence-news.com/news/openai-jalapeno-chip-inference-economics	2026-06-30 18:30:26.581731+05:30
+624	3	https://www.artificialintelligence-news.com/news/samsung-chatgpt-enterprise-codex-employee-ai-use	2026-06-30 18:30:26.581731+05:30
+625	3	https://www.artificialintelligence-news.com/news/anthropic-slack-workplace-ai-agents	2026-06-30 18:30:26.581731+05:30
+626	3	https://www.artificialintelligence-news.com/news/omio-scales-travel-product-development-using-openai-models	2026-06-30 18:30:26.581731+05:30
+627	4	https://www.reuters.com/legal/litigation/sullivan-cromwell-law-firm-apologizes-ai-hallucinations-court-filing-2026-04-21	2026-06-30 18:30:26.82225+05:30
+628	4	https://www.reuters.com/business/bp-marathon-7-eleven-walmart-sued-allegedly-using-ai-boost-california-gas-prices-2026-06-22	2026-06-30 18:30:26.82225+05:30
+629	4	https://www.elbalad.news/7008783	2026-06-30 18:30:26.82225+05:30
+630	4	https://www.reuters.com/technology/top-news-app-us-has-chinese-origins-writes-fiction-with-help-ai-2024-06-05	2026-06-30 18:30:26.82225+05:30
+631	4	https://www.abajournal.com/news/article/boies-schiller-partner-takes-responsibility-for-brief-with-hallucinated-cases	2026-06-30 18:30:26.82225+05:30
+632	4	https://www.dexerto.com/entertainment/x-user-tricks-grok-into-sending-them-200000-in-crypto-using-morse-code-3361036	2026-06-30 18:30:26.82225+05:30
+633	4	https://queensda.org/former-city-council-candidate-charged-with-forgery-for-disseminating-altered-political-endorsements-and-phony-news-reports	2026-06-30 18:30:26.82225+05:30
+634	4	https://www.centralmaine.com/2025/10/16/belfast-man-found-not-criminally-responsible-for-readfield-murder	2026-06-30 18:30:26.82225+05:30
+635	4	https://www.wtsp.com/article/news/local/pinellascounty/st-pete-ai-dog-photo-steal-money-from-vet/67-d37092a7-f97f-4b21-a2ed-5e28a6c7c312	2026-06-30 18:30:26.82225+05:30
+636	4	https://www.techpolicy.press/ai-detection-was-built-for-faces-climate-deception-targets-environments	2026-06-30 18:30:26.82225+05:30
+637	4	https://www.azfamily.com/2026/05/19/ai-system-fails-during-glendale-community-college-graduation-ceremony	2026-06-30 18:30:26.82225+05:30
+638	4	https://www.sixthcircuitappellateblog.com/recent-cases/sixth-circuit-sanctions-attorneys-for-fake-citations-what-does-this-mean-for-use-of-ai	2026-06-30 18:30:26.82225+05:30
+639	4	https://www.reminger.com/report-5378	2026-06-30 18:30:26.82225+05:30
+640	4	https://cyberpeace.org/resources/blogs/factcheck-viral-ai-video-showing-finance-minister-of-india-endorsing-an-investment-platform-offering-high-returns	2026-06-30 18:30:26.82225+05:30
+641	4	https://lalegalethics.org/fifth-circuit-sanctions-lawyer-for-ai-generated-brief	2026-06-30 18:30:26.82225+05:30
+642	4	https://texaslawbook.net/fifth-circuit-sanctions-opinion-gives-practical-advice-for-ai-use	2026-06-30 18:30:26.82225+05:30
+643	4	https://www.casemine.com/commentary/us/fletcher-v.-experian-info-solutions:-appellate-sanctions-for-ai-hallucinated-briefing-and-lack-of-candor-under-frap-46(c)-and-inherent-authority/view	2026-06-30 18:30:26.82225+05:30
+644	4	https://www.reuters.com/world/africa/south-africa-withdraws-ai-policy-due-fake-ai-generated-sources-2026-04-27	2026-06-30 18:30:26.82225+05:30
+645	4	https://sports.khan.co.kr/article/202606181032003	2026-06-30 18:30:26.82225+05:30
+646	4	https://sports.khan.co.kr/en/article/202606181033007	2026-06-30 18:30:26.82225+05:30
+647	4	https://www.outlookindia.com/art-entertainment/k-drama/lee-ji-hye-warns-fans-of-ai-ad-scam-fake-endorsements-using-her-face-spark-k-pop-industry-alarmed	2026-06-30 18:30:26.82225+05:30
+648	4	https://www.gov.za/news/media-statements/home-affairs-suspends-two-officials-over-ai-use-linked-revised-white-paper	2026-06-30 18:30:26.82225+05:30
+649	4	https://mybroadband.co.za/news/government/644855-fake-ai-references-in-south-african-ai-policy-two-men-named-in-report.html	2026-06-30 18:30:26.82225+05:30
+650	4	https://businesstech.co.za/news/software/858967/officials-suspended-over-fake-ai-sources-in-government-policy	2026-06-30 18:30:26.82225+05:30
+651	4	https://spectrumlocalnews.com/tx/south-texas-el-paso/news/2026/04/30/officials--5-waymos-blocked-first-responders-during-shooting	2026-06-30 18:30:26.82225+05:30
+652	4	https://cbsaustin.com/news/local/waymo-skips-austin-safety-meeting-after-robotaxi-blocks-ambulance-during-mass-shooting	2026-06-30 18:30:26.82225+05:30
+653	4	https://cbsaustin.com/news/local/council-member-calls-on-waymo-to-address-emergency-response-concerns-after-mass-shooting	2026-06-30 18:30:26.82225+05:30
+654	4	https://www.cbc.ca/news/canada/new-brunswick/sue-open-ai-suicide-chat-gpt-9.7234630	2026-06-30 18:30:26.82225+05:30
+655	4	https://people.com/mom-sues-claiming-chatgpt-encouraged-daughter-suicide-12001898	2026-06-30 18:30:26.82225+05:30
+656	4	https://www.bbc.com/news/articles/c98rzr72dpyo	2026-06-30 18:30:26.82225+05:30
+657	4	https://abc7news.com/post/waymo-pauses-freeway-rides-robotaxis-san-francisco-la-phoenix-miami-improve-response-construction-zones/19150225	2026-06-30 18:30:26.82225+05:30
+658	4	https://abc7news.com/post/waymo-recalls-3500-vehicles-incident-involving-robotaxi-entering-flooded-texas-road-company-says/19093361	2026-06-30 18:30:26.82225+05:30
+659	4	https://www.wsj.com/business/autos/waymo-recalling-more-than-3-800-robotaxis-over-risk-of-entering-construction-zones-6829e040	2026-06-30 18:30:26.82225+05:30
+660	4	https://techcrunch.com/2026/06/18/waymo-recalls-nearly-4000-robotaxis-to-stop-them-driving-into-highway-construction-zones	2026-06-30 18:30:26.82225+05:30
+661	4	https://www.wired.com/story/waymo-recalls-robotaxis-over-risk-theyll-drive-at-speed-into-freeway-construction-zones	2026-06-30 18:30:26.82225+05:30
+662	4	https://www.sfchronicle.com/tech/article/waymo-recall-freeway-construction-zones-22312033.php	2026-06-30 18:30:26.82225+05:30
+663	4	https://www.nytimes.com/2026/06/12/world/asia/trump-anime-manga-japan-memes.html	2026-06-30 18:30:26.82225+05:30
+664	4	https://www.nytimes.com/2026/06/21/us/tesla-autopilot-crash-texas.html	2026-06-30 18:30:26.82225+05:30
+1321	6	https://arxiv.org/abs/2606.28432	2026-06-30 18:30:27.158153+05:30
+1322	6	https://arxiv.org/abs/2606.28652	2026-06-30 18:30:27.158153+05:30
+1323	6	https://arxiv.org/abs/2606.28808	2026-06-30 18:30:27.158153+05:30
+1324	6	https://arxiv.org/abs/2606.28854	2026-06-30 18:30:27.158153+05:30
+1325	6	https://arxiv.org/abs/2606.28871	2026-06-30 18:30:27.158153+05:30
+1326	6	https://arxiv.org/abs/2606.29098	2026-06-30 18:30:27.158153+05:30
+1327	6	https://arxiv.org/abs/2606.29256	2026-06-30 18:30:27.158153+05:30
+1328	6	https://arxiv.org/abs/2606.29326	2026-06-30 18:30:27.158153+05:30
+1329	6	https://arxiv.org/abs/2606.29403	2026-06-30 18:30:27.158153+05:30
+1330	6	https://arxiv.org/abs/2606.29620	2026-06-30 18:30:27.158153+05:30
+1331	6	https://arxiv.org/abs/2606.29665	2026-06-30 18:30:27.158153+05:30
+1332	6	https://arxiv.org/abs/2606.30053	2026-06-30 18:30:27.158153+05:30
+1333	6	https://arxiv.org/abs/2606.30310	2026-06-30 18:30:27.158153+05:30
+1334	6	https://arxiv.org/abs/2606.30328	2026-06-30 18:30:27.158153+05:30
+1335	6	https://arxiv.org/abs/2606.30388	2026-06-30 18:30:27.158153+05:30
+1336	6	https://arxiv.org/abs/2606.30444	2026-06-30 18:30:27.158153+05:30
+1337	6	https://arxiv.org/abs/2606.30467	2026-06-30 18:30:27.158153+05:30
+1338	6	https://arxiv.org/abs/2606.30489	2026-06-30 18:30:27.158153+05:30
+1339	6	https://arxiv.org/abs/2606.30500	2026-06-30 18:30:27.158153+05:30
+1340	6	https://arxiv.org/abs/2606.30625	2026-06-30 18:30:27.158153+05:30
+1341	6	https://arxiv.org/abs/2606.28444	2026-06-30 18:30:27.158153+05:30
+1342	6	https://arxiv.org/abs/2606.28598	2026-06-30 18:30:27.158153+05:30
+1343	6	https://arxiv.org/abs/2606.28615	2026-06-30 18:30:27.158153+05:30
+1344	6	https://arxiv.org/abs/2606.28623	2026-06-30 18:30:27.158153+05:30
+1345	6	https://arxiv.org/abs/2606.28661	2026-06-30 18:30:27.158153+05:30
+1346	6	https://arxiv.org/abs/2606.28730	2026-06-30 18:30:27.158153+05:30
+1347	6	https://arxiv.org/abs/2606.29018	2026-06-30 18:30:27.158153+05:30
+1348	6	https://arxiv.org/abs/2606.29076	2026-06-30 18:30:27.158153+05:30
+1349	6	https://arxiv.org/abs/2606.29104	2026-06-30 18:30:27.158153+05:30
+1350	6	https://arxiv.org/abs/2606.29110	2026-06-30 18:30:27.158153+05:30
+1351	6	https://arxiv.org/abs/2606.29114	2026-06-30 18:30:27.158153+05:30
+1352	6	https://arxiv.org/abs/2606.29176	2026-06-30 18:30:27.158153+05:30
+1353	6	https://arxiv.org/abs/2606.29203	2026-06-30 18:30:27.158153+05:30
+1354	6	https://arxiv.org/abs/2606.29331	2026-06-30 18:30:27.158153+05:30
+1355	6	https://arxiv.org/abs/2606.29516	2026-06-30 18:30:27.158153+05:30
+1356	6	https://arxiv.org/abs/2606.29521	2026-06-30 18:30:27.158153+05:30
+1357	6	https://arxiv.org/abs/2606.29554	2026-06-30 18:30:27.158153+05:30
+1358	6	https://arxiv.org/abs/2606.29593	2026-06-30 18:30:27.158153+05:30
+1359	6	https://arxiv.org/abs/2606.29658	2026-06-30 18:30:27.158153+05:30
+1360	6	https://arxiv.org/abs/2606.29675	2026-06-30 18:30:27.158153+05:30
+1361	6	https://arxiv.org/abs/2606.29732	2026-06-30 18:30:27.158153+05:30
+1362	6	https://arxiv.org/abs/2606.29791	2026-06-30 18:30:27.158153+05:30
+1363	6	https://arxiv.org/abs/2606.29835	2026-06-30 18:30:27.158153+05:30
+1364	6	https://arxiv.org/abs/2606.29878	2026-06-30 18:30:27.158153+05:30
+1365	6	https://arxiv.org/abs/2606.29893	2026-06-30 18:30:27.158153+05:30
+1366	6	https://arxiv.org/abs/2606.30265	2026-06-30 18:30:27.158153+05:30
+1367	6	https://arxiv.org/abs/2606.30455	2026-06-30 18:30:27.158153+05:30
+1368	6	https://arxiv.org/abs/2606.30523	2026-06-30 18:30:27.158153+05:30
+1369	6	https://arxiv.org/abs/2606.30559	2026-06-30 18:30:27.158153+05:30
+1370	6	https://arxiv.org/abs/2606.30574	2026-06-30 18:30:27.158153+05:30
+1371	6	https://arxiv.org/abs/2606.30627	2026-06-30 18:30:27.158153+05:30
+1372	6	https://arxiv.org/abs/2111.10722	2026-06-30 18:30:27.158153+05:30
+1373	6	https://arxiv.org/abs/2406.03616	2026-06-30 18:30:27.158153+05:30
+1374	6	https://arxiv.org/abs/2407.07338	2026-06-30 18:30:27.158153+05:30
+1375	6	https://arxiv.org/abs/2409.05980	2026-06-30 18:30:27.158153+05:30
+1376	6	https://arxiv.org/abs/2410.01244	2026-06-30 18:30:27.158153+05:30
+1377	6	https://arxiv.org/abs/2412.19897	2026-06-30 18:30:27.158153+05:30
+1378	6	https://arxiv.org/abs/2501.07437	2026-06-30 18:30:27.158153+05:30
+1379	6	https://arxiv.org/abs/2502.19460	2026-06-30 18:30:27.158153+05:30
+1380	6	https://arxiv.org/abs/2505.15437	2026-06-30 18:30:27.158153+05:30
+1381	6	https://arxiv.org/abs/2509.07123	2026-06-30 18:30:27.158153+05:30
+1382	6	https://arxiv.org/abs/2511.00217	2026-06-30 18:30:27.158153+05:30
+665	5	https://arxiv.org/abs/2606.28374	2026-06-30 18:30:27.104369+05:30
+666	5	https://arxiv.org/abs/2606.28471	2026-06-30 18:30:27.104369+05:30
+667	5	https://arxiv.org/abs/2606.28514	2026-06-30 18:30:27.104369+05:30
+668	5	https://arxiv.org/abs/2606.28556	2026-06-30 18:30:27.104369+05:30
+669	5	https://arxiv.org/abs/2606.28589	2026-06-30 18:30:27.104369+05:30
+670	5	https://arxiv.org/abs/2606.28683	2026-06-30 18:30:27.104369+05:30
+671	5	https://arxiv.org/abs/2606.28692	2026-06-30 18:30:27.104369+05:30
+672	5	https://arxiv.org/abs/2606.28696	2026-06-30 18:30:27.104369+05:30
+673	5	https://arxiv.org/abs/2606.28707	2026-06-30 18:30:27.104369+05:30
+674	5	https://arxiv.org/abs/2606.28710	2026-06-30 18:30:27.104369+05:30
+675	5	https://arxiv.org/abs/2606.28716	2026-06-30 18:30:27.104369+05:30
+676	5	https://arxiv.org/abs/2606.28719	2026-06-30 18:30:27.104369+05:30
+677	5	https://arxiv.org/abs/2606.28733	2026-06-30 18:30:27.104369+05:30
+678	5	https://arxiv.org/abs/2606.28739	2026-06-30 18:30:27.104369+05:30
+679	5	https://arxiv.org/abs/2606.28747	2026-06-30 18:30:27.104369+05:30
+680	5	https://arxiv.org/abs/2606.28770	2026-06-30 18:30:27.104369+05:30
+681	5	https://arxiv.org/abs/2606.28781	2026-06-30 18:30:27.104369+05:30
+682	5	https://arxiv.org/abs/2606.28798	2026-06-30 18:30:27.104369+05:30
+683	5	https://arxiv.org/abs/2606.28900	2026-06-30 18:30:27.104369+05:30
+684	5	https://arxiv.org/abs/2606.28960	2026-06-30 18:30:27.104369+05:30
+685	5	https://arxiv.org/abs/2606.29014	2026-06-30 18:30:27.104369+05:30
+686	5	https://arxiv.org/abs/2606.29026	2026-06-30 18:30:27.104369+05:30
+687	5	https://arxiv.org/abs/2606.29030	2026-06-30 18:30:27.104369+05:30
+688	5	https://arxiv.org/abs/2606.29069	2026-06-30 18:30:27.104369+05:30
+689	5	https://arxiv.org/abs/2606.29111	2026-06-30 18:30:27.104369+05:30
+690	5	https://arxiv.org/abs/2606.29116	2026-06-30 18:30:27.104369+05:30
+691	5	https://arxiv.org/abs/2606.29126	2026-06-30 18:30:27.104369+05:30
+692	5	https://arxiv.org/abs/2606.29150	2026-06-30 18:30:27.104369+05:30
+693	5	https://arxiv.org/abs/2606.29159	2026-06-30 18:30:27.104369+05:30
+694	5	https://arxiv.org/abs/2606.29175	2026-06-30 18:30:27.104369+05:30
+695	5	https://arxiv.org/abs/2606.29178	2026-06-30 18:30:27.104369+05:30
+696	5	https://arxiv.org/abs/2606.29180	2026-06-30 18:30:27.104369+05:30
+697	5	https://arxiv.org/abs/2606.29182	2026-06-30 18:30:27.104369+05:30
+698	5	https://arxiv.org/abs/2606.29194	2026-06-30 18:30:27.104369+05:30
+699	5	https://arxiv.org/abs/2606.29212	2026-06-30 18:30:27.104369+05:30
+700	5	https://arxiv.org/abs/2606.29225	2026-06-30 18:30:27.104369+05:30
+701	5	https://arxiv.org/abs/2606.29247	2026-06-30 18:30:27.104369+05:30
+702	5	https://arxiv.org/abs/2606.29251	2026-06-30 18:30:27.104369+05:30
+703	5	https://arxiv.org/abs/2606.29278	2026-06-30 18:30:27.104369+05:30
+704	5	https://arxiv.org/abs/2606.29296	2026-06-30 18:30:27.104369+05:30
+705	5	https://arxiv.org/abs/2606.29315	2026-06-30 18:30:27.104369+05:30
+706	5	https://arxiv.org/abs/2606.29340	2026-06-30 18:30:27.104369+05:30
+707	5	https://arxiv.org/abs/2606.29354	2026-06-30 18:30:27.104369+05:30
+708	5	https://arxiv.org/abs/2606.29377	2026-06-30 18:30:27.104369+05:30
+709	5	https://arxiv.org/abs/2606.29399	2026-06-30 18:30:27.104369+05:30
+710	5	https://arxiv.org/abs/2606.29425	2026-06-30 18:30:27.104369+05:30
+711	5	https://arxiv.org/abs/2606.29431	2026-06-30 18:30:27.104369+05:30
+712	5	https://arxiv.org/abs/2606.29457	2026-06-30 18:30:27.104369+05:30
+713	5	https://arxiv.org/abs/2606.29472	2026-06-30 18:30:27.104369+05:30
+714	5	https://arxiv.org/abs/2606.29493	2026-06-30 18:30:27.104369+05:30
+715	5	https://arxiv.org/abs/2606.29495	2026-06-30 18:30:27.104369+05:30
+716	5	https://arxiv.org/abs/2606.29502	2026-06-30 18:30:27.104369+05:30
+717	5	https://arxiv.org/abs/2606.29537	2026-06-30 18:30:27.104369+05:30
+718	5	https://arxiv.org/abs/2606.29541	2026-06-30 18:30:27.104369+05:30
+719	5	https://arxiv.org/abs/2606.29623	2026-06-30 18:30:27.104369+05:30
+720	5	https://arxiv.org/abs/2606.29630	2026-06-30 18:30:27.104369+05:30
+721	5	https://arxiv.org/abs/2606.29654	2026-06-30 18:30:27.104369+05:30
+722	5	https://arxiv.org/abs/2606.29657	2026-06-30 18:30:27.104369+05:30
+723	5	https://arxiv.org/abs/2606.29661	2026-06-30 18:30:27.104369+05:30
+724	5	https://arxiv.org/abs/2606.29681	2026-06-30 18:30:27.104369+05:30
+725	5	https://arxiv.org/abs/2606.29700	2026-06-30 18:30:27.104369+05:30
+726	5	https://arxiv.org/abs/2606.29705	2026-06-30 18:30:27.104369+05:30
+727	5	https://arxiv.org/abs/2606.29727	2026-06-30 18:30:27.104369+05:30
+728	5	https://arxiv.org/abs/2606.29746	2026-06-30 18:30:27.104369+05:30
+729	5	https://arxiv.org/abs/2606.29748	2026-06-30 18:30:27.104369+05:30
+730	5	https://arxiv.org/abs/2606.29771	2026-06-30 18:30:27.104369+05:30
+731	5	https://arxiv.org/abs/2606.29799	2026-06-30 18:30:27.104369+05:30
+732	5	https://arxiv.org/abs/2606.29860	2026-06-30 18:30:27.104369+05:30
+733	5	https://arxiv.org/abs/2606.29871	2026-06-30 18:30:27.104369+05:30
+734	5	https://arxiv.org/abs/2606.29887	2026-06-30 18:30:27.104369+05:30
+735	5	https://arxiv.org/abs/2606.29911	2026-06-30 18:30:27.104369+05:30
+736	5	https://arxiv.org/abs/2606.29929	2026-06-30 18:30:27.104369+05:30
+737	5	https://arxiv.org/abs/2606.29932	2026-06-30 18:30:27.104369+05:30
+738	5	https://arxiv.org/abs/2606.29972	2026-06-30 18:30:27.104369+05:30
+739	5	https://arxiv.org/abs/2606.29980	2026-06-30 18:30:27.104369+05:30
+740	5	https://arxiv.org/abs/2606.29984	2026-06-30 18:30:27.104369+05:30
+741	5	https://arxiv.org/abs/2606.29999	2026-06-30 18:30:27.104369+05:30
+742	5	https://arxiv.org/abs/2606.30072	2026-06-30 18:30:27.104369+05:30
+743	5	https://arxiv.org/abs/2606.30090	2026-06-30 18:30:27.104369+05:30
+744	5	https://arxiv.org/abs/2606.30092	2026-06-30 18:30:27.104369+05:30
+745	5	https://arxiv.org/abs/2606.30104	2026-06-30 18:30:27.104369+05:30
+746	5	https://arxiv.org/abs/2606.30105	2026-06-30 18:30:27.104369+05:30
+747	5	https://arxiv.org/abs/2606.30107	2026-06-30 18:30:27.104369+05:30
+748	5	https://arxiv.org/abs/2606.30116	2026-06-30 18:30:27.104369+05:30
+749	5	https://arxiv.org/abs/2606.30128	2026-06-30 18:30:27.104369+05:30
+750	5	https://arxiv.org/abs/2606.30139	2026-06-30 18:30:27.104369+05:30
+751	5	https://arxiv.org/abs/2606.30145	2026-06-30 18:30:27.104369+05:30
+752	5	https://arxiv.org/abs/2606.30182	2026-06-30 18:30:27.104369+05:30
+753	5	https://arxiv.org/abs/2606.30185	2026-06-30 18:30:27.104369+05:30
+754	5	https://arxiv.org/abs/2606.30191	2026-06-30 18:30:27.104369+05:30
+755	5	https://arxiv.org/abs/2606.30192	2026-06-30 18:30:27.104369+05:30
+756	5	https://arxiv.org/abs/2606.30206	2026-06-30 18:30:27.104369+05:30
+757	5	https://arxiv.org/abs/2606.30219	2026-06-30 18:30:27.104369+05:30
+758	5	https://arxiv.org/abs/2606.30246	2026-06-30 18:30:27.104369+05:30
+759	5	https://arxiv.org/abs/2606.30252	2026-06-30 18:30:27.104369+05:30
+760	5	https://arxiv.org/abs/2606.30256	2026-06-30 18:30:27.104369+05:30
+761	5	https://arxiv.org/abs/2606.30291	2026-06-30 18:30:27.104369+05:30
+762	5	https://arxiv.org/abs/2606.30294	2026-06-30 18:30:27.104369+05:30
+763	5	https://arxiv.org/abs/2606.30296	2026-06-30 18:30:27.104369+05:30
+764	5	https://arxiv.org/abs/2606.30335	2026-06-30 18:30:27.104369+05:30
+765	5	https://arxiv.org/abs/2606.30338	2026-06-30 18:30:27.104369+05:30
+766	5	https://arxiv.org/abs/2606.30372	2026-06-30 18:30:27.104369+05:30
+767	5	https://arxiv.org/abs/2606.30383	2026-06-30 18:30:27.104369+05:30
+768	5	https://arxiv.org/abs/2606.30398	2026-06-30 18:30:27.104369+05:30
+769	5	https://arxiv.org/abs/2606.30442	2026-06-30 18:30:27.104369+05:30
+770	5	https://arxiv.org/abs/2606.30531	2026-06-30 18:30:27.104369+05:30
+771	5	https://arxiv.org/abs/2606.30544	2026-06-30 18:30:27.104369+05:30
+772	5	https://arxiv.org/abs/2606.30555	2026-06-30 18:30:27.104369+05:30
+773	5	https://arxiv.org/abs/2606.30561	2026-06-30 18:30:27.104369+05:30
+774	5	https://arxiv.org/abs/2606.30626	2026-06-30 18:30:27.104369+05:30
+775	5	https://arxiv.org/abs/2606.30639	2026-06-30 18:30:27.104369+05:30
+776	5	https://arxiv.org/abs/2512.10359	2026-06-30 18:30:27.104369+05:30
+777	5	https://arxiv.org/abs/2606.27944	2026-06-30 18:30:27.104369+05:30
+778	5	https://arxiv.org/abs/2606.28326	2026-06-30 18:30:27.104369+05:30
+779	5	https://arxiv.org/abs/2606.28327	2026-06-30 18:30:27.104369+05:30
+780	5	https://arxiv.org/abs/2606.28329	2026-06-30 18:30:27.104369+05:30
+781	5	https://arxiv.org/abs/2606.28330	2026-06-30 18:30:27.104369+05:30
+782	5	https://arxiv.org/abs/2606.28331	2026-06-30 18:30:27.104369+05:30
+783	5	https://arxiv.org/abs/2606.28332	2026-06-30 18:30:27.104369+05:30
+784	5	https://arxiv.org/abs/2606.28333	2026-06-30 18:30:27.104369+05:30
+785	5	https://arxiv.org/abs/2606.28334	2026-06-30 18:30:27.104369+05:30
+786	5	https://arxiv.org/abs/2606.28335	2026-06-30 18:30:27.104369+05:30
+787	5	https://arxiv.org/abs/2606.28336	2026-06-30 18:30:27.104369+05:30
+788	5	https://arxiv.org/abs/2606.28337	2026-06-30 18:30:27.104369+05:30
+789	5	https://arxiv.org/abs/2606.28339	2026-06-30 18:30:27.104369+05:30
+790	5	https://arxiv.org/abs/2606.28342	2026-06-30 18:30:27.104369+05:30
+791	5	https://arxiv.org/abs/2606.28343	2026-06-30 18:30:27.104369+05:30
+792	5	https://arxiv.org/abs/2606.28344	2026-06-30 18:30:27.104369+05:30
+793	5	https://arxiv.org/abs/2606.28345	2026-06-30 18:30:27.104369+05:30
+794	5	https://arxiv.org/abs/2606.28347	2026-06-30 18:30:27.104369+05:30
+795	5	https://arxiv.org/abs/2606.28349	2026-06-30 18:30:27.104369+05:30
+796	5	https://arxiv.org/abs/2606.28353	2026-06-30 18:30:27.104369+05:30
+797	5	https://arxiv.org/abs/2606.28356	2026-06-30 18:30:27.104369+05:30
+798	5	https://arxiv.org/abs/2606.28357	2026-06-30 18:30:27.104369+05:30
+799	5	https://arxiv.org/abs/2606.28358	2026-06-30 18:30:27.104369+05:30
+800	5	https://arxiv.org/abs/2606.28360	2026-06-30 18:30:27.104369+05:30
+801	5	https://arxiv.org/abs/2606.28361	2026-06-30 18:30:27.104369+05:30
+802	5	https://arxiv.org/abs/2606.28362	2026-06-30 18:30:27.104369+05:30
+803	5	https://arxiv.org/abs/2606.28363	2026-06-30 18:30:27.104369+05:30
+804	5	https://arxiv.org/abs/2606.28365	2026-06-30 18:30:27.104369+05:30
+805	5	https://arxiv.org/abs/2606.28367	2026-06-30 18:30:27.104369+05:30
+806	5	https://arxiv.org/abs/2606.28369	2026-06-30 18:30:27.104369+05:30
+807	5	https://arxiv.org/abs/2606.28370	2026-06-30 18:30:27.104369+05:30
+808	5	https://arxiv.org/abs/2606.28373	2026-06-30 18:30:27.104369+05:30
+809	5	https://arxiv.org/abs/2606.28376	2026-06-30 18:30:27.104369+05:30
+810	5	https://arxiv.org/abs/2606.28377	2026-06-30 18:30:27.104369+05:30
+811	5	https://arxiv.org/abs/2606.28379	2026-06-30 18:30:27.104369+05:30
+812	5	https://arxiv.org/abs/2606.28380	2026-06-30 18:30:27.104369+05:30
+813	5	https://arxiv.org/abs/2606.28381	2026-06-30 18:30:27.104369+05:30
+814	5	https://arxiv.org/abs/2606.28384	2026-06-30 18:30:27.104369+05:30
+815	5	https://arxiv.org/abs/2606.28385	2026-06-30 18:30:27.104369+05:30
+816	5	https://arxiv.org/abs/2606.28386	2026-06-30 18:30:27.104369+05:30
+817	5	https://arxiv.org/abs/2606.28387	2026-06-30 18:30:27.104369+05:30
+818	5	https://arxiv.org/abs/2606.28390	2026-06-30 18:30:27.104369+05:30
+819	5	https://arxiv.org/abs/2606.28391	2026-06-30 18:30:27.104369+05:30
+820	5	https://arxiv.org/abs/2606.28392	2026-06-30 18:30:27.104369+05:30
+821	5	https://arxiv.org/abs/2606.28397	2026-06-30 18:30:27.104369+05:30
+822	5	https://arxiv.org/abs/2606.28403	2026-06-30 18:30:27.104369+05:30
+823	5	https://arxiv.org/abs/2606.28404	2026-06-30 18:30:27.104369+05:30
+824	5	https://arxiv.org/abs/2606.28409	2026-06-30 18:30:27.104369+05:30
+825	5	https://arxiv.org/abs/2606.28410	2026-06-30 18:30:27.104369+05:30
+826	5	https://arxiv.org/abs/2606.28413	2026-06-30 18:30:27.104369+05:30
+827	5	https://arxiv.org/abs/2606.28416	2026-06-30 18:30:27.104369+05:30
+828	5	https://arxiv.org/abs/2606.28419	2026-06-30 18:30:27.104369+05:30
+829	5	https://arxiv.org/abs/2606.28421	2026-06-30 18:30:27.104369+05:30
+830	5	https://arxiv.org/abs/2606.28425	2026-06-30 18:30:27.104369+05:30
+831	5	https://arxiv.org/abs/2606.28430	2026-06-30 18:30:27.104369+05:30
+832	5	https://arxiv.org/abs/2606.28432	2026-06-30 18:30:27.104369+05:30
+833	5	https://arxiv.org/abs/2606.28434	2026-06-30 18:30:27.104369+05:30
+834	5	https://arxiv.org/abs/2606.28436	2026-06-30 18:30:27.104369+05:30
+835	5	https://arxiv.org/abs/2606.28438	2026-06-30 18:30:27.104369+05:30
+836	5	https://arxiv.org/abs/2606.28439	2026-06-30 18:30:27.104369+05:30
+837	5	https://arxiv.org/abs/2606.28441	2026-06-30 18:30:27.104369+05:30
+838	5	https://arxiv.org/abs/2606.28444	2026-06-30 18:30:27.104369+05:30
+839	5	https://arxiv.org/abs/2606.28445	2026-06-30 18:30:27.104369+05:30
+840	5	https://arxiv.org/abs/2606.28446	2026-06-30 18:30:27.104369+05:30
+841	5	https://arxiv.org/abs/2606.28447	2026-06-30 18:30:27.104369+05:30
+842	5	https://arxiv.org/abs/2606.28450	2026-06-30 18:30:27.104369+05:30
+843	5	https://arxiv.org/abs/2606.28455	2026-06-30 18:30:27.104369+05:30
+844	5	https://arxiv.org/abs/2606.28456	2026-06-30 18:30:27.104369+05:30
+845	5	https://arxiv.org/abs/2606.28460	2026-06-30 18:30:27.104369+05:30
+846	5	https://arxiv.org/abs/2606.28465	2026-06-30 18:30:27.104369+05:30
+847	5	https://arxiv.org/abs/2606.28467	2026-06-30 18:30:27.104369+05:30
+848	5	https://arxiv.org/abs/2606.28475	2026-06-30 18:30:27.104369+05:30
+849	5	https://arxiv.org/abs/2606.28479	2026-06-30 18:30:27.104369+05:30
+850	5	https://arxiv.org/abs/2606.28480	2026-06-30 18:30:27.104369+05:30
+851	5	https://arxiv.org/abs/2606.28510	2026-06-30 18:30:27.104369+05:30
+852	5	https://arxiv.org/abs/2606.28513	2026-06-30 18:30:27.104369+05:30
+853	5	https://arxiv.org/abs/2606.28525	2026-06-30 18:30:27.104369+05:30
+854	5	https://arxiv.org/abs/2606.28529	2026-06-30 18:30:27.104369+05:30
+855	5	https://arxiv.org/abs/2606.28533	2026-06-30 18:30:27.104369+05:30
+856	5	https://arxiv.org/abs/2606.28537	2026-06-30 18:30:27.104369+05:30
+857	5	https://arxiv.org/abs/2606.28565	2026-06-30 18:30:27.104369+05:30
+858	5	https://arxiv.org/abs/2606.28570	2026-06-30 18:30:27.104369+05:30
+859	5	https://arxiv.org/abs/2606.28572	2026-06-30 18:30:27.104369+05:30
+860	5	https://arxiv.org/abs/2606.28574	2026-06-30 18:30:27.104369+05:30
+861	5	https://arxiv.org/abs/2606.28593	2026-06-30 18:30:27.104369+05:30
+862	5	https://arxiv.org/abs/2606.28600	2026-06-30 18:30:27.104369+05:30
+863	5	https://arxiv.org/abs/2606.28601	2026-06-30 18:30:27.104369+05:30
+864	5	https://arxiv.org/abs/2606.28607	2026-06-30 18:30:27.104369+05:30
+865	5	https://arxiv.org/abs/2606.28615	2026-06-30 18:30:27.104369+05:30
+866	5	https://arxiv.org/abs/2606.28639	2026-06-30 18:30:27.104369+05:30
+867	5	https://arxiv.org/abs/2606.28644	2026-06-30 18:30:27.104369+05:30
+868	5	https://arxiv.org/abs/2606.28649	2026-06-30 18:30:27.104369+05:30
+869	5	https://arxiv.org/abs/2606.28654	2026-06-30 18:30:27.104369+05:30
+870	5	https://arxiv.org/abs/2606.28656	2026-06-30 18:30:27.104369+05:30
+871	5	https://arxiv.org/abs/2606.28661	2026-06-30 18:30:27.104369+05:30
+872	5	https://arxiv.org/abs/2606.28662	2026-06-30 18:30:27.104369+05:30
+873	5	https://arxiv.org/abs/2606.28666	2026-06-30 18:30:27.104369+05:30
+874	5	https://arxiv.org/abs/2606.28670	2026-06-30 18:30:27.104369+05:30
+875	5	https://arxiv.org/abs/2606.28674	2026-06-30 18:30:27.104369+05:30
+876	5	https://arxiv.org/abs/2606.28676	2026-06-30 18:30:27.104369+05:30
+877	5	https://arxiv.org/abs/2606.28679	2026-06-30 18:30:27.104369+05:30
+878	5	https://arxiv.org/abs/2606.28715	2026-06-30 18:30:27.104369+05:30
+879	5	https://arxiv.org/abs/2606.28724	2026-06-30 18:30:27.104369+05:30
+880	5	https://arxiv.org/abs/2606.28737	2026-06-30 18:30:27.104369+05:30
+881	5	https://arxiv.org/abs/2606.28749	2026-06-30 18:30:27.104369+05:30
+882	5	https://arxiv.org/abs/2606.28758	2026-06-30 18:30:27.104369+05:30
+883	5	https://arxiv.org/abs/2606.28772	2026-06-30 18:30:27.104369+05:30
+884	5	https://arxiv.org/abs/2606.28778	2026-06-30 18:30:27.104369+05:30
+885	5	https://arxiv.org/abs/2606.28787	2026-06-30 18:30:27.104369+05:30
+886	5	https://arxiv.org/abs/2606.28789	2026-06-30 18:30:27.104369+05:30
+887	5	https://arxiv.org/abs/2606.28813	2026-06-30 18:30:27.104369+05:30
+888	5	https://arxiv.org/abs/2606.28815	2026-06-30 18:30:27.104369+05:30
+889	5	https://arxiv.org/abs/2606.28824	2026-06-30 18:30:27.104369+05:30
+890	5	https://arxiv.org/abs/2606.28831	2026-06-30 18:30:27.104369+05:30
+891	5	https://arxiv.org/abs/2606.28835	2026-06-30 18:30:27.104369+05:30
+892	5	https://arxiv.org/abs/2606.28841	2026-06-30 18:30:27.104369+05:30
+893	5	https://arxiv.org/abs/2606.28843	2026-06-30 18:30:27.104369+05:30
+894	5	https://arxiv.org/abs/2606.28854	2026-06-30 18:30:27.104369+05:30
+895	5	https://arxiv.org/abs/2606.28856	2026-06-30 18:30:27.104369+05:30
+896	5	https://arxiv.org/abs/2606.28863	2026-06-30 18:30:27.104369+05:30
+897	5	https://arxiv.org/abs/2606.28881	2026-06-30 18:30:27.104369+05:30
+898	5	https://arxiv.org/abs/2606.28882	2026-06-30 18:30:27.104369+05:30
+899	5	https://arxiv.org/abs/2606.28896	2026-06-30 18:30:27.104369+05:30
+900	5	https://arxiv.org/abs/2606.28916	2026-06-30 18:30:27.104369+05:30
+901	5	https://arxiv.org/abs/2606.28925	2026-06-30 18:30:27.104369+05:30
+902	5	https://arxiv.org/abs/2606.28932	2026-06-30 18:30:27.104369+05:30
+903	5	https://arxiv.org/abs/2606.28947	2026-06-30 18:30:27.104369+05:30
+904	5	https://arxiv.org/abs/2606.28953	2026-06-30 18:30:27.104369+05:30
+905	5	https://arxiv.org/abs/2606.28955	2026-06-30 18:30:27.104369+05:30
+906	5	https://arxiv.org/abs/2606.28970	2026-06-30 18:30:27.104369+05:30
+907	5	https://arxiv.org/abs/2606.28980	2026-06-30 18:30:27.104369+05:30
+908	5	https://arxiv.org/abs/2606.28984	2026-06-30 18:30:27.104369+05:30
+909	5	https://arxiv.org/abs/2606.28992	2026-06-30 18:30:27.104369+05:30
+910	5	https://arxiv.org/abs/2606.28994	2026-06-30 18:30:27.104369+05:30
+911	5	https://arxiv.org/abs/2606.28998	2026-06-30 18:30:27.104369+05:30
+912	5	https://arxiv.org/abs/2606.28999	2026-06-30 18:30:27.104369+05:30
+913	5	https://arxiv.org/abs/2606.29020	2026-06-30 18:30:27.104369+05:30
+914	5	https://arxiv.org/abs/2606.29023	2026-06-30 18:30:27.104369+05:30
+915	5	https://arxiv.org/abs/2606.29031	2026-06-30 18:30:27.104369+05:30
+916	5	https://arxiv.org/abs/2606.29034	2026-06-30 18:30:27.104369+05:30
+917	5	https://arxiv.org/abs/2606.29038	2026-06-30 18:30:27.104369+05:30
+918	5	https://arxiv.org/abs/2606.29059	2026-06-30 18:30:27.104369+05:30
+919	5	https://arxiv.org/abs/2606.29064	2026-06-30 18:30:27.104369+05:30
+920	5	https://arxiv.org/abs/2606.29068	2026-06-30 18:30:27.104369+05:30
+921	5	https://arxiv.org/abs/2606.29073	2026-06-30 18:30:27.104369+05:30
+922	5	https://arxiv.org/abs/2606.29088	2026-06-30 18:30:27.104369+05:30
+923	5	https://arxiv.org/abs/2606.29090	2026-06-30 18:30:27.104369+05:30
+924	5	https://arxiv.org/abs/2606.29091	2026-06-30 18:30:27.104369+05:30
+925	5	https://arxiv.org/abs/2606.29092	2026-06-30 18:30:27.104369+05:30
+926	5	https://arxiv.org/abs/2606.29099	2026-06-30 18:30:27.104369+05:30
+927	5	https://arxiv.org/abs/2606.29102	2026-06-30 18:30:27.104369+05:30
+928	5	https://arxiv.org/abs/2606.29106	2026-06-30 18:30:27.104369+05:30
+929	5	https://arxiv.org/abs/2606.29113	2026-06-30 18:30:27.104369+05:30
+930	5	https://arxiv.org/abs/2606.29115	2026-06-30 18:30:27.104369+05:30
+931	5	https://arxiv.org/abs/2606.29119	2026-06-30 18:30:27.104369+05:30
+932	5	https://arxiv.org/abs/2606.29121	2026-06-30 18:30:27.104369+05:30
+933	5	https://arxiv.org/abs/2606.29136	2026-06-30 18:30:27.104369+05:30
+934	5	https://arxiv.org/abs/2606.29148	2026-06-30 18:30:27.104369+05:30
+935	5	https://arxiv.org/abs/2606.29158	2026-06-30 18:30:27.104369+05:30
+936	5	https://arxiv.org/abs/2606.29164	2026-06-30 18:30:27.104369+05:30
+937	5	https://arxiv.org/abs/2606.29169	2026-06-30 18:30:27.104369+05:30
+938	5	https://arxiv.org/abs/2606.29171	2026-06-30 18:30:27.104369+05:30
+939	5	https://arxiv.org/abs/2606.29181	2026-06-30 18:30:27.104369+05:30
+940	5	https://arxiv.org/abs/2606.29193	2026-06-30 18:30:27.104369+05:30
+941	5	https://arxiv.org/abs/2606.29201	2026-06-30 18:30:27.104369+05:30
+942	5	https://arxiv.org/abs/2606.29209	2026-06-30 18:30:27.104369+05:30
+943	5	https://arxiv.org/abs/2606.29237	2026-06-30 18:30:27.104369+05:30
+944	5	https://arxiv.org/abs/2606.29255	2026-06-30 18:30:27.104369+05:30
+945	5	https://arxiv.org/abs/2606.29273	2026-06-30 18:30:27.104369+05:30
+946	5	https://arxiv.org/abs/2606.29279	2026-06-30 18:30:27.104369+05:30
+947	5	https://arxiv.org/abs/2606.29280	2026-06-30 18:30:27.104369+05:30
+948	5	https://arxiv.org/abs/2606.29328	2026-06-30 18:30:27.104369+05:30
+949	5	https://arxiv.org/abs/2606.29335	2026-06-30 18:30:27.104369+05:30
+950	5	https://arxiv.org/abs/2606.29347	2026-06-30 18:30:27.104369+05:30
+951	5	https://arxiv.org/abs/2606.29350	2026-06-30 18:30:27.104369+05:30
+952	5	https://arxiv.org/abs/2606.29357	2026-06-30 18:30:27.104369+05:30
+953	5	https://arxiv.org/abs/2606.29366	2026-06-30 18:30:27.104369+05:30
+954	5	https://arxiv.org/abs/2606.29379	2026-06-30 18:30:27.104369+05:30
+955	5	https://arxiv.org/abs/2606.29400	2026-06-30 18:30:27.104369+05:30
+956	5	https://arxiv.org/abs/2606.29403	2026-06-30 18:30:27.104369+05:30
+957	5	https://arxiv.org/abs/2606.29407	2026-06-30 18:30:27.104369+05:30
+958	5	https://arxiv.org/abs/2606.29416	2026-06-30 18:30:27.104369+05:30
+959	5	https://arxiv.org/abs/2606.29437	2026-06-30 18:30:27.104369+05:30
+960	5	https://arxiv.org/abs/2606.29441	2026-06-30 18:30:27.104369+05:30
+961	5	https://arxiv.org/abs/2606.29445	2026-06-30 18:30:27.104369+05:30
+962	5	https://arxiv.org/abs/2606.29453	2026-06-30 18:30:27.104369+05:30
+963	5	https://arxiv.org/abs/2606.29459	2026-06-30 18:30:27.104369+05:30
+964	5	https://arxiv.org/abs/2606.29464	2026-06-30 18:30:27.104369+05:30
+965	5	https://arxiv.org/abs/2606.29474	2026-06-30 18:30:27.104369+05:30
+966	5	https://arxiv.org/abs/2606.29476	2026-06-30 18:30:27.104369+05:30
+967	5	https://arxiv.org/abs/2606.29481	2026-06-30 18:30:27.104369+05:30
+968	5	https://arxiv.org/abs/2606.29490	2026-06-30 18:30:27.104369+05:30
+969	5	https://arxiv.org/abs/2606.29503	2026-06-30 18:30:27.104369+05:30
+970	5	https://arxiv.org/abs/2606.29520	2026-06-30 18:30:27.104369+05:30
+971	5	https://arxiv.org/abs/2606.29531	2026-06-30 18:30:27.104369+05:30
+972	5	https://arxiv.org/abs/2606.29532	2026-06-30 18:30:27.104369+05:30
+973	5	https://arxiv.org/abs/2606.29538	2026-06-30 18:30:27.104369+05:30
+974	5	https://arxiv.org/abs/2606.29540	2026-06-30 18:30:27.104369+05:30
+975	5	https://arxiv.org/abs/2606.29544	2026-06-30 18:30:27.104369+05:30
+976	5	https://arxiv.org/abs/2606.29548	2026-06-30 18:30:27.104369+05:30
+977	5	https://arxiv.org/abs/2606.29563	2026-06-30 18:30:27.104369+05:30
+978	5	https://arxiv.org/abs/2606.29575	2026-06-30 18:30:27.104369+05:30
+979	5	https://arxiv.org/abs/2606.29577	2026-06-30 18:30:27.104369+05:30
+980	5	https://arxiv.org/abs/2606.29579	2026-06-30 18:30:27.104369+05:30
+981	5	https://arxiv.org/abs/2606.29581	2026-06-30 18:30:27.104369+05:30
+982	5	https://arxiv.org/abs/2606.29582	2026-06-30 18:30:27.104369+05:30
+983	5	https://arxiv.org/abs/2606.29586	2026-06-30 18:30:27.104369+05:30
+984	5	https://arxiv.org/abs/2606.29593	2026-06-30 18:30:27.104369+05:30
+985	5	https://arxiv.org/abs/2606.29600	2026-06-30 18:30:27.104369+05:30
+986	5	https://arxiv.org/abs/2606.29601	2026-06-30 18:30:27.104369+05:30
+987	5	https://arxiv.org/abs/2606.29604	2026-06-30 18:30:27.104369+05:30
+988	5	https://arxiv.org/abs/2606.29613	2026-06-30 18:30:27.104369+05:30
+989	5	https://arxiv.org/abs/2606.29614	2026-06-30 18:30:27.104369+05:30
+990	5	https://arxiv.org/abs/2606.29639	2026-06-30 18:30:27.104369+05:30
+991	5	https://arxiv.org/abs/2606.29640	2026-06-30 18:30:27.104369+05:30
+992	5	https://arxiv.org/abs/2606.29646	2026-06-30 18:30:27.104369+05:30
+993	5	https://arxiv.org/abs/2606.29648	2026-06-30 18:30:27.104369+05:30
+994	5	https://arxiv.org/abs/2606.29667	2026-06-30 18:30:27.104369+05:30
+995	5	https://arxiv.org/abs/2606.29687	2026-06-30 18:30:27.104369+05:30
+996	5	https://arxiv.org/abs/2606.29699	2026-06-30 18:30:27.104369+05:30
+997	5	https://arxiv.org/abs/2606.29706	2026-06-30 18:30:27.104369+05:30
+998	5	https://arxiv.org/abs/2606.29713	2026-06-30 18:30:27.104369+05:30
+999	5	https://arxiv.org/abs/2606.29717	2026-06-30 18:30:27.104369+05:30
+1000	5	https://arxiv.org/abs/2606.29718	2026-06-30 18:30:27.104369+05:30
+1001	5	https://arxiv.org/abs/2606.29721	2026-06-30 18:30:27.104369+05:30
+1002	5	https://arxiv.org/abs/2606.29726	2026-06-30 18:30:27.104369+05:30
+1003	5	https://arxiv.org/abs/2606.29758	2026-06-30 18:30:27.104369+05:30
+1004	5	https://arxiv.org/abs/2606.29763	2026-06-30 18:30:27.104369+05:30
+1005	5	https://arxiv.org/abs/2606.29776	2026-06-30 18:30:27.104369+05:30
+1006	5	https://arxiv.org/abs/2606.29778	2026-06-30 18:30:27.104369+05:30
+1007	5	https://arxiv.org/abs/2606.29783	2026-06-30 18:30:27.104369+05:30
+1008	5	https://arxiv.org/abs/2606.29784	2026-06-30 18:30:27.104369+05:30
+1009	5	https://arxiv.org/abs/2606.29791	2026-06-30 18:30:27.104369+05:30
+1010	5	https://arxiv.org/abs/2606.29797	2026-06-30 18:30:27.104369+05:30
+1011	5	https://arxiv.org/abs/2606.29806	2026-06-30 18:30:27.104369+05:30
+1012	5	https://arxiv.org/abs/2606.29808	2026-06-30 18:30:27.104369+05:30
+1013	5	https://arxiv.org/abs/2606.29809	2026-06-30 18:30:27.104369+05:30
+1014	5	https://arxiv.org/abs/2606.29820	2026-06-30 18:30:27.104369+05:30
+1015	5	https://arxiv.org/abs/2606.29823	2026-06-30 18:30:27.104369+05:30
+1016	5	https://arxiv.org/abs/2606.29824	2026-06-30 18:30:27.104369+05:30
+1017	5	https://arxiv.org/abs/2606.29844	2026-06-30 18:30:27.104369+05:30
+1018	5	https://arxiv.org/abs/2606.29859	2026-06-30 18:30:27.104369+05:30
+1019	5	https://arxiv.org/abs/2606.29861	2026-06-30 18:30:27.104369+05:30
+1020	5	https://arxiv.org/abs/2606.29867	2026-06-30 18:30:27.104369+05:30
+1021	5	https://arxiv.org/abs/2606.29869	2026-06-30 18:30:27.104369+05:30
+1022	5	https://arxiv.org/abs/2606.29876	2026-06-30 18:30:27.104369+05:30
+1023	5	https://arxiv.org/abs/2606.29879	2026-06-30 18:30:27.104369+05:30
+1024	5	https://arxiv.org/abs/2606.29892	2026-06-30 18:30:27.104369+05:30
+1025	5	https://arxiv.org/abs/2606.29894	2026-06-30 18:30:27.104369+05:30
+1026	5	https://arxiv.org/abs/2606.29897	2026-06-30 18:30:27.104369+05:30
+1027	5	https://arxiv.org/abs/2606.29898	2026-06-30 18:30:27.104369+05:30
+1028	5	https://arxiv.org/abs/2606.29900	2026-06-30 18:30:27.104369+05:30
+1029	5	https://arxiv.org/abs/2606.29901	2026-06-30 18:30:27.104369+05:30
+1030	5	https://arxiv.org/abs/2606.29907	2026-06-30 18:30:27.104369+05:30
+1031	5	https://arxiv.org/abs/2606.29908	2026-06-30 18:30:27.104369+05:30
+1032	5	https://arxiv.org/abs/2606.29916	2026-06-30 18:30:27.104369+05:30
+1033	5	https://arxiv.org/abs/2606.29928	2026-06-30 18:30:27.104369+05:30
+1034	5	https://arxiv.org/abs/2606.29949	2026-06-30 18:30:27.104369+05:30
+1035	5	https://arxiv.org/abs/2606.29952	2026-06-30 18:30:27.104369+05:30
+1036	5	https://arxiv.org/abs/2606.29955	2026-06-30 18:30:27.104369+05:30
+1037	5	https://arxiv.org/abs/2606.29957	2026-06-30 18:30:27.104369+05:30
+1038	5	https://arxiv.org/abs/2606.29961	2026-06-30 18:30:27.104369+05:30
+1039	5	https://arxiv.org/abs/2606.29966	2026-06-30 18:30:27.104369+05:30
+1040	5	https://arxiv.org/abs/2606.29983	2026-06-30 18:30:27.104369+05:30
+1041	5	https://arxiv.org/abs/2606.30011	2026-06-30 18:30:27.104369+05:30
+1042	5	https://arxiv.org/abs/2606.30024	2026-06-30 18:30:27.104369+05:30
+1043	5	https://arxiv.org/abs/2606.30026	2026-06-30 18:30:27.104369+05:30
+1044	5	https://arxiv.org/abs/2606.30062	2026-06-30 18:30:27.104369+05:30
+1045	5	https://arxiv.org/abs/2606.30067	2026-06-30 18:30:27.104369+05:30
+1046	5	https://arxiv.org/abs/2606.30077	2026-06-30 18:30:27.104369+05:30
+1047	5	https://arxiv.org/abs/2606.30111	2026-06-30 18:30:27.104369+05:30
+1048	5	https://arxiv.org/abs/2606.30113	2026-06-30 18:30:27.104369+05:30
+1049	5	https://arxiv.org/abs/2606.30117	2026-06-30 18:30:27.104369+05:30
+1050	5	https://arxiv.org/abs/2606.30131	2026-06-30 18:30:27.104369+05:30
+1051	5	https://arxiv.org/abs/2606.30133	2026-06-30 18:30:27.104369+05:30
+1052	5	https://arxiv.org/abs/2606.30152	2026-06-30 18:30:27.104369+05:30
+1053	5	https://arxiv.org/abs/2606.30156	2026-06-30 18:30:27.104369+05:30
+1054	5	https://arxiv.org/abs/2606.30161	2026-06-30 18:30:27.104369+05:30
+1055	5	https://arxiv.org/abs/2606.30170	2026-06-30 18:30:27.104369+05:30
+1056	5	https://arxiv.org/abs/2606.30190	2026-06-30 18:30:27.104369+05:30
+1057	5	https://arxiv.org/abs/2606.30196	2026-06-30 18:30:27.104369+05:30
+1058	5	https://arxiv.org/abs/2606.30209	2026-06-30 18:30:27.104369+05:30
+1059	5	https://arxiv.org/abs/2606.30215	2026-06-30 18:30:27.104369+05:30
+1060	5	https://arxiv.org/abs/2606.30249	2026-06-30 18:30:27.104369+05:30
+1061	5	https://arxiv.org/abs/2606.30258	2026-06-30 18:30:27.104369+05:30
+1062	5	https://arxiv.org/abs/2606.30263	2026-06-30 18:30:27.104369+05:30
+1063	5	https://arxiv.org/abs/2606.30266	2026-06-30 18:30:27.104369+05:30
+1064	5	https://arxiv.org/abs/2606.30304	2026-06-30 18:30:27.104369+05:30
+1065	5	https://arxiv.org/abs/2606.30306	2026-06-30 18:30:27.104369+05:30
+1066	5	https://arxiv.org/abs/2606.30317	2026-06-30 18:30:27.104369+05:30
+1067	5	https://arxiv.org/abs/2606.30344	2026-06-30 18:30:27.104369+05:30
+1068	5	https://arxiv.org/abs/2606.30345	2026-06-30 18:30:27.104369+05:30
+1069	5	https://arxiv.org/abs/2606.30347	2026-06-30 18:30:27.104369+05:30
+1070	5	https://arxiv.org/abs/2606.30355	2026-06-30 18:30:27.104369+05:30
+1071	5	https://arxiv.org/abs/2606.30362	2026-06-30 18:30:27.104369+05:30
+1072	5	https://arxiv.org/abs/2606.30374	2026-06-30 18:30:27.104369+05:30
+1073	5	https://arxiv.org/abs/2606.30388	2026-06-30 18:30:27.104369+05:30
+1074	5	https://arxiv.org/abs/2606.30397	2026-06-30 18:30:27.104369+05:30
+1075	5	https://arxiv.org/abs/2606.30410	2026-06-30 18:30:27.104369+05:30
+1076	5	https://arxiv.org/abs/2606.30412	2026-06-30 18:30:27.104369+05:30
+1077	5	https://arxiv.org/abs/2606.30417	2026-06-30 18:30:27.104369+05:30
+1078	5	https://arxiv.org/abs/2606.30440	2026-06-30 18:30:27.104369+05:30
+1079	5	https://arxiv.org/abs/2606.30441	2026-06-30 18:30:27.104369+05:30
+1080	5	https://arxiv.org/abs/2606.30454	2026-06-30 18:30:27.104369+05:30
+1081	5	https://arxiv.org/abs/2606.30473	2026-06-30 18:30:27.104369+05:30
+1082	5	https://arxiv.org/abs/2606.30479	2026-06-30 18:30:27.104369+05:30
+1083	5	https://arxiv.org/abs/2606.30481	2026-06-30 18:30:27.104369+05:30
+1084	5	https://arxiv.org/abs/2606.30491	2026-06-30 18:30:27.104369+05:30
+1085	5	https://arxiv.org/abs/2606.30495	2026-06-30 18:30:27.104369+05:30
+1086	5	https://arxiv.org/abs/2606.30498	2026-06-30 18:30:27.104369+05:30
+1087	5	https://arxiv.org/abs/2606.30512	2026-06-30 18:30:27.104369+05:30
+1088	5	https://arxiv.org/abs/2606.30537	2026-06-30 18:30:27.104369+05:30
+1089	5	https://arxiv.org/abs/2606.30543	2026-06-30 18:30:27.104369+05:30
+1090	5	https://arxiv.org/abs/2606.30549	2026-06-30 18:30:27.104369+05:30
+1091	5	https://arxiv.org/abs/2606.30560	2026-06-30 18:30:27.104369+05:30
+1092	5	https://arxiv.org/abs/2606.30572	2026-06-30 18:30:27.104369+05:30
+1093	5	https://arxiv.org/abs/2606.30576	2026-06-30 18:30:27.104369+05:30
+1094	5	https://arxiv.org/abs/2606.30587	2026-06-30 18:30:27.104369+05:30
+1095	5	https://arxiv.org/abs/2606.30602	2026-06-30 18:30:27.104369+05:30
+1096	5	https://arxiv.org/abs/2606.30609	2026-06-30 18:30:27.104369+05:30
+1097	5	https://arxiv.org/abs/2606.30625	2026-06-30 18:30:27.104369+05:30
+1098	5	https://arxiv.org/abs/2606.30627	2026-06-30 18:30:27.104369+05:30
+1099	5	https://arxiv.org/abs/2606.30632	2026-06-30 18:30:27.104369+05:30
+1100	5	https://arxiv.org/abs/2606.30642	2026-06-30 18:30:27.104369+05:30
+1101	5	https://arxiv.org/abs/2606.30645	2026-06-30 18:30:27.104369+05:30
+1102	5	https://arxiv.org/abs/2002.11508	2026-06-30 18:30:27.104369+05:30
+1103	5	https://arxiv.org/abs/2402.06359	2026-06-30 18:30:27.104369+05:30
+1104	5	https://arxiv.org/abs/2405.01906	2026-06-30 18:30:27.104369+05:30
+1105	5	https://arxiv.org/abs/2406.03367	2026-06-30 18:30:27.104369+05:30
+1106	5	https://arxiv.org/abs/2407.19633	2026-06-30 18:30:27.104369+05:30
+1107	5	https://arxiv.org/abs/2410.05289	2026-06-30 18:30:27.104369+05:30
+1108	5	https://arxiv.org/abs/2411.10109	2026-06-30 18:30:27.104369+05:30
+1109	5	https://arxiv.org/abs/2501.17559	2026-06-30 18:30:27.104369+05:30
+1110	5	https://arxiv.org/abs/2502.18864	2026-06-30 18:30:27.104369+05:30
+1111	5	https://arxiv.org/abs/2507.07445	2026-06-30 18:30:27.104369+05:30
+1112	5	https://arxiv.org/abs/2508.02178	2026-06-30 18:30:27.104369+05:30
+1113	5	https://arxiv.org/abs/2509.23292	2026-06-30 18:30:27.104369+05:30
+1114	5	https://arxiv.org/abs/2510.14207	2026-06-30 18:30:27.104369+05:30
+1115	5	https://arxiv.org/abs/2511.02734	2026-06-30 18:30:27.104369+05:30
+1116	5	https://arxiv.org/abs/2511.17038	2026-06-30 18:30:27.104369+05:30
+1117	5	https://arxiv.org/abs/2512.15044	2026-06-30 18:30:27.104369+05:30
+1118	5	https://arxiv.org/abs/2512.16733	2026-06-30 18:30:27.104369+05:30
+1119	5	https://arxiv.org/abs/2601.01569	2026-06-30 18:30:27.104369+05:30
+1120	5	https://arxiv.org/abs/2601.03555	2026-06-30 18:30:27.104369+05:30
+1121	5	https://arxiv.org/abs/2601.07965	2026-06-30 18:30:27.104369+05:30
+1122	5	https://arxiv.org/abs/2601.16172	2026-06-30 18:30:27.104369+05:30
+1123	5	https://arxiv.org/abs/2601.21864	2026-06-30 18:30:27.104369+05:30
+1124	5	https://arxiv.org/abs/2602.02898	2026-06-30 18:30:27.104369+05:30
+1125	5	https://arxiv.org/abs/2602.11351	2026-06-30 18:30:27.104369+05:30
+1126	5	https://arxiv.org/abs/2602.13792	2026-06-30 18:30:27.104369+05:30
+1127	5	https://arxiv.org/abs/2602.16763	2026-06-30 18:30:27.104369+05:30
+1128	5	https://arxiv.org/abs/2603.26005	2026-06-30 18:30:27.104369+05:30
+1129	5	https://arxiv.org/abs/2603.29139	2026-06-30 18:30:27.104369+05:30
+1130	5	https://arxiv.org/abs/2604.24021	2026-06-30 18:30:27.104369+05:30
+1131	5	https://arxiv.org/abs/2604.27996	2026-06-30 18:30:27.104369+05:30
+1132	5	https://arxiv.org/abs/2605.01134	2026-06-30 18:30:27.104369+05:30
+1133	5	https://arxiv.org/abs/2605.01189	2026-06-30 18:30:27.104369+05:30
+1134	5	https://arxiv.org/abs/2605.09038	2026-06-30 18:30:27.104369+05:30
+1135	5	https://arxiv.org/abs/2605.17064	2026-06-30 18:30:27.104369+05:30
+1136	5	https://arxiv.org/abs/2605.24844	2026-06-30 18:30:27.104369+05:30
+1137	5	https://arxiv.org/abs/2606.05510	2026-06-30 18:30:27.104369+05:30
+1138	5	https://arxiv.org/abs/2606.08831	2026-06-30 18:30:27.104369+05:30
+1139	5	https://arxiv.org/abs/2606.10044	2026-06-30 18:30:27.104369+05:30
+1140	5	https://arxiv.org/abs/2606.13669	2026-06-30 18:30:27.104369+05:30
+1141	5	https://arxiv.org/abs/2606.15708	2026-06-30 18:30:27.104369+05:30
+1142	5	https://arxiv.org/abs/2606.15753	2026-06-30 18:30:27.104369+05:30
+1143	5	https://arxiv.org/abs/2606.16364	2026-06-30 18:30:27.104369+05:30
+1144	5	https://arxiv.org/abs/2606.19538	2026-06-30 18:30:27.104369+05:30
+1145	5	https://arxiv.org/abs/2606.20724	2026-06-30 18:30:27.104369+05:30
+1146	5	https://arxiv.org/abs/2606.22528	2026-06-30 18:30:27.104369+05:30
+1147	5	https://arxiv.org/abs/2606.25178	2026-06-30 18:30:27.104369+05:30
+1148	5	https://arxiv.org/abs/2606.26300	2026-06-30 18:30:27.104369+05:30
+1149	5	https://arxiv.org/abs/2606.26418	2026-06-30 18:30:27.104369+05:30
+1150	5	https://arxiv.org/abs/2606.28070	2026-06-30 18:30:27.104369+05:30
+1151	5	https://arxiv.org/abs/2101.05993	2026-06-30 18:30:27.104369+05:30
+1152	5	https://arxiv.org/abs/2304.11171	2026-06-30 18:30:27.104369+05:30
+1153	5	https://arxiv.org/abs/2401.11512	2026-06-30 18:30:27.104369+05:30
+1154	5	https://arxiv.org/abs/2402.06158	2026-06-30 18:30:27.104369+05:30
+1155	5	https://arxiv.org/abs/2403.07711	2026-06-30 18:30:27.104369+05:30
+1156	5	https://arxiv.org/abs/2406.08311	2026-06-30 18:30:27.104369+05:30
+1157	5	https://arxiv.org/abs/2407.21359	2026-06-30 18:30:27.104369+05:30
+1158	5	https://arxiv.org/abs/2407.21740	2026-06-30 18:30:27.104369+05:30
+1159	5	https://arxiv.org/abs/2409.00743	2026-06-30 18:30:27.104369+05:30
+1160	5	https://arxiv.org/abs/2412.02831	2026-06-30 18:30:27.104369+05:30
+1161	5	https://arxiv.org/abs/2412.15529	2026-06-30 18:30:27.104369+05:30
+1162	5	https://arxiv.org/abs/2501.14940	2026-06-30 18:30:27.104369+05:30
+1163	5	https://arxiv.org/abs/2501.16726	2026-06-30 18:30:27.104369+05:30
+1164	5	https://arxiv.org/abs/2502.11491	2026-06-30 18:30:27.104369+05:30
+1165	5	https://arxiv.org/abs/2502.19460	2026-06-30 18:30:27.104369+05:30
+1166	5	https://arxiv.org/abs/2503.00539	2026-06-30 18:30:27.104369+05:30
+1167	5	https://arxiv.org/abs/2503.19501	2026-06-30 18:30:27.104369+05:30
+1168	5	https://arxiv.org/abs/2504.17421	2026-06-30 18:30:27.104369+05:30
+1169	5	https://arxiv.org/abs/2505.12343	2026-06-30 18:30:27.104369+05:30
+1170	5	https://arxiv.org/abs/2505.19809	2026-06-30 18:30:27.104369+05:30
+1171	5	https://arxiv.org/abs/2505.22391	2026-06-30 18:30:27.104369+05:30
+1172	5	https://arxiv.org/abs/2506.00400	2026-06-30 18:30:27.104369+05:30
+1173	5	https://arxiv.org/abs/2506.08774	2026-06-30 18:30:27.104369+05:30
+1174	5	https://arxiv.org/abs/2506.08795	2026-06-30 18:30:27.104369+05:30
+1175	5	https://arxiv.org/abs/2506.12078	2026-06-30 18:30:27.104369+05:30
+1176	5	https://arxiv.org/abs/2506.12697	2026-06-30 18:30:27.104369+05:30
+1177	5	https://arxiv.org/abs/2506.13932	2026-06-30 18:30:27.104369+05:30
+1178	5	https://arxiv.org/abs/2506.18295	2026-06-30 18:30:27.104369+05:30
+1179	5	https://arxiv.org/abs/2507.05257	2026-06-30 18:30:27.104369+05:30
+1180	5	https://arxiv.org/abs/2507.21136	2026-06-30 18:30:27.104369+05:30
+1181	5	https://arxiv.org/abs/2508.02425	2026-06-30 18:30:27.104369+05:30
+1182	5	https://arxiv.org/abs/2508.06133	2026-06-30 18:30:27.104369+05:30
+1183	5	https://arxiv.org/abs/2508.06482	2026-06-30 18:30:27.104369+05:30
+1184	5	https://arxiv.org/abs/2508.07683	2026-06-30 18:30:27.104369+05:30
+1185	5	https://arxiv.org/abs/2508.09883	2026-06-30 18:30:27.104369+05:30
+1186	5	https://arxiv.org/abs/2508.12435	2026-06-30 18:30:27.104369+05:30
+1187	5	https://arxiv.org/abs/2508.17117	2026-06-30 18:30:27.104369+05:30
+1188	5	https://arxiv.org/abs/2509.12159	2026-06-30 18:30:27.104369+05:30
+1189	5	https://arxiv.org/abs/2509.14274	2026-06-30 18:30:27.104369+05:30
+1190	5	https://arxiv.org/abs/2509.15942	2026-06-30 18:30:27.104369+05:30
+1191	5	https://arxiv.org/abs/2510.03310	2026-06-30 18:30:27.104369+05:30
+1192	5	https://arxiv.org/abs/2510.06732	2026-06-30 18:30:27.104369+05:30
+1193	5	https://arxiv.org/abs/2510.09278	2026-06-30 18:30:27.104369+05:30
+1194	5	https://arxiv.org/abs/2510.12957	2026-06-30 18:30:27.104369+05:30
+1195	5	https://arxiv.org/abs/2510.25013	2026-06-30 18:30:27.104369+05:30
+1196	5	https://arxiv.org/abs/2511.05567	2026-06-30 18:30:27.104369+05:30
+1197	5	https://arxiv.org/abs/2511.05852	2026-06-30 18:30:27.104369+05:30
+1198	5	https://arxiv.org/abs/2511.05879	2026-06-30 18:30:27.104369+05:30
+1199	5	https://arxiv.org/abs/2511.06090	2026-06-30 18:30:27.104369+05:30
+1200	5	https://arxiv.org/abs/2511.10480	2026-06-30 18:30:27.104369+05:30
+1201	5	https://arxiv.org/abs/2511.14900	2026-06-30 18:30:27.104369+05:30
+1202	5	https://arxiv.org/abs/2511.17649	2026-06-30 18:30:27.104369+05:30
+1203	5	https://arxiv.org/abs/2512.03578	2026-06-30 18:30:27.104369+05:30
+1204	5	https://arxiv.org/abs/2512.07287	2026-06-30 18:30:27.104369+05:30
+1205	5	https://arxiv.org/abs/2512.07569	2026-06-30 18:30:27.104369+05:30
+1206	5	https://arxiv.org/abs/2512.09066	2026-06-30 18:30:27.104369+05:30
+1207	5	https://arxiv.org/abs/2512.16455	2026-06-30 18:30:27.104369+05:30
+1208	5	https://arxiv.org/abs/2512.17504	2026-06-30 18:30:27.104369+05:30
+1209	5	https://arxiv.org/abs/2601.00242	2026-06-30 18:30:27.104369+05:30
+1210	5	https://arxiv.org/abs/2601.03546	2026-06-30 18:30:27.104369+05:30
+1211	5	https://arxiv.org/abs/2601.05366	2026-06-30 18:30:27.104369+05:30
+1212	5	https://arxiv.org/abs/2601.07988	2026-06-30 18:30:27.104369+05:30
+1213	5	https://arxiv.org/abs/2601.11541	2026-06-30 18:30:27.104369+05:30
+1214	5	https://arxiv.org/abs/2601.12282	2026-06-30 18:30:27.104369+05:30
+1215	5	https://arxiv.org/abs/2601.13534	2026-06-30 18:30:27.104369+05:30
+1216	5	https://arxiv.org/abs/2601.20334	2026-06-30 18:30:27.104369+05:30
+1217	5	https://arxiv.org/abs/2601.21787	2026-06-30 18:30:27.104369+05:30
+1218	5	https://arxiv.org/abs/2601.22823	2026-06-30 18:30:27.104369+05:30
+1219	5	https://arxiv.org/abs/2601.23225	2026-06-30 18:30:27.104369+05:30
+1220	5	https://arxiv.org/abs/2602.02320	2026-06-30 18:30:27.104369+05:30
+1221	5	https://arxiv.org/abs/2602.02498	2026-06-30 18:30:27.104369+05:30
+1222	5	https://arxiv.org/abs/2602.10233	2026-06-30 18:30:27.104369+05:30
+1223	5	https://arxiv.org/abs/2602.11395	2026-06-30 18:30:27.104369+05:30
+1224	5	https://arxiv.org/abs/2602.12089	2026-06-30 18:30:27.104369+05:30
+1225	5	https://arxiv.org/abs/2602.13562	2026-06-30 18:30:27.104369+05:30
+1226	5	https://arxiv.org/abs/2602.13977	2026-06-30 18:30:27.104369+05:30
+1227	5	https://arxiv.org/abs/2602.14872	2026-06-30 18:30:27.104369+05:30
+1228	5	https://arxiv.org/abs/2602.15257	2026-06-30 18:30:27.104369+05:30
+1229	5	https://arxiv.org/abs/2602.15727	2026-06-30 18:30:27.104369+05:30
+1230	5	https://arxiv.org/abs/2602.16634	2026-06-30 18:30:27.104369+05:30
+1231	5	https://arxiv.org/abs/2602.23135	2026-06-30 18:30:27.104369+05:30
+1232	5	https://arxiv.org/abs/2602.23353	2026-06-30 18:30:27.104369+05:30
+1233	5	https://arxiv.org/abs/2603.02491	2026-06-30 18:30:27.104369+05:30
+1234	5	https://arxiv.org/abs/2603.03143	2026-06-30 18:30:27.104369+05:30
+1235	5	https://arxiv.org/abs/2603.03305	2026-06-30 18:30:27.104369+05:30
+1236	5	https://arxiv.org/abs/2603.03915	2026-06-30 18:30:27.104369+05:30
+1237	5	https://arxiv.org/abs/2603.05693	2026-06-30 18:30:27.104369+05:30
+1238	5	https://arxiv.org/abs/2603.05786	2026-06-30 18:30:27.104369+05:30
+1239	5	https://arxiv.org/abs/2603.06638	2026-06-30 18:30:27.104369+05:30
+1240	5	https://arxiv.org/abs/2603.13326	2026-06-30 18:30:27.104369+05:30
+1241	5	https://arxiv.org/abs/2603.16016	2026-06-30 18:30:27.104369+05:30
+1242	5	https://arxiv.org/abs/2603.17863	2026-06-30 18:30:27.104369+05:30
+1243	5	https://arxiv.org/abs/2603.19054	2026-06-30 18:30:27.104369+05:30
+1244	5	https://arxiv.org/abs/2603.22282	2026-06-30 18:30:27.104369+05:30
+1245	5	https://arxiv.org/abs/2603.22876	2026-06-30 18:30:27.104369+05:30
+1246	5	https://arxiv.org/abs/2603.23559	2026-06-30 18:30:27.104369+05:30
+1247	5	https://arxiv.org/abs/2603.25144	2026-06-30 18:30:27.104369+05:30
+1248	5	https://arxiv.org/abs/2603.26815	2026-06-30 18:30:27.104369+05:30
+1249	5	https://arxiv.org/abs/2604.02327	2026-06-30 18:30:27.104369+05:30
+1250	5	https://arxiv.org/abs/2604.02371	2026-06-30 18:30:27.104369+05:30
+1251	5	https://arxiv.org/abs/2604.04385	2026-06-30 18:30:27.104369+05:30
+1252	5	https://arxiv.org/abs/2604.16325	2026-06-30 18:30:27.104369+05:30
+1253	5	https://arxiv.org/abs/2604.19191	2026-06-30 18:30:27.104369+05:30
+1254	5	https://arxiv.org/abs/2604.19971	2026-06-30 18:30:27.104369+05:30
+1255	5	https://arxiv.org/abs/2604.23354	2026-06-30 18:30:27.104369+05:30
+1256	5	https://arxiv.org/abs/2604.26977	2026-06-30 18:30:27.104369+05:30
+1257	5	https://arxiv.org/abs/2604.28123	2026-06-30 18:30:27.104369+05:30
+1258	5	https://arxiv.org/abs/2605.00994	2026-06-30 18:30:27.104369+05:30
+1259	5	https://arxiv.org/abs/2605.03283	2026-06-30 18:30:27.104369+05:30
+1260	5	https://arxiv.org/abs/2605.05172	2026-06-30 18:30:27.104369+05:30
+1261	5	https://arxiv.org/abs/2605.07306	2026-06-30 18:30:27.104369+05:30
+1262	5	https://arxiv.org/abs/2605.08022	2026-06-30 18:30:27.104369+05:30
+1263	5	https://arxiv.org/abs/2605.09076	2026-06-30 18:30:27.104369+05:30
+1264	5	https://arxiv.org/abs/2605.09253	2026-06-30 18:30:27.104369+05:30
+1265	5	https://arxiv.org/abs/2605.09708	2026-06-30 18:30:27.104369+05:30
+1266	5	https://arxiv.org/abs/2605.10764	2026-06-30 18:30:27.104369+05:30
+1267	5	https://arxiv.org/abs/2605.13087	2026-06-30 18:30:27.104369+05:30
+1268	5	https://arxiv.org/abs/2605.14252	2026-06-30 18:30:27.104369+05:30
+1269	5	https://arxiv.org/abs/2605.20256	2026-06-30 18:30:27.104369+05:30
+1270	5	https://arxiv.org/abs/2605.20712	2026-06-30 18:30:27.104369+05:30
+1271	5	https://arxiv.org/abs/2605.23243	2026-06-30 18:30:27.104369+05:30
+1272	5	https://arxiv.org/abs/2605.23272	2026-06-30 18:30:27.104369+05:30
+1273	5	https://arxiv.org/abs/2605.23922	2026-06-30 18:30:27.104369+05:30
+1274	5	https://arxiv.org/abs/2605.26542	2026-06-30 18:30:27.104369+05:30
+1275	5	https://arxiv.org/abs/2605.28863	2026-06-30 18:30:27.104369+05:30
+1276	5	https://arxiv.org/abs/2605.30295	2026-06-30 18:30:27.104369+05:30
+1277	5	https://arxiv.org/abs/2605.31483	2026-06-30 18:30:27.104369+05:30
+1278	5	https://arxiv.org/abs/2605.31603	2026-06-30 18:30:27.104369+05:30
+1279	5	https://arxiv.org/abs/2606.00305	2026-06-30 18:30:27.104369+05:30
+1280	5	https://arxiv.org/abs/2606.00616	2026-06-30 18:30:27.104369+05:30
+1281	5	https://arxiv.org/abs/2606.01215	2026-06-30 18:30:27.104369+05:30
+1282	5	https://arxiv.org/abs/2606.02380	2026-06-30 18:30:27.104369+05:30
+1283	5	https://arxiv.org/abs/2606.03895	2026-06-30 18:30:27.104369+05:30
+1284	5	https://arxiv.org/abs/2606.04050	2026-06-30 18:30:27.104369+05:30
+1285	5	https://arxiv.org/abs/2606.04990	2026-06-30 18:30:27.104369+05:30
+1286	5	https://arxiv.org/abs/2606.05494	2026-06-30 18:30:27.104369+05:30
+1287	5	https://arxiv.org/abs/2606.06197	2026-06-30 18:30:27.104369+05:30
+1288	5	https://arxiv.org/abs/2606.06748	2026-06-30 18:30:27.104369+05:30
+1289	5	https://arxiv.org/abs/2606.08270	2026-06-30 18:30:27.104369+05:30
+1290	5	https://arxiv.org/abs/2606.08761	2026-06-30 18:30:27.104369+05:30
+1291	5	https://arxiv.org/abs/2606.09832	2026-06-30 18:30:27.104369+05:30
+1292	5	https://arxiv.org/abs/2606.11270	2026-06-30 18:30:27.104369+05:30
+1293	5	https://arxiv.org/abs/2606.13079	2026-06-30 18:30:27.104369+05:30
+1294	5	https://arxiv.org/abs/2606.14581	2026-06-30 18:30:27.104369+05:30
+1295	5	https://arxiv.org/abs/2606.14752	2026-06-30 18:30:27.104369+05:30
+1296	5	https://arxiv.org/abs/2606.15129	2026-06-30 18:30:27.104369+05:30
+1297	5	https://arxiv.org/abs/2606.15623	2026-06-30 18:30:27.104369+05:30
+1298	5	https://arxiv.org/abs/2606.16620	2026-06-30 18:30:27.104369+05:30
+1299	5	https://arxiv.org/abs/2606.17555	2026-06-30 18:30:27.104369+05:30
+1300	5	https://arxiv.org/abs/2606.19781	2026-06-30 18:30:27.104369+05:30
+1301	5	https://arxiv.org/abs/2606.20470	2026-06-30 18:30:27.104369+05:30
+1302	5	https://arxiv.org/abs/2606.20523	2026-06-30 18:30:27.104369+05:30
+1303	5	https://arxiv.org/abs/2606.20605	2026-06-30 18:30:27.104369+05:30
+1304	5	https://arxiv.org/abs/2606.21295	2026-06-30 18:30:27.104369+05:30
+1305	5	https://arxiv.org/abs/2606.21401	2026-06-30 18:30:27.104369+05:30
+1306	5	https://arxiv.org/abs/2606.23993	2026-06-30 18:30:27.104369+05:30
+1307	5	https://arxiv.org/abs/2606.24004	2026-06-30 18:30:27.104369+05:30
+1308	5	https://arxiv.org/abs/2606.25041	2026-06-30 18:30:27.104369+05:30
+1309	5	https://arxiv.org/abs/2606.25156	2026-06-30 18:30:27.104369+05:30
+1310	5	https://arxiv.org/abs/2606.25449	2026-06-30 18:30:27.104369+05:30
+1311	5	https://arxiv.org/abs/2606.26294	2026-06-30 18:30:27.104369+05:30
+1312	5	https://arxiv.org/abs/2606.26373	2026-06-30 18:30:27.104369+05:30
+1313	5	https://arxiv.org/abs/2606.26423	2026-06-30 18:30:27.104369+05:30
+1314	5	https://arxiv.org/abs/2606.26734	2026-06-30 18:30:27.104369+05:30
+1315	5	https://arxiv.org/abs/2606.27229	2026-06-30 18:30:27.104369+05:30
+1316	5	https://arxiv.org/abs/2606.27748	2026-06-30 18:30:27.104369+05:30
+1317	5	https://arxiv.org/abs/2606.27824	2026-06-30 18:30:27.104369+05:30
+1318	5	https://arxiv.org/abs/2606.27922	2026-06-30 18:30:27.104369+05:30
+1319	5	https://arxiv.org/abs/2606.27923	2026-06-30 18:30:27.104369+05:30
+1320	5	https://arxiv.org/abs/2606.28153	2026-06-30 18:30:27.104369+05:30
+1383	6	https://arxiv.org/abs/2511.08307	2026-06-30 18:30:27.158153+05:30
+1384	6	https://arxiv.org/abs/2602.16634	2026-06-30 18:30:27.158153+05:30
+1385	6	https://arxiv.org/abs/2603.15055	2026-06-30 18:30:27.158153+05:30
+1386	6	https://arxiv.org/abs/2604.24196	2026-06-30 18:30:27.158153+05:30
+1387	6	https://arxiv.org/abs/2605.01765	2026-06-30 18:30:27.158153+05:30
+1388	6	https://arxiv.org/abs/2605.03283	2026-06-30 18:30:27.158153+05:30
+1389	6	https://arxiv.org/abs/2605.09454	2026-06-30 18:30:27.158153+05:30
+1390	6	https://arxiv.org/abs/2606.00302	2026-06-30 18:30:27.158153+05:30
+1391	6	https://arxiv.org/abs/2606.06179	2026-06-30 18:30:27.158153+05:30
+1392	6	https://arxiv.org/abs/2105.09254	2026-06-30 18:30:27.158153+05:30
+1393	6	https://arxiv.org/abs/2202.08832	2026-06-30 18:30:27.158153+05:30
+1394	6	https://arxiv.org/abs/2308.16172	2026-06-30 18:30:27.158153+05:30
+1395	6	https://arxiv.org/abs/2403.03007	2026-06-30 18:30:27.158153+05:30
+1396	6	https://arxiv.org/abs/2404.05062	2026-06-30 18:30:27.158153+05:30
+1397	6	https://arxiv.org/abs/2405.00742	2026-06-30 18:30:27.158153+05:30
+1398	6	https://arxiv.org/abs/2406.13944	2026-06-30 18:30:27.158153+05:30
+1399	6	https://arxiv.org/abs/2410.06568	2026-06-30 18:30:27.158153+05:30
+1400	6	https://arxiv.org/abs/2410.24050	2026-06-30 18:30:27.158153+05:30
+1401	6	https://arxiv.org/abs/2412.17070	2026-06-30 18:30:27.158153+05:30
+1402	6	https://arxiv.org/abs/2502.00470	2026-06-30 18:30:27.158153+05:30
+1403	6	https://arxiv.org/abs/2505.07124	2026-06-30 18:30:27.158153+05:30
+1404	6	https://arxiv.org/abs/2507.21136	2026-06-30 18:30:27.158153+05:30
+1405	6	https://arxiv.org/abs/2509.03853	2026-06-30 18:30:27.158153+05:30
+1406	6	https://arxiv.org/abs/2510.03164	2026-06-30 18:30:27.158153+05:30
+1407	6	https://arxiv.org/abs/2510.08762	2026-06-30 18:30:27.158153+05:30
+1408	6	https://arxiv.org/abs/2511.16340	2026-06-30 18:30:27.158153+05:30
+1409	6	https://arxiv.org/abs/2511.17038	2026-06-30 18:30:27.158153+05:30
+1410	6	https://arxiv.org/abs/2601.17146	2026-06-30 18:30:27.158153+05:30
+1411	6	https://arxiv.org/abs/2601.22993	2026-06-30 18:30:27.158153+05:30
+1412	6	https://arxiv.org/abs/2602.14872	2026-06-30 18:30:27.158153+05:30
+1413	6	https://arxiv.org/abs/2602.19473	2026-06-30 18:30:27.158153+05:30
+1414	6	https://arxiv.org/abs/2603.02043	2026-06-30 18:30:27.158153+05:30
+1415	6	https://arxiv.org/abs/2603.02491	2026-06-30 18:30:27.158153+05:30
+1416	6	https://arxiv.org/abs/2603.05002	2026-06-30 18:30:27.158153+05:30
+1417	6	https://arxiv.org/abs/2605.29032	2026-06-30 18:30:27.158153+05:30
+1418	6	https://arxiv.org/abs/2606.09820	2026-06-30 18:30:27.158153+05:30
+1419	6	https://arxiv.org/abs/2606.27349	2026-06-30 18:30:27.158153+05:30
+1420	1	https://deepmind.google/blog/google-deepmind-and-a24-announce-first-of-its-kind-research-partnership	2026-07-09 18:00:02.895081+05:30
+1421	1	https://deepmind.google/blog/start-building-with-nano-banana-2-lite-and-gemini-omni-flash	2026-07-09 18:00:02.895081+05:30
+1422	2	https://www.technologyreview.com/2026/07/09/1140283/the-download-nuclear-power-milestone-nvidia-china-ai-chips	2026-07-09 18:00:02.977148+05:30
+1423	2	https://www.technologyreview.com/2026/07/09/1140235/nuclear-reactor-milestone-criticality	2026-07-09 18:00:02.977148+05:30
+1424	2	https://www.technologyreview.com/2026/07/08/1140223/emtech-ai-2026-the-rise-of-the-ai-platform	2026-07-09 18:00:02.977148+05:30
+1425	2	https://www.technologyreview.com/2026/07/08/1140216/the-download-worms-manure-pollution-geoengineering-reality-check	2026-07-09 18:00:02.977148+05:30
+1426	2	https://www.technologyreview.com/2026/07/07/1140197/the-download-your-openai-stake-treasury-ai-warning	2026-07-09 18:00:02.977148+05:30
+1427	2	https://www.technologyreview.com/2026/07/07/1139413/the-foundational-elements-of-ai-architecture-that-it-leaders-need-to-scale	2026-07-09 18:00:02.977148+05:30
+1428	2	https://www.technologyreview.com/2026/07/07/1140142/why-worms-and-microbes-are-catching-on-as-a-manure-pollution-solution	2026-07-09 18:00:02.977148+05:30
+1429	2	https://www.technologyreview.com/2026/07/06/1140176/your-familys-300-stake-in-openai	2026-07-09 18:00:02.977148+05:30
+1430	2	https://www.technologyreview.com/2026/07/06/1140172/the-download-south-korea-ai-chipworkers-eye-transplants	2026-07-09 18:00:02.977148+05:30
+1431	2	https://www.technologyreview.com/2026/07/06/1140000/south-korea-bachelors-samsung-skhynix-chip-workers	2026-07-09 18:00:02.977148+05:30
+1432	3	https://www.artificialintelligence-news.com/news/nhs-ai-blood-test-womb-cancer-checks	2026-07-09 18:00:04.056627+05:30
+1433	3	https://www.artificialintelligence-news.com/news/insilico-medicine-advances-ai-drug-for-ipf-to-phase-iii-trials	2026-07-09 18:00:04.056627+05:30
+1434	3	https://www.artificialintelligence-news.com/news/ai-product-development-loreal-mondelez-nestle	2026-07-09 18:00:04.056627+05:30
+1435	3	https://www.artificialintelligence-news.com/news/china-ai-companion-rules	2026-07-09 18:00:04.056627+05:30
+1436	3	https://www.artificialintelligence-news.com/news/takeda-insilico-ai-drug-discovery-deal	2026-07-09 18:00:04.056627+05:30
+1437	3	https://www.artificialintelligence-news.com/news/nvidia-bionemo-accelerates-anthropic-claude-science	2026-07-09 18:00:04.056627+05:30
+1438	3	https://www.artificialintelligence-news.com/news/deploying-retail-ai-to-scale-personalisation-customer-insight	2026-07-09 18:00:04.056627+05:30
+1439	3	https://www.artificialintelligence-news.com/news/japan-ai-robots-2040-national-ai-model	2026-07-09 18:00:04.056627+05:30
+1440	3	https://www.artificialintelligence-news.com/news/bank-of-england-agentic-ai-finance-rules	2026-07-09 18:00:04.056627+05:30
+1441	3	https://www.artificialintelligence-news.com/news/anthropic-deploys-claude-sonnet-5-fable-and-mythos-restored	2026-07-09 18:00:04.056627+05:30
+1442	4	https://indianexpress.com/article/legal-news/ai-hallucinated-judgments-explained-supreme-court-nclt-order-fake-precedents-10771396	2026-07-09 18:00:04.244288+05:30
+1443	4	https://www.enca.com/lifestyle/ai-romance-scam-impersonating-dubai-prince-ensnares-victims	2026-07-09 18:00:04.244288+05:30
+1444	4	https://www.reuters.com/legal/litigation/us-appeals-court-sanctions-lawyers-over-ai-hallucinations-lack-candor-2026-06-03	2026-07-09 18:00:04.244288+05:30
+1445	4	https://reason.com/volokh/2026/04/09/the-first-tell-was-the-file-name-of-the-principal-brief-cocounsel-skill-results	2026-07-09 18:00:04.244288+05:30
+1446	4	https://www.spokesman.com/stories/2026/jul/01/longtime-spokeswoman-sues-freds-appliance-over-use	2026-07-09 18:00:04.244288+05:30
+1447	4	https://timesofindia.indiatimes.com/city/indore/indore-resident-loses-rs-1-83-lakh-to-ai-generated-voice-fraud/articleshow/125598857.cms	2026-07-09 18:00:04.244288+05:30
+1448	4	https://blockclubchicago.org/2026/04/14/food-delivery-robot-says-sorry-for-smashing-bus-shelter-in-new-ad	2026-07-09 18:00:04.244288+05:30
+1449	4	https://blockclubchicago.org/2026/03/25/robots-gone-wild-food-delivery-robots-smash-2-bus-shelters-in-chicago	2026-07-09 18:00:04.244288+05:30
+1450	4	https://www.reuters.com/legal/government/california-man-with-bipolar-disorder-says-chatgpt-fueled-delusions-led-self-harm-2026-07-01	2026-07-09 18:00:04.244288+05:30
+1451	4	https://www.bbb.org/scamtracker/lookupscam/1089143	2026-07-09 18:00:04.244288+05:30
+1452	4	https://www.nbcchicago.com/consumer/deepfake-scam-targets-alzheimers-patients-with-false-promises-of-honey-based-cure/3955606	2026-07-09 18:00:04.244288+05:30
+1453	4	https://gptzero.me/news/investigations-kpmg	2026-07-09 18:00:04.244288+05:30
+1454	4	https://defensescoop.com/2025/07/01/navy-unmanned-vessel-accident-boat-ventura-channel-islands-california	2026-07-09 18:00:04.244288+05:30
+1455	4	https://apnews.com/article/gas-price-california-lawsuit-kalibrate-collusion-fbf2c03bb69b53da4ede72044ce5e41f	2026-07-09 18:00:04.244288+05:30
+1456	4	https://www.nbcbayarea.com/news/local/gas-prices-artificial-intelligence-lawsuit/4103399	2026-07-09 18:00:04.244288+05:30
+1457	4	https://www.sfchronicle.com/california/article/ai-gas-california-lawsuit-22317334.php	2026-07-09 18:00:04.244288+05:30
+1458	4	https://www.courthousenews.com/californians-sue-over-ai-based-price-fixing-at-gas-pump	2026-07-09 18:00:04.244288+05:30
+1459	4	https://www.vitallaw.com/news/antitrust-news-ai-software-allowed-california-gas-stations-to-raise-prices-suit-alleges/ald01f54a677fa33c4834a13b9fd615833985	2026-07-09 18:00:04.244288+05:30
+1460	4	https://www.forbes.com/sites/zacharyfolk/2026/06/22/slew-of-california-gas-stations-illegally-used-ai-to-raise-prices-lawsuit-claims	2026-07-09 18:00:04.244288+05:30
+1461	4	https://qz.com/california-drivers-sue-bp-marathon-walmart-ai-gas-price-fixing-062326	2026-07-09 18:00:04.244288+05:30
+1462	4	https://www.caranddriver.com/news/a71709512/california-ai-gas-price-inflation-class-action	2026-07-09 18:00:04.244288+05:30
+1463	4	https://www.tomshardware.com/tech-industry/artificial-intelligence/california-drivers-accuse-gas-station-operators-of-using-ai-to-boost-pump-prices-lawsuit-seeks-damages-for-antitrust-violations	2026-07-09 18:00:04.244288+05:30
+1464	4	https://www.cstoredive.com/news/7-eleven-circle-k-named-in-lawsuit-over-using-ai-to-boost-gas-prices/823558	2026-07-09 18:00:04.244288+05:30
+1465	4	https://csnews.com/california-drivers-file-suit-over-ai-use-set-gas-prices	2026-07-09 18:00:04.244288+05:30
+1466	4	https://www.pymnts.com/news/retail/2026/california-consumers-sue-gas-stations-over-ai-price-fixing	2026-07-09 18:00:04.244288+05:30
+1467	4	https://www.law360.com/articles/2492071/marathon-bp-accused-of-using-algorithm-to-fix-gas-prices	2026-07-09 18:00:04.244288+05:30
+1468	4	https://www.pymnts.com/cpi-posts/california-drivers-sue-fuel-giants-over-alleged-ai-driven-gas-price-hikes	2026-07-09 18:00:04.244288+05:30
+1469	4	https://www.claimdepot.com/cases/kalibrate-lawsuit-claims-ai-software-helped-major-gas-chains-fix-california-fuel-prices	2026-07-09 18:00:04.244288+05:30
+1470	4	https://sjvsun.com/business/energy/suit-calif-gas-stations-used-ai-software-to-collude-raise-gas-prices	2026-07-09 18:00:04.244288+05:30
+1471	4	https://signalscv.com/2026/06/california-lawsuit-alleges-ai-gas-price-fixing	2026-07-09 18:00:04.244288+05:30
+1472	4	https://www.carscoops.com/2026/06/california-gas-pricing-lawsuit	2026-07-09 18:00:04.244288+05:30
+1473	4	https://startupfortune.com/california-drivers-are-suing-bp-walmart-and-marathon-for-using-an-ai-tool-to-fix-gas-prices	2026-07-09 18:00:04.244288+05:30
+1474	4	https://popular.info/p/gas-stations-are-using-ai-to-inflate	2026-07-09 18:00:04.244288+05:30
+1475	4	https://www.buckscounty.gov/m/newsflash/Home/Detail/1554	2026-07-09 18:00:04.244288+05:30
+1701	6	https://arxiv.org/abs/2607.06570	2026-07-09 18:00:04.388249+05:30
+1702	6	https://arxiv.org/abs/2607.06644	2026-07-09 18:00:04.388249+05:30
+1703	6	https://arxiv.org/abs/2607.06696	2026-07-09 18:00:04.388249+05:30
+1704	6	https://arxiv.org/abs/2607.06841	2026-07-09 18:00:04.388249+05:30
+1705	6	https://arxiv.org/abs/2607.06883	2026-07-09 18:00:04.388249+05:30
+1706	6	https://arxiv.org/abs/2607.07008	2026-07-09 18:00:04.388249+05:30
+1707	6	https://arxiv.org/abs/2607.07232	2026-07-09 18:00:04.388249+05:30
+1708	6	https://arxiv.org/abs/2607.07468	2026-07-09 18:00:04.388249+05:30
+1709	6	https://arxiv.org/abs/2607.07527	2026-07-09 18:00:04.388249+05:30
+1710	6	https://arxiv.org/abs/2607.06605	2026-07-09 18:00:04.388249+05:30
+1711	6	https://arxiv.org/abs/2607.06652	2026-07-09 18:00:04.388249+05:30
+1712	6	https://arxiv.org/abs/2607.06879	2026-07-09 18:00:04.388249+05:30
+1713	6	https://arxiv.org/abs/2607.06936	2026-07-09 18:00:04.388249+05:30
+1714	6	https://arxiv.org/abs/2607.07014	2026-07-09 18:00:04.388249+05:30
+1715	6	https://arxiv.org/abs/2607.07032	2026-07-09 18:00:04.388249+05:30
+1716	6	https://arxiv.org/abs/2607.07423	2026-07-09 18:00:04.388249+05:30
+1717	6	https://arxiv.org/abs/2607.07513	2026-07-09 18:00:04.388249+05:30
+1718	6	https://arxiv.org/abs/2607.07538	2026-07-09 18:00:04.388249+05:30
+1719	6	https://arxiv.org/abs/2501.10870	2026-07-09 18:00:04.388249+05:30
+1720	6	https://arxiv.org/abs/2505.19033	2026-07-09 18:00:04.388249+05:30
+1721	6	https://arxiv.org/abs/2509.21160	2026-07-09 18:00:04.388249+05:30
+1722	6	https://arxiv.org/abs/2512.20685	2026-07-09 18:00:04.388249+05:30
+1723	6	https://arxiv.org/abs/2601.13102	2026-07-09 18:00:04.388249+05:30
+1724	6	https://arxiv.org/abs/2605.23145	2026-07-09 18:00:04.388249+05:30
+1725	6	https://arxiv.org/abs/2501.02436	2026-07-09 18:00:04.388249+05:30
+1726	6	https://arxiv.org/abs/2502.06577	2026-07-09 18:00:04.388249+05:30
+1727	6	https://arxiv.org/abs/2601.10483	2026-07-09 18:00:04.388249+05:30
+1728	6	https://arxiv.org/abs/2601.20498	2026-07-09 18:00:04.388249+05:30
+1729	6	https://arxiv.org/abs/2602.03202	2026-07-09 18:00:04.388249+05:30
+1730	6	https://arxiv.org/abs/2603.23196	2026-07-09 18:00:04.388249+05:30
+1731	6	https://arxiv.org/abs/2605.19006	2026-07-09 18:00:04.388249+05:30
+1732	6	https://arxiv.org/abs/2606.31126	2026-07-09 18:00:04.388249+05:30
+1733	6	https://arxiv.org/abs/2607.00645	2026-07-09 18:00:04.388249+05:30
+1476	5	https://arxiv.org/abs/2607.06624	2026-07-09 18:00:04.357446+05:30
+1477	5	https://arxiv.org/abs/2607.06720	2026-07-09 18:00:04.357446+05:30
+1478	5	https://arxiv.org/abs/2607.06757	2026-07-09 18:00:04.357446+05:30
+1479	5	https://arxiv.org/abs/2607.06760	2026-07-09 18:00:04.357446+05:30
+1480	5	https://arxiv.org/abs/2607.06764	2026-07-09 18:00:04.357446+05:30
+1481	5	https://arxiv.org/abs/2607.06820	2026-07-09 18:00:04.357446+05:30
+1482	5	https://arxiv.org/abs/2607.06906	2026-07-09 18:00:04.357446+05:30
+1483	5	https://arxiv.org/abs/2607.06925	2026-07-09 18:00:04.357446+05:30
+1484	5	https://arxiv.org/abs/2607.06993	2026-07-09 18:00:04.357446+05:30
+1485	5	https://arxiv.org/abs/2607.07021	2026-07-09 18:00:04.357446+05:30
+1486	5	https://arxiv.org/abs/2607.07040	2026-07-09 18:00:04.357446+05:30
+1487	5	https://arxiv.org/abs/2607.07097	2026-07-09 18:00:04.357446+05:30
+1488	5	https://arxiv.org/abs/2607.07189	2026-07-09 18:00:04.357446+05:30
+1489	5	https://arxiv.org/abs/2607.07229	2026-07-09 18:00:04.357446+05:30
+1490	5	https://arxiv.org/abs/2607.07321	2026-07-09 18:00:04.357446+05:30
+1491	5	https://arxiv.org/abs/2607.07379	2026-07-09 18:00:04.357446+05:30
+1492	5	https://arxiv.org/abs/2607.07391	2026-07-09 18:00:04.357446+05:30
+1493	5	https://arxiv.org/abs/2607.07397	2026-07-09 18:00:04.357446+05:30
+1494	5	https://arxiv.org/abs/2607.07405	2026-07-09 18:00:04.357446+05:30
+1495	5	https://arxiv.org/abs/2607.07422	2026-07-09 18:00:04.357446+05:30
+1496	5	https://arxiv.org/abs/2607.07436	2026-07-09 18:00:04.357446+05:30
+1497	5	https://arxiv.org/abs/2607.07467	2026-07-09 18:00:04.357446+05:30
+1498	5	https://arxiv.org/abs/2607.07492	2026-07-09 18:00:04.357446+05:30
+1499	5	https://arxiv.org/abs/2607.07504	2026-07-09 18:00:04.357446+05:30
+1500	5	https://arxiv.org/abs/2607.07646	2026-07-09 18:00:04.357446+05:30
+1501	5	https://arxiv.org/abs/2607.07663	2026-07-09 18:00:04.357446+05:30
+1502	5	https://arxiv.org/abs/2607.07676	2026-07-09 18:00:04.357446+05:30
+1503	5	https://arxiv.org/abs/2607.07695	2026-07-09 18:00:04.357446+05:30
+1504	5	https://arxiv.org/abs/2607.06121	2026-07-09 18:00:04.357446+05:30
+1505	5	https://arxiv.org/abs/2607.06592	2026-07-09 18:00:04.357446+05:30
+1506	5	https://arxiv.org/abs/2607.06595	2026-07-09 18:00:04.357446+05:30
+1507	5	https://arxiv.org/abs/2607.06598	2026-07-09 18:00:04.357446+05:30
+1508	5	https://arxiv.org/abs/2607.06600	2026-07-09 18:00:04.357446+05:30
+1509	5	https://arxiv.org/abs/2607.06601	2026-07-09 18:00:04.357446+05:30
+1510	5	https://arxiv.org/abs/2607.06603	2026-07-09 18:00:04.357446+05:30
+1511	5	https://arxiv.org/abs/2607.06607	2026-07-09 18:00:04.357446+05:30
+1512	5	https://arxiv.org/abs/2607.06608	2026-07-09 18:00:04.357446+05:30
+1513	5	https://arxiv.org/abs/2607.06609	2026-07-09 18:00:04.357446+05:30
+1514	5	https://arxiv.org/abs/2607.06610	2026-07-09 18:00:04.357446+05:30
+1515	5	https://arxiv.org/abs/2607.06611	2026-07-09 18:00:04.357446+05:30
+1516	5	https://arxiv.org/abs/2607.06612	2026-07-09 18:00:04.357446+05:30
+1517	5	https://arxiv.org/abs/2607.06614	2026-07-09 18:00:04.357446+05:30
+1518	5	https://arxiv.org/abs/2607.06616	2026-07-09 18:00:04.357446+05:30
+1519	5	https://arxiv.org/abs/2607.06617	2026-07-09 18:00:04.357446+05:30
+1520	5	https://arxiv.org/abs/2607.06618	2026-07-09 18:00:04.357446+05:30
+1521	5	https://arxiv.org/abs/2607.06620	2026-07-09 18:00:04.357446+05:30
+1522	5	https://arxiv.org/abs/2607.06623	2026-07-09 18:00:04.357446+05:30
+1523	5	https://arxiv.org/abs/2607.06625	2026-07-09 18:00:04.357446+05:30
+1524	5	https://arxiv.org/abs/2607.06628	2026-07-09 18:00:04.357446+05:30
+1525	5	https://arxiv.org/abs/2607.06631	2026-07-09 18:00:04.357446+05:30
+1526	5	https://arxiv.org/abs/2607.06633	2026-07-09 18:00:04.357446+05:30
+1527	5	https://arxiv.org/abs/2607.06636	2026-07-09 18:00:04.357446+05:30
+1528	5	https://arxiv.org/abs/2607.06639	2026-07-09 18:00:04.357446+05:30
+1529	5	https://arxiv.org/abs/2607.06640	2026-07-09 18:00:04.357446+05:30
+1530	5	https://arxiv.org/abs/2607.06641	2026-07-09 18:00:04.357446+05:30
+1531	5	https://arxiv.org/abs/2607.06646	2026-07-09 18:00:04.357446+05:30
+1532	5	https://arxiv.org/abs/2607.06681	2026-07-09 18:00:04.357446+05:30
+1533	5	https://arxiv.org/abs/2607.06690	2026-07-09 18:00:04.357446+05:30
+1534	5	https://arxiv.org/abs/2607.06701	2026-07-09 18:00:04.357446+05:30
+1535	5	https://arxiv.org/abs/2607.06706	2026-07-09 18:00:04.357446+05:30
+1536	5	https://arxiv.org/abs/2607.06713	2026-07-09 18:00:04.357446+05:30
+1537	5	https://arxiv.org/abs/2607.06740	2026-07-09 18:00:04.357446+05:30
+1538	5	https://arxiv.org/abs/2607.06748	2026-07-09 18:00:04.357446+05:30
+1539	5	https://arxiv.org/abs/2607.06768	2026-07-09 18:00:04.357446+05:30
+1540	5	https://arxiv.org/abs/2607.06786	2026-07-09 18:00:04.357446+05:30
+1541	5	https://arxiv.org/abs/2607.06796	2026-07-09 18:00:04.357446+05:30
+1542	5	https://arxiv.org/abs/2607.06799	2026-07-09 18:00:04.357446+05:30
+1543	5	https://arxiv.org/abs/2607.06802	2026-07-09 18:00:04.357446+05:30
+1544	5	https://arxiv.org/abs/2607.06807	2026-07-09 18:00:04.357446+05:30
+1545	5	https://arxiv.org/abs/2607.06818	2026-07-09 18:00:04.357446+05:30
+1546	5	https://arxiv.org/abs/2607.06831	2026-07-09 18:00:04.357446+05:30
+1547	5	https://arxiv.org/abs/2607.06854	2026-07-09 18:00:04.357446+05:30
+1548	5	https://arxiv.org/abs/2607.06882	2026-07-09 18:00:04.357446+05:30
+1549	5	https://arxiv.org/abs/2607.06889	2026-07-09 18:00:04.357446+05:30
+1550	5	https://arxiv.org/abs/2607.06893	2026-07-09 18:00:04.357446+05:30
+1551	5	https://arxiv.org/abs/2607.06918	2026-07-09 18:00:04.357446+05:30
+1552	5	https://arxiv.org/abs/2607.06929	2026-07-09 18:00:04.357446+05:30
+1553	5	https://arxiv.org/abs/2607.06930	2026-07-09 18:00:04.357446+05:30
+1554	5	https://arxiv.org/abs/2607.06940	2026-07-09 18:00:04.357446+05:30
+1555	5	https://arxiv.org/abs/2607.06948	2026-07-09 18:00:04.357446+05:30
+1556	5	https://arxiv.org/abs/2607.06963	2026-07-09 18:00:04.357446+05:30
+1557	5	https://arxiv.org/abs/2607.06964	2026-07-09 18:00:04.357446+05:30
+1558	5	https://arxiv.org/abs/2607.06976	2026-07-09 18:00:04.357446+05:30
+1559	5	https://arxiv.org/abs/2607.06988	2026-07-09 18:00:04.357446+05:30
+1560	5	https://arxiv.org/abs/2607.06999	2026-07-09 18:00:04.357446+05:30
+1561	5	https://arxiv.org/abs/2607.07016	2026-07-09 18:00:04.357446+05:30
+1562	5	https://arxiv.org/abs/2607.07027	2026-07-09 18:00:04.357446+05:30
+1563	5	https://arxiv.org/abs/2607.07029	2026-07-09 18:00:04.357446+05:30
+1564	5	https://arxiv.org/abs/2607.07033	2026-07-09 18:00:04.357446+05:30
+1565	5	https://arxiv.org/abs/2607.07034	2026-07-09 18:00:04.357446+05:30
+1566	5	https://arxiv.org/abs/2607.07035	2026-07-09 18:00:04.357446+05:30
+1567	5	https://arxiv.org/abs/2607.07047	2026-07-09 18:00:04.357446+05:30
+1568	5	https://arxiv.org/abs/2607.07051	2026-07-09 18:00:04.357446+05:30
+1569	5	https://arxiv.org/abs/2607.07052	2026-07-09 18:00:04.357446+05:30
+1570	5	https://arxiv.org/abs/2607.07060	2026-07-09 18:00:04.357446+05:30
+1571	5	https://arxiv.org/abs/2607.07066	2026-07-09 18:00:04.357446+05:30
+1572	5	https://arxiv.org/abs/2607.07077	2026-07-09 18:00:04.357446+05:30
+1573	5	https://arxiv.org/abs/2607.07091	2026-07-09 18:00:04.357446+05:30
+1574	5	https://arxiv.org/abs/2607.07101	2026-07-09 18:00:04.357446+05:30
+1575	5	https://arxiv.org/abs/2607.07117	2026-07-09 18:00:04.357446+05:30
+1576	5	https://arxiv.org/abs/2607.07178	2026-07-09 18:00:04.357446+05:30
+1577	5	https://arxiv.org/abs/2607.07184	2026-07-09 18:00:04.357446+05:30
+1578	5	https://arxiv.org/abs/2607.07196	2026-07-09 18:00:04.357446+05:30
+1579	5	https://arxiv.org/abs/2607.07207	2026-07-09 18:00:04.357446+05:30
+1580	5	https://arxiv.org/abs/2607.07219	2026-07-09 18:00:04.357446+05:30
+1581	5	https://arxiv.org/abs/2607.07232	2026-07-09 18:00:04.357446+05:30
+1582	5	https://arxiv.org/abs/2607.07235	2026-07-09 18:00:04.357446+05:30
+1583	5	https://arxiv.org/abs/2607.07258	2026-07-09 18:00:04.357446+05:30
+1584	5	https://arxiv.org/abs/2607.07289	2026-07-09 18:00:04.357446+05:30
+1585	5	https://arxiv.org/abs/2607.07292	2026-07-09 18:00:04.357446+05:30
+1586	5	https://arxiv.org/abs/2607.07294	2026-07-09 18:00:04.357446+05:30
+1587	5	https://arxiv.org/abs/2607.07313	2026-07-09 18:00:04.357446+05:30
+1588	5	https://arxiv.org/abs/2607.07314	2026-07-09 18:00:04.357446+05:30
+1589	5	https://arxiv.org/abs/2607.07322	2026-07-09 18:00:04.357446+05:30
+1590	5	https://arxiv.org/abs/2607.07330	2026-07-09 18:00:04.357446+05:30
+1591	5	https://arxiv.org/abs/2607.07338	2026-07-09 18:00:04.357446+05:30
+1592	5	https://arxiv.org/abs/2607.07343	2026-07-09 18:00:04.357446+05:30
+1593	5	https://arxiv.org/abs/2607.07357	2026-07-09 18:00:04.357446+05:30
+1594	5	https://arxiv.org/abs/2607.07368	2026-07-09 18:00:04.357446+05:30
+1595	5	https://arxiv.org/abs/2607.07370	2026-07-09 18:00:04.357446+05:30
+1596	5	https://arxiv.org/abs/2607.07375	2026-07-09 18:00:04.357446+05:30
+1597	5	https://arxiv.org/abs/2607.07395	2026-07-09 18:00:04.357446+05:30
+1598	5	https://arxiv.org/abs/2607.07401	2026-07-09 18:00:04.357446+05:30
+1599	5	https://arxiv.org/abs/2607.07435	2026-07-09 18:00:04.357446+05:30
+1600	5	https://arxiv.org/abs/2607.07469	2026-07-09 18:00:04.357446+05:30
+1601	5	https://arxiv.org/abs/2607.07471	2026-07-09 18:00:04.357446+05:30
+1602	5	https://arxiv.org/abs/2607.07474	2026-07-09 18:00:04.357446+05:30
+1603	5	https://arxiv.org/abs/2607.07498	2026-07-09 18:00:04.357446+05:30
+1604	5	https://arxiv.org/abs/2607.07500	2026-07-09 18:00:04.357446+05:30
+1605	5	https://arxiv.org/abs/2607.07507	2026-07-09 18:00:04.357446+05:30
+1606	5	https://arxiv.org/abs/2607.07508	2026-07-09 18:00:04.357446+05:30
+1607	5	https://arxiv.org/abs/2607.07510	2026-07-09 18:00:04.357446+05:30
+1608	5	https://arxiv.org/abs/2607.07521	2026-07-09 18:00:04.357446+05:30
+1609	5	https://arxiv.org/abs/2607.07565	2026-07-09 18:00:04.357446+05:30
+1610	5	https://arxiv.org/abs/2607.07601	2026-07-09 18:00:04.357446+05:30
+1611	5	https://arxiv.org/abs/2607.07612	2026-07-09 18:00:04.357446+05:30
+1612	5	https://arxiv.org/abs/2607.07626	2026-07-09 18:00:04.357446+05:30
+1613	5	https://arxiv.org/abs/2607.07634	2026-07-09 18:00:04.357446+05:30
+1614	5	https://arxiv.org/abs/2607.07640	2026-07-09 18:00:04.357446+05:30
+1615	5	https://arxiv.org/abs/2607.07669	2026-07-09 18:00:04.357446+05:30
+1616	5	https://arxiv.org/abs/2607.07690	2026-07-09 18:00:04.357446+05:30
+1617	5	https://arxiv.org/abs/2607.07693	2026-07-09 18:00:04.357446+05:30
+1618	5	https://arxiv.org/abs/2607.07696	2026-07-09 18:00:04.357446+05:30
+1619	5	https://arxiv.org/abs/2607.07707	2026-07-09 18:00:04.357446+05:30
+1620	5	https://arxiv.org/abs/2607.07708	2026-07-09 18:00:04.357446+05:30
+1621	5	https://arxiv.org/abs/2501.18784	2026-07-09 18:00:04.357446+05:30
+1622	5	https://arxiv.org/abs/2506.08630	2026-07-09 18:00:04.357446+05:30
+1623	5	https://arxiv.org/abs/2508.01109	2026-07-09 18:00:04.357446+05:30
+1624	5	https://arxiv.org/abs/2510.09595	2026-07-09 18:00:04.357446+05:30
+1625	5	https://arxiv.org/abs/2512.11935	2026-07-09 18:00:04.357446+05:30
+1626	5	https://arxiv.org/abs/2601.14271	2026-07-09 18:00:04.357446+05:30
+1627	5	https://arxiv.org/abs/2601.16529	2026-07-09 18:00:04.357446+05:30
+1628	5	https://arxiv.org/abs/2601.21433	2026-07-09 18:00:04.357446+05:30
+1629	5	https://arxiv.org/abs/2602.05088	2026-07-09 18:00:04.357446+05:30
+1630	5	https://arxiv.org/abs/2602.06838	2026-07-09 18:00:04.357446+05:30
+1631	5	https://arxiv.org/abs/2602.18201	2026-07-09 18:00:04.357446+05:30
+1632	5	https://arxiv.org/abs/2602.21556	2026-07-09 18:00:04.357446+05:30
+1633	5	https://arxiv.org/abs/2602.23802	2026-07-09 18:00:04.357446+05:30
+1634	5	https://arxiv.org/abs/2603.11756	2026-07-09 18:00:04.357446+05:30
+1635	5	https://arxiv.org/abs/2603.29693	2026-07-09 18:00:04.357446+05:30
+1636	5	https://arxiv.org/abs/2604.20711	2026-07-09 18:00:04.357446+05:30
+1637	5	https://arxiv.org/abs/2605.03195	2026-07-09 18:00:04.357446+05:30
+1638	5	https://arxiv.org/abs/2605.08843	2026-07-09 18:00:04.357446+05:30
+1639	5	https://arxiv.org/abs/2607.00572	2026-07-09 18:00:04.357446+05:30
+1640	5	https://arxiv.org/abs/2607.01935	2026-07-09 18:00:04.357446+05:30
+1641	5	https://arxiv.org/abs/2607.04758	2026-07-09 18:00:04.357446+05:30
+1642	5	https://arxiv.org/abs/2607.05750	2026-07-09 18:00:04.357446+05:30
+1643	5	https://arxiv.org/abs/2607.06447	2026-07-09 18:00:04.357446+05:30
+1644	5	https://arxiv.org/abs/2407.11217	2026-07-09 18:00:04.357446+05:30
+1645	5	https://arxiv.org/abs/2411.17077	2026-07-09 18:00:04.357446+05:30
+1646	5	https://arxiv.org/abs/2502.06577	2026-07-09 18:00:04.357446+05:30
+1647	5	https://arxiv.org/abs/2505.01584	2026-07-09 18:00:04.357446+05:30
+1648	5	https://arxiv.org/abs/2507.05116	2026-07-09 18:00:04.357446+05:30
+1649	5	https://arxiv.org/abs/2507.14177	2026-07-09 18:00:04.357446+05:30
+1650	5	https://arxiv.org/abs/2507.23615	2026-07-09 18:00:04.357446+05:30
+1651	5	https://arxiv.org/abs/2508.10956	2026-07-09 18:00:04.357446+05:30
+1652	5	https://arxiv.org/abs/2508.16943	2026-07-09 18:00:04.357446+05:30
+1653	5	https://arxiv.org/abs/2508.17298	2026-07-09 18:00:04.357446+05:30
+1654	5	https://arxiv.org/abs/2510.02999	2026-07-09 18:00:04.357446+05:30
+1655	5	https://arxiv.org/abs/2511.06667	2026-07-09 18:00:04.357446+05:30
+1656	5	https://arxiv.org/abs/2511.13726	2026-07-09 18:00:04.357446+05:30
+1657	5	https://arxiv.org/abs/2511.16107	2026-07-09 18:00:04.357446+05:30
+1658	5	https://arxiv.org/abs/2511.18735	2026-07-09 18:00:04.357446+05:30
+1659	5	https://arxiv.org/abs/2512.02076	2026-07-09 18:00:04.357446+05:30
+1660	5	https://arxiv.org/abs/2512.05693	2026-07-09 18:00:04.357446+05:30
+1661	5	https://arxiv.org/abs/2601.06425	2026-07-09 18:00:04.357446+05:30
+1662	5	https://arxiv.org/abs/2601.13563	2026-07-09 18:00:04.357446+05:30
+1663	5	https://arxiv.org/abs/2601.17216	2026-07-09 18:00:04.357446+05:30
+1664	5	https://arxiv.org/abs/2602.11399	2026-07-09 18:00:04.357446+05:30
+1665	5	https://arxiv.org/abs/2603.02150	2026-07-09 18:00:04.357446+05:30
+1666	5	https://arxiv.org/abs/2603.15685	2026-07-09 18:00:04.357446+05:30
+1667	5	https://arxiv.org/abs/2603.16551	2026-07-09 18:00:04.357446+05:30
+1668	5	https://arxiv.org/abs/2603.21489	2026-07-09 18:00:04.357446+05:30
+1669	5	https://arxiv.org/abs/2603.23800	2026-07-09 18:00:04.357446+05:30
+1670	5	https://arxiv.org/abs/2603.26772	2026-07-09 18:00:04.357446+05:30
+1671	5	https://arxiv.org/abs/2604.01577	2026-07-09 18:00:04.357446+05:30
+1672	5	https://arxiv.org/abs/2604.11840	2026-07-09 18:00:04.357446+05:30
+1673	5	https://arxiv.org/abs/2604.11950	2026-07-09 18:00:04.357446+05:30
+1674	5	https://arxiv.org/abs/2604.24222	2026-07-09 18:00:04.357446+05:30
+1675	5	https://arxiv.org/abs/2604.25605	2026-07-09 18:00:04.357446+05:30
+1676	5	https://arxiv.org/abs/2605.04724	2026-07-09 18:00:04.357446+05:30
+1677	5	https://arxiv.org/abs/2605.08332	2026-07-09 18:00:04.357446+05:30
+1678	5	https://arxiv.org/abs/2605.11325	2026-07-09 18:00:04.357446+05:30
+1679	5	https://arxiv.org/abs/2605.19723	2026-07-09 18:00:04.357446+05:30
+1680	5	https://arxiv.org/abs/2605.22774	2026-07-09 18:00:04.357446+05:30
+1681	5	https://arxiv.org/abs/2605.27000	2026-07-09 18:00:04.357446+05:30
+1682	5	https://arxiv.org/abs/2605.27395	2026-07-09 18:00:04.357446+05:30
+1683	5	https://arxiv.org/abs/2606.03800	2026-07-09 18:00:04.357446+05:30
+1684	5	https://arxiv.org/abs/2606.05403	2026-07-09 18:00:04.357446+05:30
+1685	5	https://arxiv.org/abs/2606.07094	2026-07-09 18:00:04.357446+05:30
+1686	5	https://arxiv.org/abs/2606.17420	2026-07-09 18:00:04.357446+05:30
+1687	5	https://arxiv.org/abs/2606.23604	2026-07-09 18:00:04.357446+05:30
+1688	5	https://arxiv.org/abs/2606.24894	2026-07-09 18:00:04.357446+05:30
+1689	5	https://arxiv.org/abs/2606.26028	2026-07-09 18:00:04.357446+05:30
+1690	5	https://arxiv.org/abs/2607.01420	2026-07-09 18:00:04.357446+05:30
+1691	5	https://arxiv.org/abs/2607.02567	2026-07-09 18:00:04.357446+05:30
+1692	5	https://arxiv.org/abs/2607.03663	2026-07-09 18:00:04.357446+05:30
+1693	5	https://arxiv.org/abs/2607.04434	2026-07-09 18:00:04.357446+05:30
+1694	5	https://arxiv.org/abs/2607.04443	2026-07-09 18:00:04.357446+05:30
+1695	5	https://arxiv.org/abs/2607.05382	2026-07-09 18:00:04.357446+05:30
+1696	5	https://arxiv.org/abs/2607.05394	2026-07-09 18:00:04.357446+05:30
+1697	5	https://arxiv.org/abs/2607.05419	2026-07-09 18:00:04.357446+05:30
+1698	5	https://arxiv.org/abs/2607.05835	2026-07-09 18:00:04.357446+05:30
+1699	5	https://arxiv.org/abs/2607.05876	2026-07-09 18:00:04.357446+05:30
+1700	5	https://arxiv.org/abs/2607.06202	2026-07-09 18:00:04.357446+05:30
+1734	1	https://deepmind.google/blog/empowering-indias-next-generation-of-innovators-with-atl-saathi	2026-07-14 18:00:43.094359+05:30
+1735	2	https://www.technologyreview.com/2026/07/14/1140356/psiquantum-plan-massive-quantum-computer-out-of-light	2026-07-14 18:00:43.149076+05:30
+1736	2	https://www.technologyreview.com/2026/07/13/1140343/what-anthropics-latest-ai-discovery-does-and-doesnt-show	2026-07-14 18:00:43.149076+05:30
+1737	2	https://www.technologyreview.com/2026/07/13/1140339/the-download-sperm-donor-limits-ai-world-models	2026-07-14 18:00:43.149076+05:30
+1738	2	https://www.technologyreview.com/2026/07/10/1140316/the-download-anthropic-claude-hidden-space-openai-super-app	2026-07-14 18:00:43.149076+05:30
+1739	2	https://www.technologyreview.com/2026/07/10/1140289/sperm-donors-need-limits-says-a-european-fertility-group	2026-07-14 18:00:43.149076+05:30
+1740	2	https://www.technologyreview.com/2026/07/09/1140293/anthropic-found-a-hidden-space-where-claude-puzzles-over-concepts	2026-07-14 18:00:43.149076+05:30
+1741	3	https://www.artificialintelligence-news.com/news/ai-agent-crawlers-cloudflare-rules	2026-07-14 18:00:43.992698+05:30
+1742	3	https://www.artificialintelligence-news.com/news/shrink-token-budget-not-team	2026-07-14 18:00:43.992698+05:30
+1743	3	https://www.artificialintelligence-news.com/news/aws-graphrag-deployment-cuts-drug-research-cycles-by-87	2026-07-14 18:00:43.992698+05:30
+1744	4	https://www.reuters.com/business/meta-ai-image-detector-fails-identify-some-its-own-cropped-ai-images-reuters-2026-07-10	2026-07-14 18:00:44.188373+05:30
+1745	4	https://www.abc.net.au/news/2026-07-09/qld-teen-terror-extremism-murder-plan/106896932	2026-07-14 18:00:44.188373+05:30
+1746	4	https://www.washingtonpost.com/technology/2026/07/07/most-nurses-say-ai-isnt-good-enough-trust-with-patient-care-survey	2026-07-14 18:00:44.188373+05:30
+1747	4	https://www.theatlantic.com/international/2026/07/xi-jinping-censorship-ai-training/687696	2026-07-14 18:00:44.188373+05:30
+1748	4	https://theheraldghana.com/11-arrested-over-alleged-ai-deepfake-scam-impersonating-president-mahama	2026-07-14 18:00:44.188373+05:30
+1749	4	https://openai.com/index/prc-linked-influence-operations-ai-debates	2026-07-14 18:00:44.188373+05:30
+1750	4	https://www.nytimes.com/2026/07/09/business/china-russia-ai-data-centers.html	2026-07-14 18:00:44.188373+05:30
+1751	4	https://alethea.com/insights/how-state-actors-and-ai-slop-are-amplifying-data-center-revolt	2026-07-14 18:00:44.188373+05:30
+1752	4	https://www.conspirator0.com/p/life-in-us-state-according-to-spammers	2026-07-14 18:00:44.188373+05:30
+1753	4	https://www.reuters.com/sustainability/boards-policy-regulation/ai-company-eightfold-sued-helping-companies-secretly-score-job-seekers-2026-01-21	2026-07-14 18:00:44.188373+05:30
+1754	4	https://www.reuters.com/legal/litigation/judge-fines-lawyers-12000-over-ai-generated-submissions-patent-case-2026-02-03	2026-07-14 18:00:44.188373+05:30
+1755	4	https://www.coloradopolitics.com/2026/02/09/10th-circuit-orders-lawyer-to-pay-1000-for-faulty-ai-citations	2026-07-14 18:00:44.188373+05:30
+1756	4	https://www.sysdig.com/blog/jadepuffer-agentic-ransomware-for-automated-database-extortion	2026-07-14 18:00:44.188373+05:30
+1757	4	https://www.lakemchenryscanner.com/2026/04/03/disturbing-incident-police-investigating-after-lake-zurich-high-school-students-distribute-ai-generated-nude-images-of-classmates	2026-07-14 18:00:44.188373+05:30
+1758	5	https://arxiv.org/abs/2607.09664	2026-07-14 18:00:44.371565+05:30
+1759	5	https://arxiv.org/abs/2607.09665	2026-07-14 18:00:44.371565+05:30
+1760	5	https://arxiv.org/abs/2607.09678	2026-07-14 18:00:44.371565+05:30
+1761	5	https://arxiv.org/abs/2607.09689	2026-07-14 18:00:44.371565+05:30
+1762	5	https://arxiv.org/abs/2607.09698	2026-07-14 18:00:44.371565+05:30
+1763	5	https://arxiv.org/abs/2607.09706	2026-07-14 18:00:44.371565+05:30
+1764	5	https://arxiv.org/abs/2607.09708	2026-07-14 18:00:44.371565+05:30
+1765	5	https://arxiv.org/abs/2607.09709	2026-07-14 18:00:44.371565+05:30
+1766	5	https://arxiv.org/abs/2607.09713	2026-07-14 18:00:44.371565+05:30
+1767	5	https://arxiv.org/abs/2607.09714	2026-07-14 18:00:44.371565+05:30
+1768	5	https://arxiv.org/abs/2607.09729	2026-07-14 18:00:44.371565+05:30
+1769	5	https://arxiv.org/abs/2607.09739	2026-07-14 18:00:44.371565+05:30
+1770	5	https://arxiv.org/abs/2607.09740	2026-07-14 18:00:44.371565+05:30
+1771	5	https://arxiv.org/abs/2607.09743	2026-07-14 18:00:44.371565+05:30
+1772	5	https://arxiv.org/abs/2607.09744	2026-07-14 18:00:44.371565+05:30
+1773	5	https://arxiv.org/abs/2607.09745	2026-07-14 18:00:44.371565+05:30
+1774	5	https://arxiv.org/abs/2607.09748	2026-07-14 18:00:44.371565+05:30
+1775	5	https://arxiv.org/abs/2607.09751	2026-07-14 18:00:44.371565+05:30
+1776	5	https://arxiv.org/abs/2607.09755	2026-07-14 18:00:44.371565+05:30
+1777	5	https://arxiv.org/abs/2607.09762	2026-07-14 18:00:44.371565+05:30
+1778	5	https://arxiv.org/abs/2607.09765	2026-07-14 18:00:44.371565+05:30
+1779	5	https://arxiv.org/abs/2607.09766	2026-07-14 18:00:44.371565+05:30
+1780	5	https://arxiv.org/abs/2607.09770	2026-07-14 18:00:44.371565+05:30
+1781	5	https://arxiv.org/abs/2607.09773	2026-07-14 18:00:44.371565+05:30
+1782	5	https://arxiv.org/abs/2607.09781	2026-07-14 18:00:44.371565+05:30
+1783	5	https://arxiv.org/abs/2607.09786	2026-07-14 18:00:44.371565+05:30
+1784	5	https://arxiv.org/abs/2607.09789	2026-07-14 18:00:44.371565+05:30
+1785	5	https://arxiv.org/abs/2607.09790	2026-07-14 18:00:44.371565+05:30
+1786	5	https://arxiv.org/abs/2607.09794	2026-07-14 18:00:44.371565+05:30
+1787	5	https://arxiv.org/abs/2607.09839	2026-07-14 18:00:44.371565+05:30
+1788	5	https://arxiv.org/abs/2607.09971	2026-07-14 18:00:44.371565+05:30
+1789	5	https://arxiv.org/abs/2607.09996	2026-07-14 18:00:44.371565+05:30
+1790	5	https://arxiv.org/abs/2607.10021	2026-07-14 18:00:44.371565+05:30
+1791	5	https://arxiv.org/abs/2607.10059	2026-07-14 18:00:44.371565+05:30
+1792	5	https://arxiv.org/abs/2607.10069	2026-07-14 18:00:44.371565+05:30
+1793	5	https://arxiv.org/abs/2607.10079	2026-07-14 18:00:44.371565+05:30
+1794	5	https://arxiv.org/abs/2607.10110	2026-07-14 18:00:44.371565+05:30
+1795	5	https://arxiv.org/abs/2607.10113	2026-07-14 18:00:44.371565+05:30
+1796	5	https://arxiv.org/abs/2607.10144	2026-07-14 18:00:44.371565+05:30
+1797	5	https://arxiv.org/abs/2607.10159	2026-07-14 18:00:44.371565+05:30
+1798	5	https://arxiv.org/abs/2607.10197	2026-07-14 18:00:44.371565+05:30
+1799	5	https://arxiv.org/abs/2607.10212	2026-07-14 18:00:44.371565+05:30
+1800	5	https://arxiv.org/abs/2607.10226	2026-07-14 18:00:44.371565+05:30
+1801	5	https://arxiv.org/abs/2607.10251	2026-07-14 18:00:44.371565+05:30
+1802	5	https://arxiv.org/abs/2607.10275	2026-07-14 18:00:44.371565+05:30
+1803	5	https://arxiv.org/abs/2607.10286	2026-07-14 18:00:44.371565+05:30
+1804	5	https://arxiv.org/abs/2607.10296	2026-07-14 18:00:44.371565+05:30
+1805	5	https://arxiv.org/abs/2607.10309	2026-07-14 18:00:44.371565+05:30
+1806	5	https://arxiv.org/abs/2607.10331	2026-07-14 18:00:44.371565+05:30
+1807	5	https://arxiv.org/abs/2607.10350	2026-07-14 18:00:44.371565+05:30
+1808	5	https://arxiv.org/abs/2607.10366	2026-07-14 18:00:44.371565+05:30
+1809	5	https://arxiv.org/abs/2607.10455	2026-07-14 18:00:44.371565+05:30
+1810	5	https://arxiv.org/abs/2607.10463	2026-07-14 18:00:44.371565+05:30
+1811	5	https://arxiv.org/abs/2607.10526	2026-07-14 18:00:44.371565+05:30
+1812	5	https://arxiv.org/abs/2607.10534	2026-07-14 18:00:44.371565+05:30
+1813	5	https://arxiv.org/abs/2607.10539	2026-07-14 18:00:44.371565+05:30
+1814	5	https://arxiv.org/abs/2607.10559	2026-07-14 18:00:44.371565+05:30
+1815	5	https://arxiv.org/abs/2607.10562	2026-07-14 18:00:44.371565+05:30
+1816	5	https://arxiv.org/abs/2607.10578	2026-07-14 18:00:44.371565+05:30
+1817	5	https://arxiv.org/abs/2607.10588	2026-07-14 18:00:44.371565+05:30
+1818	5	https://arxiv.org/abs/2607.10599	2026-07-14 18:00:44.371565+05:30
+1819	5	https://arxiv.org/abs/2607.10601	2026-07-14 18:00:44.371565+05:30
+1820	5	https://arxiv.org/abs/2607.10608	2026-07-14 18:00:44.371565+05:30
+1821	5	https://arxiv.org/abs/2607.10651	2026-07-14 18:00:44.371565+05:30
+1822	5	https://arxiv.org/abs/2607.10678	2026-07-14 18:00:44.371565+05:30
+1823	5	https://arxiv.org/abs/2607.10720	2026-07-14 18:00:44.371565+05:30
+1824	5	https://arxiv.org/abs/2607.10750	2026-07-14 18:00:44.371565+05:30
+1825	5	https://arxiv.org/abs/2607.10768	2026-07-14 18:00:44.371565+05:30
+1826	5	https://arxiv.org/abs/2607.10789	2026-07-14 18:00:44.371565+05:30
+1827	5	https://arxiv.org/abs/2607.10795	2026-07-14 18:00:44.371565+05:30
+1828	5	https://arxiv.org/abs/2607.10836	2026-07-14 18:00:44.371565+05:30
+1829	5	https://arxiv.org/abs/2607.10871	2026-07-14 18:00:44.371565+05:30
+1830	5	https://arxiv.org/abs/2607.10878	2026-07-14 18:00:44.371565+05:30
+1831	5	https://arxiv.org/abs/2607.10880	2026-07-14 18:00:44.371565+05:30
+1832	5	https://arxiv.org/abs/2607.10891	2026-07-14 18:00:44.371565+05:30
+1833	5	https://arxiv.org/abs/2607.10896	2026-07-14 18:00:44.371565+05:30
+1834	5	https://arxiv.org/abs/2607.10918	2026-07-14 18:00:44.371565+05:30
+1835	5	https://arxiv.org/abs/2607.10966	2026-07-14 18:00:44.371565+05:30
+1836	5	https://arxiv.org/abs/2607.10972	2026-07-14 18:00:44.371565+05:30
+1837	5	https://arxiv.org/abs/2607.11019	2026-07-14 18:00:44.371565+05:30
+1838	5	https://arxiv.org/abs/2607.11063	2026-07-14 18:00:44.371565+05:30
+1839	5	https://arxiv.org/abs/2607.11079	2026-07-14 18:00:44.371565+05:30
+1840	5	https://arxiv.org/abs/2607.11084	2026-07-14 18:00:44.371565+05:30
+1841	5	https://arxiv.org/abs/2607.11089	2026-07-14 18:00:44.371565+05:30
+1842	5	https://arxiv.org/abs/2607.11138	2026-07-14 18:00:44.371565+05:30
+1843	5	https://arxiv.org/abs/2607.11141	2026-07-14 18:00:44.371565+05:30
+1844	5	https://arxiv.org/abs/2607.11149	2026-07-14 18:00:44.371565+05:30
+1845	5	https://arxiv.org/abs/2607.11172	2026-07-14 18:00:44.371565+05:30
+1846	5	https://arxiv.org/abs/2607.11175	2026-07-14 18:00:44.371565+05:30
+1847	5	https://arxiv.org/abs/2607.11185	2026-07-14 18:00:44.371565+05:30
+1848	5	https://arxiv.org/abs/2607.11197	2026-07-14 18:00:44.371565+05:30
+1849	5	https://arxiv.org/abs/2607.11212	2026-07-14 18:00:44.371565+05:30
+1850	5	https://arxiv.org/abs/2607.11226	2026-07-14 18:00:44.371565+05:30
+1851	5	https://arxiv.org/abs/2607.11263	2026-07-14 18:00:44.371565+05:30
+1852	5	https://arxiv.org/abs/2607.11266	2026-07-14 18:00:44.371565+05:30
+1853	5	https://arxiv.org/abs/2607.11307	2026-07-14 18:00:44.371565+05:30
+1854	5	https://arxiv.org/abs/2607.11317	2026-07-14 18:00:44.371565+05:30
+1855	5	https://arxiv.org/abs/2607.11334	2026-07-14 18:00:44.371565+05:30
+1856	5	https://arxiv.org/abs/2607.11338	2026-07-14 18:00:44.371565+05:30
+1857	5	https://arxiv.org/abs/2607.11346	2026-07-14 18:00:44.371565+05:30
+1858	5	https://arxiv.org/abs/2607.11347	2026-07-14 18:00:44.371565+05:30
+1859	5	https://arxiv.org/abs/2607.11357	2026-07-14 18:00:44.371565+05:30
+1860	5	https://arxiv.org/abs/2607.11388	2026-07-14 18:00:44.371565+05:30
+1861	5	https://arxiv.org/abs/2607.11433	2026-07-14 18:00:44.371565+05:30
+1862	5	https://arxiv.org/abs/2607.11436	2026-07-14 18:00:44.371565+05:30
+1863	5	https://arxiv.org/abs/2607.11492	2026-07-14 18:00:44.371565+05:30
+1864	5	https://arxiv.org/abs/2607.11501	2026-07-14 18:00:44.371565+05:30
+1865	5	https://arxiv.org/abs/2607.11530	2026-07-14 18:00:44.371565+05:30
+1866	5	https://arxiv.org/abs/2607.11586	2026-07-14 18:00:44.371565+05:30
+1867	5	https://arxiv.org/abs/2607.11594	2026-07-14 18:00:44.371565+05:30
+1868	5	https://arxiv.org/abs/2607.11598	2026-07-14 18:00:44.371565+05:30
+1869	5	https://arxiv.org/abs/2607.11607	2026-07-14 18:00:44.371565+05:30
+1870	5	https://arxiv.org/abs/2607.11621	2026-07-14 18:00:44.371565+05:30
+1871	5	https://arxiv.org/abs/2607.11632	2026-07-14 18:00:44.371565+05:30
+1872	5	https://arxiv.org/abs/2607.11696	2026-07-14 18:00:44.371565+05:30
+1873	5	https://arxiv.org/abs/2607.11749	2026-07-14 18:00:44.371565+05:30
+1874	5	https://arxiv.org/abs/2607.08292	2026-07-14 18:00:44.371565+05:30
+1875	5	https://arxiv.org/abs/2607.09666	2026-07-14 18:00:44.371565+05:30
+1876	5	https://arxiv.org/abs/2607.09680	2026-07-14 18:00:44.371565+05:30
+1877	5	https://arxiv.org/abs/2607.09683	2026-07-14 18:00:44.371565+05:30
+1878	5	https://arxiv.org/abs/2607.09684	2026-07-14 18:00:44.371565+05:30
+1879	5	https://arxiv.org/abs/2607.09685	2026-07-14 18:00:44.371565+05:30
+1880	5	https://arxiv.org/abs/2607.09691	2026-07-14 18:00:44.371565+05:30
+1881	5	https://arxiv.org/abs/2607.09693	2026-07-14 18:00:44.371565+05:30
+1882	5	https://arxiv.org/abs/2607.09696	2026-07-14 18:00:44.371565+05:30
+1883	5	https://arxiv.org/abs/2607.09705	2026-07-14 18:00:44.371565+05:30
+1884	5	https://arxiv.org/abs/2607.09721	2026-07-14 18:00:44.371565+05:30
+1885	5	https://arxiv.org/abs/2607.09727	2026-07-14 18:00:44.371565+05:30
+1886	5	https://arxiv.org/abs/2607.09741	2026-07-14 18:00:44.371565+05:30
+1887	5	https://arxiv.org/abs/2607.09749	2026-07-14 18:00:44.371565+05:30
+1888	5	https://arxiv.org/abs/2607.09752	2026-07-14 18:00:44.371565+05:30
+1889	5	https://arxiv.org/abs/2607.09753	2026-07-14 18:00:44.371565+05:30
+1890	5	https://arxiv.org/abs/2607.09754	2026-07-14 18:00:44.371565+05:30
+1891	5	https://arxiv.org/abs/2607.09757	2026-07-14 18:00:44.371565+05:30
+1892	5	https://arxiv.org/abs/2607.09759	2026-07-14 18:00:44.371565+05:30
+1893	5	https://arxiv.org/abs/2607.09760	2026-07-14 18:00:44.371565+05:30
+1894	5	https://arxiv.org/abs/2607.09763	2026-07-14 18:00:44.371565+05:30
+1895	5	https://arxiv.org/abs/2607.09764	2026-07-14 18:00:44.371565+05:30
+1896	5	https://arxiv.org/abs/2607.09767	2026-07-14 18:00:44.371565+05:30
+1897	5	https://arxiv.org/abs/2607.09776	2026-07-14 18:00:44.371565+05:30
+1898	5	https://arxiv.org/abs/2607.09785	2026-07-14 18:00:44.371565+05:30
+1899	5	https://arxiv.org/abs/2607.09792	2026-07-14 18:00:44.371565+05:30
+1900	5	https://arxiv.org/abs/2607.09795	2026-07-14 18:00:44.371565+05:30
+1901	5	https://arxiv.org/abs/2607.09798	2026-07-14 18:00:44.371565+05:30
+1902	5	https://arxiv.org/abs/2607.09804	2026-07-14 18:00:44.371565+05:30
+1903	5	https://arxiv.org/abs/2607.09805	2026-07-14 18:00:44.371565+05:30
+1904	5	https://arxiv.org/abs/2607.09806	2026-07-14 18:00:44.371565+05:30
+1905	5	https://arxiv.org/abs/2607.09818	2026-07-14 18:00:44.371565+05:30
+1906	5	https://arxiv.org/abs/2607.09822	2026-07-14 18:00:44.371565+05:30
+1907	5	https://arxiv.org/abs/2607.09825	2026-07-14 18:00:44.371565+05:30
+1908	5	https://arxiv.org/abs/2607.09826	2026-07-14 18:00:44.371565+05:30
+1909	5	https://arxiv.org/abs/2607.09866	2026-07-14 18:00:44.371565+05:30
+1910	5	https://arxiv.org/abs/2607.09876	2026-07-14 18:00:44.371565+05:30
+1911	5	https://arxiv.org/abs/2607.09880	2026-07-14 18:00:44.371565+05:30
+1912	5	https://arxiv.org/abs/2607.09889	2026-07-14 18:00:44.371565+05:30
+1913	5	https://arxiv.org/abs/2607.09891	2026-07-14 18:00:44.371565+05:30
+1914	5	https://arxiv.org/abs/2607.09892	2026-07-14 18:00:44.371565+05:30
+1915	5	https://arxiv.org/abs/2607.09902	2026-07-14 18:00:44.371565+05:30
+1916	5	https://arxiv.org/abs/2607.09932	2026-07-14 18:00:44.371565+05:30
+1917	5	https://arxiv.org/abs/2607.09936	2026-07-14 18:00:44.371565+05:30
+1918	5	https://arxiv.org/abs/2607.09954	2026-07-14 18:00:44.371565+05:30
+1919	5	https://arxiv.org/abs/2607.09955	2026-07-14 18:00:44.371565+05:30
+1920	5	https://arxiv.org/abs/2607.09957	2026-07-14 18:00:44.371565+05:30
+1921	5	https://arxiv.org/abs/2607.09967	2026-07-14 18:00:44.371565+05:30
+1922	5	https://arxiv.org/abs/2607.09973	2026-07-14 18:00:44.371565+05:30
+1923	5	https://arxiv.org/abs/2607.09988	2026-07-14 18:00:44.371565+05:30
+1924	5	https://arxiv.org/abs/2607.09993	2026-07-14 18:00:44.371565+05:30
+1925	5	https://arxiv.org/abs/2607.10020	2026-07-14 18:00:44.371565+05:30
+1926	5	https://arxiv.org/abs/2607.10038	2026-07-14 18:00:44.371565+05:30
+1927	5	https://arxiv.org/abs/2607.10057	2026-07-14 18:00:44.371565+05:30
+1928	5	https://arxiv.org/abs/2607.10092	2026-07-14 18:00:44.371565+05:30
+1929	5	https://arxiv.org/abs/2607.10109	2026-07-14 18:00:44.371565+05:30
+1930	5	https://arxiv.org/abs/2607.10112	2026-07-14 18:00:44.371565+05:30
+1931	5	https://arxiv.org/abs/2607.10114	2026-07-14 18:00:44.371565+05:30
+1932	5	https://arxiv.org/abs/2607.10116	2026-07-14 18:00:44.371565+05:30
+1933	5	https://arxiv.org/abs/2607.10123	2026-07-14 18:00:44.371565+05:30
+1934	5	https://arxiv.org/abs/2607.10126	2026-07-14 18:00:44.371565+05:30
+1935	5	https://arxiv.org/abs/2607.10127	2026-07-14 18:00:44.371565+05:30
+1936	5	https://arxiv.org/abs/2607.10131	2026-07-14 18:00:44.371565+05:30
+1937	5	https://arxiv.org/abs/2607.10139	2026-07-14 18:00:44.371565+05:30
+1938	5	https://arxiv.org/abs/2607.10140	2026-07-14 18:00:44.371565+05:30
+1939	5	https://arxiv.org/abs/2607.10165	2026-07-14 18:00:44.371565+05:30
+1940	5	https://arxiv.org/abs/2607.10168	2026-07-14 18:00:44.371565+05:30
+1941	5	https://arxiv.org/abs/2607.10169	2026-07-14 18:00:44.371565+05:30
+1942	5	https://arxiv.org/abs/2607.10180	2026-07-14 18:00:44.371565+05:30
+1943	5	https://arxiv.org/abs/2607.10183	2026-07-14 18:00:44.371565+05:30
+1944	5	https://arxiv.org/abs/2607.10190	2026-07-14 18:00:44.371565+05:30
+1945	5	https://arxiv.org/abs/2607.10191	2026-07-14 18:00:44.371565+05:30
+1946	5	https://arxiv.org/abs/2607.10194	2026-07-14 18:00:44.371565+05:30
+1947	5	https://arxiv.org/abs/2607.10201	2026-07-14 18:00:44.371565+05:30
+1948	5	https://arxiv.org/abs/2607.10203	2026-07-14 18:00:44.371565+05:30
+1949	5	https://arxiv.org/abs/2607.10206	2026-07-14 18:00:44.371565+05:30
+1950	5	https://arxiv.org/abs/2607.10208	2026-07-14 18:00:44.371565+05:30
+1951	5	https://arxiv.org/abs/2607.10231	2026-07-14 18:00:44.371565+05:30
+1952	5	https://arxiv.org/abs/2607.10291	2026-07-14 18:00:44.371565+05:30
+1953	5	https://arxiv.org/abs/2607.10295	2026-07-14 18:00:44.371565+05:30
+1954	5	https://arxiv.org/abs/2607.10312	2026-07-14 18:00:44.371565+05:30
+1955	5	https://arxiv.org/abs/2607.10317	2026-07-14 18:00:44.371565+05:30
+1956	5	https://arxiv.org/abs/2607.10341	2026-07-14 18:00:44.371565+05:30
+1957	5	https://arxiv.org/abs/2607.10357	2026-07-14 18:00:44.371565+05:30
+1958	5	https://arxiv.org/abs/2607.10358	2026-07-14 18:00:44.371565+05:30
+1959	5	https://arxiv.org/abs/2607.10364	2026-07-14 18:00:44.371565+05:30
+1960	5	https://arxiv.org/abs/2607.10369	2026-07-14 18:00:44.371565+05:30
+1961	5	https://arxiv.org/abs/2607.10383	2026-07-14 18:00:44.371565+05:30
+1962	5	https://arxiv.org/abs/2607.10386	2026-07-14 18:00:44.371565+05:30
+1963	5	https://arxiv.org/abs/2607.10388	2026-07-14 18:00:44.371565+05:30
+1964	5	https://arxiv.org/abs/2607.10390	2026-07-14 18:00:44.371565+05:30
+1965	5	https://arxiv.org/abs/2607.10400	2026-07-14 18:00:44.371565+05:30
+1966	5	https://arxiv.org/abs/2607.10402	2026-07-14 18:00:44.371565+05:30
+1967	5	https://arxiv.org/abs/2607.10405	2026-07-14 18:00:44.371565+05:30
+1968	5	https://arxiv.org/abs/2607.10411	2026-07-14 18:00:44.371565+05:30
+1969	5	https://arxiv.org/abs/2607.10439	2026-07-14 18:00:44.371565+05:30
+1970	5	https://arxiv.org/abs/2607.10441	2026-07-14 18:00:44.371565+05:30
+1971	5	https://arxiv.org/abs/2607.10461	2026-07-14 18:00:44.371565+05:30
+1972	5	https://arxiv.org/abs/2607.10474	2026-07-14 18:00:44.371565+05:30
+1973	5	https://arxiv.org/abs/2607.10481	2026-07-14 18:00:44.371565+05:30
+1974	5	https://arxiv.org/abs/2607.10487	2026-07-14 18:00:44.371565+05:30
+1975	5	https://arxiv.org/abs/2607.10508	2026-07-14 18:00:44.371565+05:30
+1976	5	https://arxiv.org/abs/2607.10517	2026-07-14 18:00:44.371565+05:30
+1977	5	https://arxiv.org/abs/2607.10522	2026-07-14 18:00:44.371565+05:30
+1978	5	https://arxiv.org/abs/2607.10531	2026-07-14 18:00:44.371565+05:30
+1979	5	https://arxiv.org/abs/2607.10555	2026-07-14 18:00:44.371565+05:30
+1980	5	https://arxiv.org/abs/2607.10569	2026-07-14 18:00:44.371565+05:30
+1981	5	https://arxiv.org/abs/2607.10571	2026-07-14 18:00:44.371565+05:30
+1982	5	https://arxiv.org/abs/2607.10580	2026-07-14 18:00:44.371565+05:30
+1983	5	https://arxiv.org/abs/2607.10582	2026-07-14 18:00:44.371565+05:30
+1984	5	https://arxiv.org/abs/2607.10610	2026-07-14 18:00:44.371565+05:30
+1985	5	https://arxiv.org/abs/2607.10628	2026-07-14 18:00:44.371565+05:30
+1986	5	https://arxiv.org/abs/2607.10630	2026-07-14 18:00:44.371565+05:30
+1987	5	https://arxiv.org/abs/2607.10633	2026-07-14 18:00:44.371565+05:30
+1988	5	https://arxiv.org/abs/2607.10649	2026-07-14 18:00:44.371565+05:30
+1989	5	https://arxiv.org/abs/2607.10661	2026-07-14 18:00:44.371565+05:30
+1990	5	https://arxiv.org/abs/2607.10666	2026-07-14 18:00:44.371565+05:30
+1991	5	https://arxiv.org/abs/2607.10674	2026-07-14 18:00:44.371565+05:30
+1992	5	https://arxiv.org/abs/2607.10694	2026-07-14 18:00:44.371565+05:30
+1993	5	https://arxiv.org/abs/2607.10706	2026-07-14 18:00:44.371565+05:30
+1994	5	https://arxiv.org/abs/2607.10707	2026-07-14 18:00:44.371565+05:30
+1995	5	https://arxiv.org/abs/2607.10709	2026-07-14 18:00:44.371565+05:30
+1996	5	https://arxiv.org/abs/2607.10712	2026-07-14 18:00:44.371565+05:30
+1997	5	https://arxiv.org/abs/2607.10715	2026-07-14 18:00:44.371565+05:30
+1998	5	https://arxiv.org/abs/2607.10738	2026-07-14 18:00:44.371565+05:30
+1999	5	https://arxiv.org/abs/2607.10740	2026-07-14 18:00:44.371565+05:30
+2000	5	https://arxiv.org/abs/2607.10771	2026-07-14 18:00:44.371565+05:30
+2001	5	https://arxiv.org/abs/2607.10784	2026-07-14 18:00:44.371565+05:30
+2002	5	https://arxiv.org/abs/2607.10803	2026-07-14 18:00:44.371565+05:30
+2003	5	https://arxiv.org/abs/2607.10806	2026-07-14 18:00:44.371565+05:30
+2004	5	https://arxiv.org/abs/2607.10810	2026-07-14 18:00:44.371565+05:30
+2005	5	https://arxiv.org/abs/2607.10811	2026-07-14 18:00:44.371565+05:30
+2006	5	https://arxiv.org/abs/2607.10814	2026-07-14 18:00:44.371565+05:30
+2007	5	https://arxiv.org/abs/2607.10825	2026-07-14 18:00:44.371565+05:30
+2008	5	https://arxiv.org/abs/2607.10826	2026-07-14 18:00:44.371565+05:30
+2009	5	https://arxiv.org/abs/2607.10856	2026-07-14 18:00:44.371565+05:30
+2010	5	https://arxiv.org/abs/2607.10911	2026-07-14 18:00:44.371565+05:30
+2011	5	https://arxiv.org/abs/2607.10930	2026-07-14 18:00:44.371565+05:30
+2012	5	https://arxiv.org/abs/2607.10942	2026-07-14 18:00:44.371565+05:30
+2013	5	https://arxiv.org/abs/2607.10963	2026-07-14 18:00:44.371565+05:30
+2014	5	https://arxiv.org/abs/2607.10969	2026-07-14 18:00:44.371565+05:30
+2015	5	https://arxiv.org/abs/2607.10984	2026-07-14 18:00:44.371565+05:30
+2016	5	https://arxiv.org/abs/2607.10988	2026-07-14 18:00:44.371565+05:30
+2017	5	https://arxiv.org/abs/2607.10991	2026-07-14 18:00:44.371565+05:30
+2018	5	https://arxiv.org/abs/2607.10992	2026-07-14 18:00:44.371565+05:30
+2019	5	https://arxiv.org/abs/2607.11004	2026-07-14 18:00:44.371565+05:30
+2020	5	https://arxiv.org/abs/2607.11005	2026-07-14 18:00:44.371565+05:30
+2021	5	https://arxiv.org/abs/2607.11008	2026-07-14 18:00:44.371565+05:30
+2022	5	https://arxiv.org/abs/2607.11039	2026-07-14 18:00:44.371565+05:30
+2023	5	https://arxiv.org/abs/2607.11042	2026-07-14 18:00:44.371565+05:30
+2024	5	https://arxiv.org/abs/2607.11053	2026-07-14 18:00:44.371565+05:30
+2025	5	https://arxiv.org/abs/2607.11078	2026-07-14 18:00:44.371565+05:30
+2026	5	https://arxiv.org/abs/2607.11081	2026-07-14 18:00:44.371565+05:30
+2027	5	https://arxiv.org/abs/2607.11098	2026-07-14 18:00:44.371565+05:30
+2028	5	https://arxiv.org/abs/2607.11116	2026-07-14 18:00:44.371565+05:30
+2029	5	https://arxiv.org/abs/2607.11117	2026-07-14 18:00:44.371565+05:30
+2030	5	https://arxiv.org/abs/2607.11119	2026-07-14 18:00:44.371565+05:30
+2031	5	https://arxiv.org/abs/2607.11124	2026-07-14 18:00:44.371565+05:30
+2032	5	https://arxiv.org/abs/2607.11151	2026-07-14 18:00:44.371565+05:30
+2033	5	https://arxiv.org/abs/2607.11167	2026-07-14 18:00:44.371565+05:30
+2034	5	https://arxiv.org/abs/2607.11193	2026-07-14 18:00:44.371565+05:30
+2035	5	https://arxiv.org/abs/2607.11207	2026-07-14 18:00:44.371565+05:30
+2036	5	https://arxiv.org/abs/2607.11221	2026-07-14 18:00:44.371565+05:30
+2037	5	https://arxiv.org/abs/2607.11228	2026-07-14 18:00:44.371565+05:30
+2038	5	https://arxiv.org/abs/2607.11245	2026-07-14 18:00:44.371565+05:30
+2039	5	https://arxiv.org/abs/2607.11250	2026-07-14 18:00:44.371565+05:30
+2040	5	https://arxiv.org/abs/2607.11267	2026-07-14 18:00:44.371565+05:30
+2041	5	https://arxiv.org/abs/2607.11270	2026-07-14 18:00:44.371565+05:30
+2042	5	https://arxiv.org/abs/2607.11276	2026-07-14 18:00:44.371565+05:30
+2043	5	https://arxiv.org/abs/2607.11287	2026-07-14 18:00:44.371565+05:30
+2044	5	https://arxiv.org/abs/2607.11288	2026-07-14 18:00:44.371565+05:30
+2045	5	https://arxiv.org/abs/2607.11292	2026-07-14 18:00:44.371565+05:30
+2046	5	https://arxiv.org/abs/2607.11314	2026-07-14 18:00:44.371565+05:30
+2047	5	https://arxiv.org/abs/2607.11327	2026-07-14 18:00:44.371565+05:30
+2048	5	https://arxiv.org/abs/2607.11342	2026-07-14 18:00:44.371565+05:30
+2049	5	https://arxiv.org/abs/2607.11343	2026-07-14 18:00:44.371565+05:30
+2050	5	https://arxiv.org/abs/2607.11348	2026-07-14 18:00:44.371565+05:30
+2051	5	https://arxiv.org/abs/2607.11353	2026-07-14 18:00:44.371565+05:30
+2052	5	https://arxiv.org/abs/2607.11363	2026-07-14 18:00:44.371565+05:30
+2053	5	https://arxiv.org/abs/2607.11364	2026-07-14 18:00:44.371565+05:30
+2054	5	https://arxiv.org/abs/2607.11377	2026-07-14 18:00:44.371565+05:30
+2055	5	https://arxiv.org/abs/2607.11399	2026-07-14 18:00:44.371565+05:30
+2056	5	https://arxiv.org/abs/2607.11412	2026-07-14 18:00:44.371565+05:30
+2057	5	https://arxiv.org/abs/2607.11459	2026-07-14 18:00:44.371565+05:30
+2058	5	https://arxiv.org/abs/2607.11487	2026-07-14 18:00:44.371565+05:30
+2059	5	https://arxiv.org/abs/2607.11493	2026-07-14 18:00:44.371565+05:30
+2060	5	https://arxiv.org/abs/2607.11497	2026-07-14 18:00:44.371565+05:30
+2061	5	https://arxiv.org/abs/2607.11498	2026-07-14 18:00:44.371565+05:30
+2062	5	https://arxiv.org/abs/2607.11505	2026-07-14 18:00:44.371565+05:30
+2063	5	https://arxiv.org/abs/2607.11508	2026-07-14 18:00:44.371565+05:30
+2064	5	https://arxiv.org/abs/2607.11512	2026-07-14 18:00:44.371565+05:30
+2065	5	https://arxiv.org/abs/2607.11523	2026-07-14 18:00:44.371565+05:30
+2066	5	https://arxiv.org/abs/2607.11526	2026-07-14 18:00:44.371565+05:30
+2067	5	https://arxiv.org/abs/2607.11560	2026-07-14 18:00:44.371565+05:30
+2068	5	https://arxiv.org/abs/2607.11565	2026-07-14 18:00:44.371565+05:30
+2069	5	https://arxiv.org/abs/2607.11577	2026-07-14 18:00:44.371565+05:30
+2070	5	https://arxiv.org/abs/2607.11578	2026-07-14 18:00:44.371565+05:30
+2071	5	https://arxiv.org/abs/2607.11614	2026-07-14 18:00:44.371565+05:30
+2072	5	https://arxiv.org/abs/2607.11643	2026-07-14 18:00:44.371565+05:30
+2073	5	https://arxiv.org/abs/2607.11649	2026-07-14 18:00:44.371565+05:30
+2074	5	https://arxiv.org/abs/2607.11683	2026-07-14 18:00:44.371565+05:30
+2075	5	https://arxiv.org/abs/2607.11689	2026-07-14 18:00:44.371565+05:30
+2076	5	https://arxiv.org/abs/2607.11698	2026-07-14 18:00:44.371565+05:30
+2077	5	https://arxiv.org/abs/2607.11706	2026-07-14 18:00:44.371565+05:30
+2078	5	https://arxiv.org/abs/2607.11707	2026-07-14 18:00:44.371565+05:30
+2079	5	https://arxiv.org/abs/2607.11720	2026-07-14 18:00:44.371565+05:30
+2080	5	https://arxiv.org/abs/2607.11725	2026-07-14 18:00:44.371565+05:30
+2081	5	https://arxiv.org/abs/2607.11771	2026-07-14 18:00:44.371565+05:30
+2082	5	https://arxiv.org/abs/2607.11798	2026-07-14 18:00:44.371565+05:30
+2083	5	https://arxiv.org/abs/2607.11801	2026-07-14 18:00:44.371565+05:30
+2084	5	https://arxiv.org/abs/2607.11808	2026-07-14 18:00:44.371565+05:30
+2085	5	https://arxiv.org/abs/2607.11818	2026-07-14 18:00:44.371565+05:30
+2086	5	https://arxiv.org/abs/2607.11826	2026-07-14 18:00:44.371565+05:30
+2087	5	https://arxiv.org/abs/2607.11839	2026-07-14 18:00:44.371565+05:30
+2088	5	https://arxiv.org/abs/2607.11862	2026-07-14 18:00:44.371565+05:30
+2089	5	https://arxiv.org/abs/2607.11871	2026-07-14 18:00:44.371565+05:30
+2090	5	https://arxiv.org/abs/2607.11874	2026-07-14 18:00:44.371565+05:30
+2091	5	https://arxiv.org/abs/2607.11875	2026-07-14 18:00:44.371565+05:30
+2092	5	https://arxiv.org/abs/2607.11881	2026-07-14 18:00:44.371565+05:30
+2093	5	https://arxiv.org/abs/2503.14499	2026-07-14 18:00:44.371565+05:30
+2094	5	https://arxiv.org/abs/2507.04673	2026-07-14 18:00:44.371565+05:30
+2095	5	https://arxiv.org/abs/2507.16395	2026-07-14 18:00:44.371565+05:30
+2096	5	https://arxiv.org/abs/2508.03174	2026-07-14 18:00:44.371565+05:30
+2097	5	https://arxiv.org/abs/2511.15830	2026-07-14 18:00:44.371565+05:30
+2098	5	https://arxiv.org/abs/2601.06362	2026-07-14 18:00:44.371565+05:30
+2099	5	https://arxiv.org/abs/2601.06401	2026-07-14 18:00:44.371565+05:30
+2100	5	https://arxiv.org/abs/2602.02905	2026-07-14 18:00:44.371565+05:30
+2101	5	https://arxiv.org/abs/2602.06486	2026-07-14 18:00:44.371565+05:30
+2102	5	https://arxiv.org/abs/2602.23242	2026-07-14 18:00:44.371565+05:30
+2103	5	https://arxiv.org/abs/2603.22973	2026-07-14 18:00:44.371565+05:30
+2104	5	https://arxiv.org/abs/2603.25115	2026-07-14 18:00:44.371565+05:30
+2105	5	https://arxiv.org/abs/2604.00137	2026-07-14 18:00:44.371565+05:30
+2106	5	https://arxiv.org/abs/2604.02721	2026-07-14 18:00:44.371565+05:30
+2107	5	https://arxiv.org/abs/2604.18576	2026-07-14 18:00:44.371565+05:30
+2108	5	https://arxiv.org/abs/2604.19753	2026-07-14 18:00:44.371565+05:30
+2109	5	https://arxiv.org/abs/2604.21334	2026-07-14 18:00:44.371565+05:30
+2110	5	https://arxiv.org/abs/2604.25917	2026-07-14 18:00:44.371565+05:30
+2111	5	https://arxiv.org/abs/2605.01143	2026-07-14 18:00:44.371565+05:30
+2112	5	https://arxiv.org/abs/2605.07066	2026-07-14 18:00:44.371565+05:30
+2113	5	https://arxiv.org/abs/2605.10332	2026-07-14 18:00:44.371565+05:30
+2114	5	https://arxiv.org/abs/2605.14998	2026-07-14 18:00:44.371565+05:30
+2115	5	https://arxiv.org/abs/2606.01063	2026-07-14 18:00:44.371565+05:30
+2116	5	https://arxiv.org/abs/2606.08098	2026-07-14 18:00:44.371565+05:30
+2117	5	https://arxiv.org/abs/2606.11637	2026-07-14 18:00:44.371565+05:30
+2118	5	https://arxiv.org/abs/2606.27826	2026-07-14 18:00:44.371565+05:30
+2119	5	https://arxiv.org/abs/2606.31651	2026-07-14 18:00:44.371565+05:30
+2120	5	https://arxiv.org/abs/2607.01061	2026-07-14 18:00:44.371565+05:30
+2121	5	https://arxiv.org/abs/2607.01674	2026-07-14 18:00:44.371565+05:30
+2122	5	https://arxiv.org/abs/2607.02087	2026-07-14 18:00:44.371565+05:30
+2123	5	https://arxiv.org/abs/2607.04419	2026-07-14 18:00:44.371565+05:30
+2124	5	https://arxiv.org/abs/2607.05238	2026-07-14 18:00:44.371565+05:30
+2125	5	https://arxiv.org/abs/2607.06166	2026-07-14 18:00:44.371565+05:30
+2126	5	https://arxiv.org/abs/2607.08964	2026-07-14 18:00:44.371565+05:30
+2127	5	https://arxiv.org/abs/2607.09322	2026-07-14 18:00:44.371565+05:30
+2128	5	https://arxiv.org/abs/2204.04887	2026-07-14 18:00:44.371565+05:30
+2129	5	https://arxiv.org/abs/2204.06221	2026-07-14 18:00:44.371565+05:30
+2130	5	https://arxiv.org/abs/2204.09333	2026-07-14 18:00:44.371565+05:30
+2131	5	https://arxiv.org/abs/2402.01767	2026-07-14 18:00:44.371565+05:30
+2132	5	https://arxiv.org/abs/2409.19716	2026-07-14 18:00:44.371565+05:30
+2133	5	https://arxiv.org/abs/2410.03565	2026-07-14 18:00:44.371565+05:30
+2134	5	https://arxiv.org/abs/2410.19553	2026-07-14 18:00:44.371565+05:30
+2135	5	https://arxiv.org/abs/2410.20535	2026-07-14 18:00:44.371565+05:30
+2136	5	https://arxiv.org/abs/2501.13692	2026-07-14 18:00:44.371565+05:30
+2137	5	https://arxiv.org/abs/2502.20681	2026-07-14 18:00:44.371565+05:30
+2138	5	https://arxiv.org/abs/2504.05349	2026-07-14 18:00:44.371565+05:30
+2139	5	https://arxiv.org/abs/2506.07040	2026-07-14 18:00:44.371565+05:30
+2140	5	https://arxiv.org/abs/2506.14411	2026-07-14 18:00:44.371565+05:30
+2141	5	https://arxiv.org/abs/2506.20893	2026-07-14 18:00:44.371565+05:30
+2142	5	https://arxiv.org/abs/2507.01042	2026-07-14 18:00:44.371565+05:30
+2143	5	https://arxiv.org/abs/2507.03670	2026-07-14 18:00:44.371565+05:30
+2144	5	https://arxiv.org/abs/2507.11059	2026-07-14 18:00:44.371565+05:30
+2145	5	https://arxiv.org/abs/2508.02091	2026-07-14 18:00:44.371565+05:30
+2146	5	https://arxiv.org/abs/2508.09904	2026-07-14 18:00:44.371565+05:30
+2147	5	https://arxiv.org/abs/2508.10123	2026-07-14 18:00:44.371565+05:30
+2148	5	https://arxiv.org/abs/2508.21787	2026-07-14 18:00:44.371565+05:30
+2149	5	https://arxiv.org/abs/2509.24148	2026-07-14 18:00:44.371565+05:30
+2150	5	https://arxiv.org/abs/2509.24256	2026-07-14 18:00:44.371565+05:30
+2151	5	https://arxiv.org/abs/2509.24653	2026-07-14 18:00:44.371565+05:30
+2152	5	https://arxiv.org/abs/2510.09497	2026-07-14 18:00:44.371565+05:30
+2153	5	https://arxiv.org/abs/2510.11503	2026-07-14 18:00:44.371565+05:30
+2154	5	https://arxiv.org/abs/2510.18908	2026-07-14 18:00:44.371565+05:30
+2155	5	https://arxiv.org/abs/2511.09149	2026-07-14 18:00:44.371565+05:30
+2156	5	https://arxiv.org/abs/2511.17688	2026-07-14 18:00:44.371565+05:30
+2157	5	https://arxiv.org/abs/2511.19558	2026-07-14 18:00:44.371565+05:30
+2158	5	https://arxiv.org/abs/2511.22331	2026-07-14 18:00:44.371565+05:30
+2159	5	https://arxiv.org/abs/2512.02551	2026-07-14 18:00:44.371565+05:30
+2160	5	https://arxiv.org/abs/2512.07901	2026-07-14 18:00:44.371565+05:30
+2161	5	https://arxiv.org/abs/2512.09586	2026-07-14 18:00:44.371565+05:30
+2162	5	https://arxiv.org/abs/2512.15376	2026-07-14 18:00:44.371565+05:30
+2163	5	https://arxiv.org/abs/2512.19311	2026-07-14 18:00:44.371565+05:30
+2164	5	https://arxiv.org/abs/2601.01406	2026-07-14 18:00:44.371565+05:30
+2165	5	https://arxiv.org/abs/2601.06861	2026-07-14 18:00:44.371565+05:30
+2166	5	https://arxiv.org/abs/2601.07155	2026-07-14 18:00:44.371565+05:30
+2167	5	https://arxiv.org/abs/2601.07372	2026-07-14 18:00:44.371565+05:30
+2168	5	https://arxiv.org/abs/2601.15995	2026-07-14 18:00:44.371565+05:30
+2169	5	https://arxiv.org/abs/2601.16152	2026-07-14 18:00:44.371565+05:30
+2170	5	https://arxiv.org/abs/2601.17090	2026-07-14 18:00:44.371565+05:30
+2171	5	https://arxiv.org/abs/2602.00620	2026-07-14 18:00:44.371565+05:30
+2172	5	https://arxiv.org/abs/2602.04291	2026-07-14 18:00:44.371565+05:30
+2173	5	https://arxiv.org/abs/2602.11483	2026-07-14 18:00:44.371565+05:30
+2174	5	https://arxiv.org/abs/2602.14687	2026-07-14 18:00:44.371565+05:30
+2175	5	https://arxiv.org/abs/2602.14834	2026-07-14 18:00:44.371565+05:30
+2176	5	https://arxiv.org/abs/2602.17686	2026-07-14 18:00:44.371565+05:30
+2177	5	https://arxiv.org/abs/2602.17993	2026-07-14 18:00:44.371565+05:30
+2178	5	https://arxiv.org/abs/2602.21255	2026-07-14 18:00:44.371565+05:30
+2179	5	https://arxiv.org/abs/2603.01331	2026-07-14 18:00:44.371565+05:30
+2180	5	https://arxiv.org/abs/2603.03953	2026-07-14 18:00:44.371565+05:30
+2181	5	https://arxiv.org/abs/2603.04277	2026-07-14 18:00:44.371565+05:30
+2182	5	https://arxiv.org/abs/2603.04419	2026-07-14 18:00:44.371565+05:30
+2183	5	https://arxiv.org/abs/2603.08825	2026-07-14 18:00:44.371565+05:30
+2184	5	https://arxiv.org/abs/2603.09714	2026-07-14 18:00:44.371565+05:30
+2185	5	https://arxiv.org/abs/2603.10725	2026-07-14 18:00:44.371565+05:30
+2186	5	https://arxiv.org/abs/2603.10926	2026-07-14 18:00:44.371565+05:30
+2187	5	https://arxiv.org/abs/2603.18385	2026-07-14 18:00:44.371565+05:30
+2188	5	https://arxiv.org/abs/2603.22042	2026-07-14 18:00:44.371565+05:30
+2189	5	https://arxiv.org/abs/2603.28921	2026-07-14 18:00:44.371565+05:30
+2190	5	https://arxiv.org/abs/2604.00878	2026-07-14 18:00:44.371565+05:30
+2191	5	https://arxiv.org/abs/2604.02951	2026-07-14 18:00:44.371565+05:30
+2192	5	https://arxiv.org/abs/2604.04690	2026-07-14 18:00:44.371565+05:30
+2193	5	https://arxiv.org/abs/2604.04969	2026-07-14 18:00:44.371565+05:30
+2194	5	https://arxiv.org/abs/2604.06205	2026-07-14 18:00:44.371565+05:30
+2195	5	https://arxiv.org/abs/2604.07486	2026-07-14 18:00:44.371565+05:30
+2196	5	https://arxiv.org/abs/2604.11996	2026-07-14 18:00:44.371565+05:30
+2197	5	https://arxiv.org/abs/2604.15271	2026-07-14 18:00:44.371565+05:30
+2198	5	https://arxiv.org/abs/2604.22770	2026-07-14 18:00:44.371565+05:30
+2199	5	https://arxiv.org/abs/2604.22823	2026-07-14 18:00:44.371565+05:30
+2200	5	https://arxiv.org/abs/2604.26578	2026-07-14 18:00:44.371565+05:30
+2201	5	https://arxiv.org/abs/2605.00972	2026-07-14 18:00:44.371565+05:30
+2202	5	https://arxiv.org/abs/2605.14712	2026-07-14 18:00:44.371565+05:30
+2203	5	https://arxiv.org/abs/2605.17932	2026-07-14 18:00:44.371565+05:30
+2204	5	https://arxiv.org/abs/2605.21629	2026-07-14 18:00:44.371565+05:30
+2205	5	https://arxiv.org/abs/2606.05737	2026-07-14 18:00:44.371565+05:30
+2206	5	https://arxiv.org/abs/2606.07882	2026-07-14 18:00:44.371565+05:30
+2207	5	https://arxiv.org/abs/2606.11324	2026-07-14 18:00:44.371565+05:30
+2208	5	https://arxiv.org/abs/2606.11520	2026-07-14 18:00:44.371565+05:30
+2209	5	https://arxiv.org/abs/2606.12936	2026-07-14 18:00:44.371565+05:30
+2210	5	https://arxiv.org/abs/2606.13894	2026-07-14 18:00:44.371565+05:30
+2211	5	https://arxiv.org/abs/2606.16278	2026-07-14 18:00:44.371565+05:30
+2212	5	https://arxiv.org/abs/2606.21587	2026-07-14 18:00:44.371565+05:30
+2213	5	https://arxiv.org/abs/2606.24890	2026-07-14 18:00:44.371565+05:30
+2214	5	https://arxiv.org/abs/2606.25059	2026-07-14 18:00:44.371565+05:30
+2215	5	https://arxiv.org/abs/2606.25680	2026-07-14 18:00:44.371565+05:30
+2216	5	https://arxiv.org/abs/2606.26102	2026-07-14 18:00:44.371565+05:30
+2217	5	https://arxiv.org/abs/2606.26104	2026-07-14 18:00:44.371565+05:30
+2218	5	https://arxiv.org/abs/2606.26795	2026-07-14 18:00:44.371565+05:30
+2219	5	https://arxiv.org/abs/2606.28186	2026-07-14 18:00:44.371565+05:30
+2220	5	https://arxiv.org/abs/2606.32027	2026-07-14 18:00:44.371565+05:30
+2221	5	https://arxiv.org/abs/2607.00025	2026-07-14 18:00:44.371565+05:30
+2222	5	https://arxiv.org/abs/2607.01170	2026-07-14 18:00:44.371565+05:30
+2223	5	https://arxiv.org/abs/2607.02502	2026-07-14 18:00:44.371565+05:30
+2224	5	https://arxiv.org/abs/2607.04605	2026-07-14 18:00:44.371565+05:30
+2225	5	https://arxiv.org/abs/2607.06114	2026-07-14 18:00:44.371565+05:30
+2226	5	https://arxiv.org/abs/2607.08783	2026-07-14 18:00:44.371565+05:30
+2227	5	https://arxiv.org/abs/2607.08793	2026-07-14 18:00:44.371565+05:30
+2228	5	https://arxiv.org/abs/2607.09218	2026-07-14 18:00:44.371565+05:30
+2229	5	https://arxiv.org/abs/2607.09424	2026-07-14 18:00:44.371565+05:30
+2230	5	https://arxiv.org/abs/2607.09576	2026-07-14 18:00:44.371565+05:30
+2231	5	https://arxiv.org/abs/2607.09629	2026-07-14 18:00:44.371565+05:30
+2232	6	https://arxiv.org/abs/2607.10008	2026-07-14 18:00:44.421993+05:30
+2233	6	https://arxiv.org/abs/2607.10410	2026-07-14 18:00:44.421993+05:30
+2234	6	https://arxiv.org/abs/2607.10456	2026-07-14 18:00:44.421993+05:30
+2235	6	https://arxiv.org/abs/2607.10540	2026-07-14 18:00:44.421993+05:30
+2236	6	https://arxiv.org/abs/2607.10548	2026-07-14 18:00:44.421993+05:30
+2237	6	https://arxiv.org/abs/2607.10589	2026-07-14 18:00:44.421993+05:30
+2238	6	https://arxiv.org/abs/2607.10618	2026-07-14 18:00:44.421993+05:30
+2239	6	https://arxiv.org/abs/2607.10664	2026-07-14 18:00:44.421993+05:30
+2240	6	https://arxiv.org/abs/2607.11272	2026-07-14 18:00:44.421993+05:30
+2241	6	https://arxiv.org/abs/2607.11684	2026-07-14 18:00:44.421993+05:30
+2242	6	https://arxiv.org/abs/2607.09710	2026-07-14 18:00:44.421993+05:30
+2243	6	https://arxiv.org/abs/2607.09817	2026-07-14 18:00:44.421993+05:30
+2244	6	https://arxiv.org/abs/2607.10067	2026-07-14 18:00:44.421993+05:30
+2245	6	https://arxiv.org/abs/2607.10128	2026-07-14 18:00:44.421993+05:30
+2246	6	https://arxiv.org/abs/2607.10200	2026-07-14 18:00:44.421993+05:30
+2247	6	https://arxiv.org/abs/2607.10571	2026-07-14 18:00:44.421993+05:30
+2248	6	https://arxiv.org/abs/2607.10700	2026-07-14 18:00:44.421993+05:30
+2249	6	https://arxiv.org/abs/2607.10735	2026-07-14 18:00:44.421993+05:30
+2250	6	https://arxiv.org/abs/2607.10896	2026-07-14 18:00:44.421993+05:30
+2251	6	https://arxiv.org/abs/2607.10926	2026-07-14 18:00:44.421993+05:30
+2252	6	https://arxiv.org/abs/2607.10931	2026-07-14 18:00:44.421993+05:30
+2253	6	https://arxiv.org/abs/2607.10936	2026-07-14 18:00:44.421993+05:30
+2254	6	https://arxiv.org/abs/2607.10951	2026-07-14 18:00:44.421993+05:30
+2255	6	https://arxiv.org/abs/2607.10959	2026-07-14 18:00:44.421993+05:30
+2256	6	https://arxiv.org/abs/2607.10960	2026-07-14 18:00:44.421993+05:30
+2257	6	https://arxiv.org/abs/2607.11005	2026-07-14 18:00:44.421993+05:30
+2258	6	https://arxiv.org/abs/2607.11091	2026-07-14 18:00:44.421993+05:30
+2259	6	https://arxiv.org/abs/2607.11096	2026-07-14 18:00:44.421993+05:30
+2260	6	https://arxiv.org/abs/2607.11146	2026-07-14 18:00:44.421993+05:30
+2261	6	https://arxiv.org/abs/2607.11177	2026-07-14 18:00:44.421993+05:30
+2262	6	https://arxiv.org/abs/2607.11269	2026-07-14 18:00:44.421993+05:30
+2263	6	https://arxiv.org/abs/2607.11344	2026-07-14 18:00:44.421993+05:30
+2264	6	https://arxiv.org/abs/2607.11389	2026-07-14 18:00:44.421993+05:30
+2265	6	https://arxiv.org/abs/2607.11508	2026-07-14 18:00:44.421993+05:30
+2266	6	https://arxiv.org/abs/2607.11510	2026-07-14 18:00:44.421993+05:30
+2267	6	https://arxiv.org/abs/2607.11607	2026-07-14 18:00:44.421993+05:30
+2268	6	https://arxiv.org/abs/2607.11631	2026-07-14 18:00:44.421993+05:30
+2269	6	https://arxiv.org/abs/2607.11635	2026-07-14 18:00:44.421993+05:30
+2270	6	https://arxiv.org/abs/2607.11653	2026-07-14 18:00:44.421993+05:30
+2271	6	https://arxiv.org/abs/2607.11816	2026-07-14 18:00:44.421993+05:30
+2272	6	https://arxiv.org/abs/2501.12982	2026-07-14 18:00:44.421993+05:30
+2273	6	https://arxiv.org/abs/2504.05349	2026-07-14 18:00:44.421993+05:30
+2274	6	https://arxiv.org/abs/2506.21511	2026-07-14 18:00:44.421993+05:30
+2275	6	https://arxiv.org/abs/2508.00110	2026-07-14 18:00:44.421993+05:30
+2276	6	https://arxiv.org/abs/2508.03636	2026-07-14 18:00:44.421993+05:30
+2277	6	https://arxiv.org/abs/2509.11146	2026-07-14 18:00:44.421993+05:30
+2278	6	https://arxiv.org/abs/2510.11546	2026-07-14 18:00:44.421993+05:30
+2279	6	https://arxiv.org/abs/2510.14074	2026-07-14 18:00:44.421993+05:30
+2280	6	https://arxiv.org/abs/2510.19374	2026-07-14 18:00:44.421993+05:30
+2281	6	https://arxiv.org/abs/2510.21431	2026-07-14 18:00:44.421993+05:30
+2282	6	https://arxiv.org/abs/2510.25573	2026-07-14 18:00:44.421993+05:30
+2283	6	https://arxiv.org/abs/2511.04275	2026-07-14 18:00:44.421993+05:30
+2284	6	https://arxiv.org/abs/2603.06851	2026-07-14 18:00:44.421993+05:30
+2285	6	https://arxiv.org/abs/2604.13213	2026-07-14 18:00:44.421993+05:30
+2286	6	https://arxiv.org/abs/2604.16610	2026-07-14 18:00:44.421993+05:30
+2287	6	https://arxiv.org/abs/2606.20859	2026-07-14 18:00:44.421993+05:30
+2288	6	https://arxiv.org/abs/2607.05153	2026-07-14 18:00:44.421993+05:30
+2289	6	https://arxiv.org/abs/2607.08444	2026-07-14 18:00:44.421993+05:30
+2290	6	https://arxiv.org/abs/2607.08793	2026-07-14 18:00:44.421993+05:30
+2291	6	https://arxiv.org/abs/2404.03578	2026-07-14 18:00:44.421993+05:30
+2292	6	https://arxiv.org/abs/2405.16547	2026-07-14 18:00:44.421993+05:30
+2293	6	https://arxiv.org/abs/2411.17054	2026-07-14 18:00:44.421993+05:30
+2294	6	https://arxiv.org/abs/2501.07550	2026-07-14 18:00:44.421993+05:30
+2295	6	https://arxiv.org/abs/2503.11891	2026-07-14 18:00:44.421993+05:30
+2296	6	https://arxiv.org/abs/2504.12594	2026-07-14 18:00:44.421993+05:30
+2297	6	https://arxiv.org/abs/2506.07040	2026-07-14 18:00:44.421993+05:30
+2298	6	https://arxiv.org/abs/2506.09690	2026-07-14 18:00:44.421993+05:30
+2299	6	https://arxiv.org/abs/2510.13703	2026-07-14 18:00:44.421993+05:30
+2300	6	https://arxiv.org/abs/2510.20755	2026-07-14 18:00:44.421993+05:30
+2301	6	https://arxiv.org/abs/2510.22510	2026-07-14 18:00:44.421993+05:30
+2302	6	https://arxiv.org/abs/2601.04608	2026-07-14 18:00:44.421993+05:30
+2303	6	https://arxiv.org/abs/2601.15353	2026-07-14 18:00:44.421993+05:30
+2304	6	https://arxiv.org/abs/2602.04408	2026-07-14 18:00:44.421993+05:30
+2305	6	https://arxiv.org/abs/2603.22320	2026-07-14 18:00:44.421993+05:30
+2306	6	https://arxiv.org/abs/2605.28134	2026-07-14 18:00:44.421993+05:30
+2307	6	https://arxiv.org/abs/2606.01172	2026-07-14 18:00:44.421993+05:30
+2308	6	https://arxiv.org/abs/2607.03664	2026-07-14 18:00:44.421993+05:30
+2309	6	https://arxiv.org/abs/2607.04597	2026-07-14 18:00:44.421993+05:30
+2310	1	https://deepmind.google/blog/our-approach-to-bioresilience	2026-07-16 18:00:14.197165+05:30
+2311	2	https://www.technologyreview.com/2026/07/16/1140600/the-download-openai-unveils-gpt-red-heat-pumps-rise-us	2026-07-16 18:00:14.271373+05:30
+2312	2	https://www.technologyreview.com/2026/07/16/1140505/heat-pump-sales-us	2026-07-16 18:00:14.271373+05:30
+2313	2	https://www.technologyreview.com/2026/07/15/1140514/meet-gpt-red-an-llm-super-hacker-openai-built-to-make-its-models-safer	2026-07-16 18:00:14.271373+05:30
+2314	2	https://www.technologyreview.com/2026/07/15/1140498/the-download-useful-quantum-computer-subsea-tunnel	2026-07-16 18:00:14.271373+05:30
+2315	2	https://www.technologyreview.com/2026/07/14/1140391/the-download-anthropic-claude-internal-thoughts-world-models	2026-07-16 18:00:14.271373+05:30
+2316	3	https://www.artificialintelligence-news.com/news/neko-health-700m-ai-body-scans-us	2026-07-16 18:00:15.239498+05:30
+2317	3	https://www.artificialintelligence-news.com/news/nokia-ai-ran-platform-nvidia	2026-07-16 18:00:15.239498+05:30
+2318	3	https://www.artificialintelligence-news.com/news/aws-and-bluesight-build-ai-for-hospital-340b-compliance	2026-07-16 18:00:15.239498+05:30
+2319	4	https://techcrunch.com/2026/07/10/meta-removes-controversial-ai-feature-on-instagram-after-backlash	2026-07-16 18:00:15.636805+05:30
+2320	4	https://www.sfchronicle.com/sf/article/waymo-firework-fire-san-francisco-22333244.php	2026-07-16 18:00:15.636805+05:30
+2321	4	https://www.reuters.com/world/meta-used-ai-target-workers-with-medical-conditions-layoffs-former-employees-2026-07-14	2026-07-16 18:00:15.636805+05:30
+2322	4	https://www.theverge.com/games/962156/discord-accidental-bans-grid-images	2026-07-16 18:00:15.636805+05:30
+2323	4	https://x.com/discord_support/status/2074282860123767135	2026-07-16 18:00:15.636805+05:30
+2324	4	https://www.sygnia.co/blog/inside-an-ai-assisted-cloud-attack	2026-07-16 18:00:15.636805+05:30
+2325	4	https://www.axios.com/2026/06/29/palo-alto-networks-meeting-tv-ai-cyber-lawsuit	2026-07-16 18:00:15.636805+05:30
+2326	4	https://www.theregister.com/legal/2026/07/02/startup-sues-palo-alto-networks-koi-security-saying-an-ai-hallucinated-report-falsely-linked-it-to-chinese-espionage/5266201	2026-07-16 18:00:15.636805+05:30
+2327	4	https://apnews.com/article/scams-fraud-technology-ai-impostor-scam-phishing-12f549d5203abd38857c4e2f2fb1c986	2026-07-16 18:00:15.636805+05:30
+2543	6	https://arxiv.org/abs/2607.13402	2026-07-16 18:00:15.793466+05:30
+2544	6	https://arxiv.org/abs/2607.13414	2026-07-16 18:00:15.793466+05:30
+2545	6	https://arxiv.org/abs/2607.13550	2026-07-16 18:00:15.793466+05:30
+2546	6	https://arxiv.org/abs/2607.13984	2026-07-16 18:00:15.793466+05:30
+2547	6	https://arxiv.org/abs/2607.12579	2026-07-16 18:00:15.793466+05:30
+2548	6	https://arxiv.org/abs/2607.13046	2026-07-16 18:00:15.793466+05:30
+2549	6	https://arxiv.org/abs/2607.13048	2026-07-16 18:00:15.793466+05:30
+2550	6	https://arxiv.org/abs/2607.13602	2026-07-16 18:00:15.793466+05:30
+2551	6	https://arxiv.org/abs/2607.13609	2026-07-16 18:00:15.793466+05:30
+2552	6	https://arxiv.org/abs/2607.13728	2026-07-16 18:00:15.793466+05:30
+2553	6	https://arxiv.org/abs/2607.13731	2026-07-16 18:00:15.793466+05:30
+2554	6	https://arxiv.org/abs/2607.13749	2026-07-16 18:00:15.793466+05:30
+2555	6	https://arxiv.org/abs/2607.13841	2026-07-16 18:00:15.793466+05:30
+2556	6	https://arxiv.org/abs/2607.13883	2026-07-16 18:00:15.793466+05:30
+2557	6	https://arxiv.org/abs/2607.13928	2026-07-16 18:00:15.793466+05:30
+2558	6	https://arxiv.org/abs/2607.14064	2026-07-16 18:00:15.793466+05:30
+2559	6	https://arxiv.org/abs/2607.14081	2026-07-16 18:00:15.793466+05:30
+2560	6	https://arxiv.org/abs/2510.15824	2026-07-16 18:00:15.793466+05:30
+2561	6	https://arxiv.org/abs/2601.20496	2026-07-16 18:00:15.793466+05:30
+2562	6	https://arxiv.org/abs/2602.10691	2026-07-16 18:00:15.793466+05:30
+2563	6	https://arxiv.org/abs/2506.21306	2026-07-16 18:00:15.793466+05:30
+2564	6	https://arxiv.org/abs/2507.09473	2026-07-16 18:00:15.793466+05:30
+2565	6	https://arxiv.org/abs/2510.19283	2026-07-16 18:00:15.793466+05:30
+2566	6	https://arxiv.org/abs/2603.21393	2026-07-16 18:00:15.793466+05:30
+2567	6	https://arxiv.org/abs/2605.03268	2026-07-16 18:00:15.793466+05:30
+2568	6	https://arxiv.org/abs/2606.11283	2026-07-16 18:00:15.793466+05:30
+2569	6	https://arxiv.org/abs/2607.11983	2026-07-16 18:00:15.793466+05:30
+2570	6	https://arxiv.org/abs/2607.11997	2026-07-16 18:00:15.793466+05:30
+2571	6	https://arxiv.org/abs/2607.12501	2026-07-16 18:00:15.793466+05:30
+2328	5	https://arxiv.org/abs/2607.13037	2026-07-16 18:00:15.762984+05:30
+2329	5	https://arxiv.org/abs/2607.13049	2026-07-16 18:00:15.762984+05:30
+2330	5	https://arxiv.org/abs/2607.13069	2026-07-16 18:00:15.762984+05:30
+2331	5	https://arxiv.org/abs/2607.13073	2026-07-16 18:00:15.762984+05:30
+2332	5	https://arxiv.org/abs/2607.13104	2026-07-16 18:00:15.762984+05:30
+2333	5	https://arxiv.org/abs/2607.13115	2026-07-16 18:00:15.762984+05:30
+2334	5	https://arxiv.org/abs/2607.13157	2026-07-16 18:00:15.762984+05:30
+2335	5	https://arxiv.org/abs/2607.13172	2026-07-16 18:00:15.762984+05:30
+2336	5	https://arxiv.org/abs/2607.13219	2026-07-16 18:00:15.762984+05:30
+2337	5	https://arxiv.org/abs/2607.13220	2026-07-16 18:00:15.762984+05:30
+2338	5	https://arxiv.org/abs/2607.13230	2026-07-16 18:00:15.762984+05:30
+2339	5	https://arxiv.org/abs/2607.13239	2026-07-16 18:00:15.762984+05:30
+2340	5	https://arxiv.org/abs/2607.13285	2026-07-16 18:00:15.762984+05:30
+2341	5	https://arxiv.org/abs/2607.13292	2026-07-16 18:00:15.762984+05:30
+2342	5	https://arxiv.org/abs/2607.13344	2026-07-16 18:00:15.762984+05:30
+2343	5	https://arxiv.org/abs/2607.13396	2026-07-16 18:00:15.762984+05:30
+2344	5	https://arxiv.org/abs/2607.13501	2026-07-16 18:00:15.762984+05:30
+2345	5	https://arxiv.org/abs/2607.13548	2026-07-16 18:00:15.762984+05:30
+2346	5	https://arxiv.org/abs/2607.13558	2026-07-16 18:00:15.762984+05:30
+2347	5	https://arxiv.org/abs/2607.13562	2026-07-16 18:00:15.762984+05:30
+2348	5	https://arxiv.org/abs/2607.13594	2026-07-16 18:00:15.762984+05:30
+2349	5	https://arxiv.org/abs/2607.13608	2026-07-16 18:00:15.762984+05:30
+2350	5	https://arxiv.org/abs/2607.13618	2026-07-16 18:00:15.762984+05:30
+2351	5	https://arxiv.org/abs/2607.13621	2026-07-16 18:00:15.762984+05:30
+2352	5	https://arxiv.org/abs/2607.13655	2026-07-16 18:00:15.762984+05:30
+2353	5	https://arxiv.org/abs/2607.13679	2026-07-16 18:00:15.762984+05:30
+2354	5	https://arxiv.org/abs/2607.13705	2026-07-16 18:00:15.762984+05:30
+2355	5	https://arxiv.org/abs/2607.13716	2026-07-16 18:00:15.762984+05:30
+2356	5	https://arxiv.org/abs/2607.13884	2026-07-16 18:00:15.762984+05:30
+2357	5	https://arxiv.org/abs/2607.13899	2026-07-16 18:00:15.762984+05:30
+2358	5	https://arxiv.org/abs/2607.13940	2026-07-16 18:00:15.762984+05:30
+2359	5	https://arxiv.org/abs/2607.14004	2026-07-16 18:00:15.762984+05:30
+2360	5	https://arxiv.org/abs/2607.14044	2026-07-16 18:00:15.762984+05:30
+2361	5	https://arxiv.org/abs/2607.14046	2026-07-16 18:00:15.762984+05:30
+2362	5	https://arxiv.org/abs/2607.14049	2026-07-16 18:00:15.762984+05:30
+2363	5	https://arxiv.org/abs/2607.13035	2026-07-16 18:00:15.762984+05:30
+2364	5	https://arxiv.org/abs/2607.13036	2026-07-16 18:00:15.762984+05:30
+2365	5	https://arxiv.org/abs/2607.13038	2026-07-16 18:00:15.762984+05:30
+2366	5	https://arxiv.org/abs/2607.13039	2026-07-16 18:00:15.762984+05:30
+2367	5	https://arxiv.org/abs/2607.13040	2026-07-16 18:00:15.762984+05:30
+2368	5	https://arxiv.org/abs/2607.13041	2026-07-16 18:00:15.762984+05:30
+2369	5	https://arxiv.org/abs/2607.13043	2026-07-16 18:00:15.762984+05:30
+2370	5	https://arxiv.org/abs/2607.13044	2026-07-16 18:00:15.762984+05:30
+2371	5	https://arxiv.org/abs/2607.13045	2026-07-16 18:00:15.762984+05:30
+2372	5	https://arxiv.org/abs/2607.13048	2026-07-16 18:00:15.762984+05:30
+2373	5	https://arxiv.org/abs/2607.13054	2026-07-16 18:00:15.762984+05:30
+2374	5	https://arxiv.org/abs/2607.13071	2026-07-16 18:00:15.762984+05:30
+2375	5	https://arxiv.org/abs/2607.13072	2026-07-16 18:00:15.762984+05:30
+2376	5	https://arxiv.org/abs/2607.13074	2026-07-16 18:00:15.762984+05:30
+2377	5	https://arxiv.org/abs/2607.13075	2026-07-16 18:00:15.762984+05:30
+2378	5	https://arxiv.org/abs/2607.13077	2026-07-16 18:00:15.762984+05:30
+2379	5	https://arxiv.org/abs/2607.13078	2026-07-16 18:00:15.762984+05:30
+2380	5	https://arxiv.org/abs/2607.13080	2026-07-16 18:00:15.762984+05:30
+2381	5	https://arxiv.org/abs/2607.13081	2026-07-16 18:00:15.762984+05:30
+2382	5	https://arxiv.org/abs/2607.13085	2026-07-16 18:00:15.762984+05:30
+2383	5	https://arxiv.org/abs/2607.13091	2026-07-16 18:00:15.762984+05:30
+2384	5	https://arxiv.org/abs/2607.13093	2026-07-16 18:00:15.762984+05:30
+2385	5	https://arxiv.org/abs/2607.13094	2026-07-16 18:00:15.762984+05:30
+2386	5	https://arxiv.org/abs/2607.13095	2026-07-16 18:00:15.762984+05:30
+2387	5	https://arxiv.org/abs/2607.13099	2026-07-16 18:00:15.762984+05:30
+2388	5	https://arxiv.org/abs/2607.13101	2026-07-16 18:00:15.762984+05:30
+2389	5	https://arxiv.org/abs/2607.13103	2026-07-16 18:00:15.762984+05:30
+2390	5	https://arxiv.org/abs/2607.13108	2026-07-16 18:00:15.762984+05:30
+2391	5	https://arxiv.org/abs/2607.13110	2026-07-16 18:00:15.762984+05:30
+2392	5	https://arxiv.org/abs/2607.13111	2026-07-16 18:00:15.762984+05:30
+2393	5	https://arxiv.org/abs/2607.13120	2026-07-16 18:00:15.762984+05:30
+2394	5	https://arxiv.org/abs/2607.13123	2026-07-16 18:00:15.762984+05:30
+2395	5	https://arxiv.org/abs/2607.13124	2026-07-16 18:00:15.762984+05:30
+2396	5	https://arxiv.org/abs/2607.13125	2026-07-16 18:00:15.762984+05:30
+2397	5	https://arxiv.org/abs/2607.13160	2026-07-16 18:00:15.762984+05:30
+2398	5	https://arxiv.org/abs/2607.13162	2026-07-16 18:00:15.762984+05:30
+2399	5	https://arxiv.org/abs/2607.13175	2026-07-16 18:00:15.762984+05:30
+2400	5	https://arxiv.org/abs/2607.13189	2026-07-16 18:00:15.762984+05:30
+2401	5	https://arxiv.org/abs/2607.13205	2026-07-16 18:00:15.762984+05:30
+2402	5	https://arxiv.org/abs/2607.13216	2026-07-16 18:00:15.762984+05:30
+2403	5	https://arxiv.org/abs/2607.13221	2026-07-16 18:00:15.762984+05:30
+2404	5	https://arxiv.org/abs/2607.13234	2026-07-16 18:00:15.762984+05:30
+2405	5	https://arxiv.org/abs/2607.13241	2026-07-16 18:00:15.762984+05:30
+2406	5	https://arxiv.org/abs/2607.13246	2026-07-16 18:00:15.762984+05:30
+2407	5	https://arxiv.org/abs/2607.13260	2026-07-16 18:00:15.762984+05:30
+2408	5	https://arxiv.org/abs/2607.13274	2026-07-16 18:00:15.762984+05:30
+2409	5	https://arxiv.org/abs/2607.13303	2026-07-16 18:00:15.762984+05:30
+2410	5	https://arxiv.org/abs/2607.13305	2026-07-16 18:00:15.762984+05:30
+2411	5	https://arxiv.org/abs/2607.13314	2026-07-16 18:00:15.762984+05:30
+2412	5	https://arxiv.org/abs/2607.13319	2026-07-16 18:00:15.762984+05:30
+2413	5	https://arxiv.org/abs/2607.13328	2026-07-16 18:00:15.762984+05:30
+2414	5	https://arxiv.org/abs/2607.13330	2026-07-16 18:00:15.762984+05:30
+2415	5	https://arxiv.org/abs/2607.13346	2026-07-16 18:00:15.762984+05:30
+2416	5	https://arxiv.org/abs/2607.13347	2026-07-16 18:00:15.762984+05:30
+2417	5	https://arxiv.org/abs/2607.13370	2026-07-16 18:00:15.762984+05:30
+2418	5	https://arxiv.org/abs/2607.13393	2026-07-16 18:00:15.762984+05:30
+2419	5	https://arxiv.org/abs/2607.13402	2026-07-16 18:00:15.762984+05:30
+2420	5	https://arxiv.org/abs/2607.13408	2026-07-16 18:00:15.762984+05:30
+2421	5	https://arxiv.org/abs/2607.13413	2026-07-16 18:00:15.762984+05:30
+2422	5	https://arxiv.org/abs/2607.13418	2026-07-16 18:00:15.762984+05:30
+2423	5	https://arxiv.org/abs/2607.13421	2026-07-16 18:00:15.762984+05:30
+2424	5	https://arxiv.org/abs/2607.13425	2026-07-16 18:00:15.762984+05:30
+2425	5	https://arxiv.org/abs/2607.13431	2026-07-16 18:00:15.762984+05:30
+2426	5	https://arxiv.org/abs/2607.13451	2026-07-16 18:00:15.762984+05:30
+2427	5	https://arxiv.org/abs/2607.13452	2026-07-16 18:00:15.762984+05:30
+2428	5	https://arxiv.org/abs/2607.13453	2026-07-16 18:00:15.762984+05:30
+2429	5	https://arxiv.org/abs/2607.13454	2026-07-16 18:00:15.762984+05:30
+2430	5	https://arxiv.org/abs/2607.13465	2026-07-16 18:00:15.762984+05:30
+2431	5	https://arxiv.org/abs/2607.13469	2026-07-16 18:00:15.762984+05:30
+2432	5	https://arxiv.org/abs/2607.13491	2026-07-16 18:00:15.762984+05:30
+2433	5	https://arxiv.org/abs/2607.13511	2026-07-16 18:00:15.762984+05:30
+2434	5	https://arxiv.org/abs/2607.13555	2026-07-16 18:00:15.762984+05:30
+2435	5	https://arxiv.org/abs/2607.13560	2026-07-16 18:00:15.762984+05:30
+2436	5	https://arxiv.org/abs/2607.13565	2026-07-16 18:00:15.762984+05:30
+2437	5	https://arxiv.org/abs/2607.13566	2026-07-16 18:00:15.762984+05:30
+2438	5	https://arxiv.org/abs/2607.13569	2026-07-16 18:00:15.762984+05:30
+2439	5	https://arxiv.org/abs/2607.13571	2026-07-16 18:00:15.762984+05:30
+2440	5	https://arxiv.org/abs/2607.13573	2026-07-16 18:00:15.762984+05:30
+2441	5	https://arxiv.org/abs/2607.13579	2026-07-16 18:00:15.762984+05:30
+2442	5	https://arxiv.org/abs/2607.13587	2026-07-16 18:00:15.762984+05:30
+2443	5	https://arxiv.org/abs/2607.13591	2026-07-16 18:00:15.762984+05:30
+2444	5	https://arxiv.org/abs/2607.13596	2026-07-16 18:00:15.762984+05:30
+2445	5	https://arxiv.org/abs/2607.13597	2026-07-16 18:00:15.762984+05:30
+2446	5	https://arxiv.org/abs/2607.13612	2026-07-16 18:00:15.762984+05:30
+2447	5	https://arxiv.org/abs/2607.13624	2026-07-16 18:00:15.762984+05:30
+2448	5	https://arxiv.org/abs/2607.13639	2026-07-16 18:00:15.762984+05:30
+2449	5	https://arxiv.org/abs/2607.13643	2026-07-16 18:00:15.762984+05:30
+2450	5	https://arxiv.org/abs/2607.13646	2026-07-16 18:00:15.762984+05:30
+2451	5	https://arxiv.org/abs/2607.13647	2026-07-16 18:00:15.762984+05:30
+2452	5	https://arxiv.org/abs/2607.13689	2026-07-16 18:00:15.762984+05:30
+2453	5	https://arxiv.org/abs/2607.13693	2026-07-16 18:00:15.762984+05:30
+2454	5	https://arxiv.org/abs/2607.13712	2026-07-16 18:00:15.762984+05:30
+2455	5	https://arxiv.org/abs/2607.13718	2026-07-16 18:00:15.762984+05:30
+2456	5	https://arxiv.org/abs/2607.13738	2026-07-16 18:00:15.762984+05:30
+2457	5	https://arxiv.org/abs/2607.13763	2026-07-16 18:00:15.762984+05:30
+2458	5	https://arxiv.org/abs/2607.13770	2026-07-16 18:00:15.762984+05:30
+2459	5	https://arxiv.org/abs/2607.13796	2026-07-16 18:00:15.762984+05:30
+2460	5	https://arxiv.org/abs/2607.13801	2026-07-16 18:00:15.762984+05:30
+2461	5	https://arxiv.org/abs/2607.13826	2026-07-16 18:00:15.762984+05:30
+2462	5	https://arxiv.org/abs/2607.13837	2026-07-16 18:00:15.762984+05:30
+2463	5	https://arxiv.org/abs/2607.13839	2026-07-16 18:00:15.762984+05:30
+2464	5	https://arxiv.org/abs/2607.13881	2026-07-16 18:00:15.762984+05:30
+2465	5	https://arxiv.org/abs/2607.13883	2026-07-16 18:00:15.762984+05:30
+2466	5	https://arxiv.org/abs/2607.13918	2026-07-16 18:00:15.762984+05:30
+2467	5	https://arxiv.org/abs/2607.13921	2026-07-16 18:00:15.762984+05:30
+2468	5	https://arxiv.org/abs/2607.13978	2026-07-16 18:00:15.762984+05:30
+2469	5	https://arxiv.org/abs/2607.13998	2026-07-16 18:00:15.762984+05:30
+2470	5	https://arxiv.org/abs/2607.14006	2026-07-16 18:00:15.762984+05:30
+2471	5	https://arxiv.org/abs/2607.14018	2026-07-16 18:00:15.762984+05:30
+2472	5	https://arxiv.org/abs/2607.14024	2026-07-16 18:00:15.762984+05:30
+2473	5	https://arxiv.org/abs/2607.14037	2026-07-16 18:00:15.762984+05:30
+2474	5	https://arxiv.org/abs/2607.14041	2026-07-16 18:00:15.762984+05:30
+2475	5	https://arxiv.org/abs/2507.19593	2026-07-16 18:00:15.762984+05:30
+2476	5	https://arxiv.org/abs/2510.10002	2026-07-16 18:00:15.762984+05:30
+2477	5	https://arxiv.org/abs/2601.20379	2026-07-16 18:00:15.762984+05:30
+2478	5	https://arxiv.org/abs/2602.11619	2026-07-16 18:00:15.762984+05:30
+2479	5	https://arxiv.org/abs/2603.00546	2026-07-16 18:00:15.762984+05:30
+2480	5	https://arxiv.org/abs/2603.16307	2026-07-16 18:00:15.762984+05:30
+2481	5	https://arxiv.org/abs/2604.09674	2026-07-16 18:00:15.762984+05:30
+2482	5	https://arxiv.org/abs/2605.07323	2026-07-16 18:00:15.762984+05:30
+2483	5	https://arxiv.org/abs/2606.06223	2026-07-16 18:00:15.762984+05:30
+2484	5	https://arxiv.org/abs/2606.16944	2026-07-16 18:00:15.762984+05:30
+2485	5	https://arxiv.org/abs/2607.01531	2026-07-16 18:00:15.762984+05:30
+2486	5	https://arxiv.org/abs/2607.07836	2026-07-16 18:00:15.762984+05:30
+2487	5	https://arxiv.org/abs/2607.09142	2026-07-16 18:00:15.762984+05:30
+2488	5	https://arxiv.org/abs/2607.11977	2026-07-16 18:00:15.762984+05:30
+2489	5	https://arxiv.org/abs/2607.12474	2026-07-16 18:00:15.762984+05:30
+2490	5	https://arxiv.org/abs/2607.12527	2026-07-16 18:00:15.762984+05:30
+2491	5	https://arxiv.org/abs/2607.12924	2026-07-16 18:00:15.762984+05:30
+2492	5	https://arxiv.org/abs/2409.17340	2026-07-16 18:00:15.762984+05:30
+2493	5	https://arxiv.org/abs/2502.16167	2026-07-16 18:00:15.762984+05:30
+2494	5	https://arxiv.org/abs/2505.18231	2026-07-16 18:00:15.762984+05:30
+2495	5	https://arxiv.org/abs/2506.21306	2026-07-16 18:00:15.762984+05:30
+2496	5	https://arxiv.org/abs/2507.16849	2026-07-16 18:00:15.762984+05:30
+2497	5	https://arxiv.org/abs/2508.12466	2026-07-16 18:00:15.762984+05:30
+2498	5	https://arxiv.org/abs/2509.22415	2026-07-16 18:00:15.762984+05:30
+2499	5	https://arxiv.org/abs/2510.11686	2026-07-16 18:00:15.762984+05:30
+2500	5	https://arxiv.org/abs/2510.13903	2026-07-16 18:00:15.762984+05:30
+2501	5	https://arxiv.org/abs/2510.14317	2026-07-16 18:00:15.762984+05:30
+2502	5	https://arxiv.org/abs/2510.15371	2026-07-16 18:00:15.762984+05:30
+2503	5	https://arxiv.org/abs/2510.24803	2026-07-16 18:00:15.762984+05:30
+2504	5	https://arxiv.org/abs/2601.02023	2026-07-16 18:00:15.762984+05:30
+2505	5	https://arxiv.org/abs/2601.12349	2026-07-16 18:00:15.762984+05:30
+2506	5	https://arxiv.org/abs/2601.18798	2026-07-16 18:00:15.762984+05:30
+2507	5	https://arxiv.org/abs/2602.09616	2026-07-16 18:00:15.762984+05:30
+2508	5	https://arxiv.org/abs/2602.12811	2026-07-16 18:00:15.762984+05:30
+2509	5	https://arxiv.org/abs/2602.18548	2026-07-16 18:00:15.762984+05:30
+2510	5	https://arxiv.org/abs/2603.03892	2026-07-16 18:00:15.762984+05:30
+2511	5	https://arxiv.org/abs/2603.04710	2026-07-16 18:00:15.762984+05:30
+2512	5	https://arxiv.org/abs/2603.10330	2026-07-16 18:00:15.762984+05:30
+2513	5	https://arxiv.org/abs/2603.11811	2026-07-16 18:00:15.762984+05:30
+2514	5	https://arxiv.org/abs/2603.13952	2026-07-16 18:00:15.762984+05:30
+2515	5	https://arxiv.org/abs/2603.22372	2026-07-16 18:00:15.762984+05:30
+2516	5	https://arxiv.org/abs/2603.22510	2026-07-16 18:00:15.762984+05:30
+2517	5	https://arxiv.org/abs/2604.00830	2026-07-16 18:00:15.762984+05:30
+2518	5	https://arxiv.org/abs/2604.02668	2026-07-16 18:00:15.762984+05:30
+2519	5	https://arxiv.org/abs/2604.12069	2026-07-16 18:00:15.762984+05:30
+2520	5	https://arxiv.org/abs/2605.03268	2026-07-16 18:00:15.762984+05:30
+2521	5	https://arxiv.org/abs/2605.13181	2026-07-16 18:00:15.762984+05:30
+2522	5	https://arxiv.org/abs/2605.15026	2026-07-16 18:00:15.762984+05:30
+2523	5	https://arxiv.org/abs/2605.16281	2026-07-16 18:00:15.762984+05:30
+2524	5	https://arxiv.org/abs/2605.16366	2026-07-16 18:00:15.762984+05:30
+2525	5	https://arxiv.org/abs/2605.20689	2026-07-16 18:00:15.762984+05:30
+2526	5	https://arxiv.org/abs/2605.23045	2026-07-16 18:00:15.762984+05:30
+2527	5	https://arxiv.org/abs/2605.24602	2026-07-16 18:00:15.762984+05:30
+2528	5	https://arxiv.org/abs/2605.24902	2026-07-16 18:00:15.762984+05:30
+2529	5	https://arxiv.org/abs/2606.18223	2026-07-16 18:00:15.762984+05:30
+2530	5	https://arxiv.org/abs/2606.20799	2026-07-16 18:00:15.762984+05:30
+2531	5	https://arxiv.org/abs/2606.31650	2026-07-16 18:00:15.762984+05:30
+2532	5	https://arxiv.org/abs/2607.00927	2026-07-16 18:00:15.762984+05:30
+2533	5	https://arxiv.org/abs/2607.01455	2026-07-16 18:00:15.762984+05:30
+2534	5	https://arxiv.org/abs/2607.04166	2026-07-16 18:00:15.762984+05:30
+2535	5	https://arxiv.org/abs/2607.04464	2026-07-16 18:00:15.762984+05:30
+2536	5	https://arxiv.org/abs/2607.05364	2026-07-16 18:00:15.762984+05:30
+2537	5	https://arxiv.org/abs/2607.08803	2026-07-16 18:00:15.762984+05:30
+2538	5	https://arxiv.org/abs/2607.11947	2026-07-16 18:00:15.762984+05:30
+2539	5	https://arxiv.org/abs/2607.11983	2026-07-16 18:00:15.762984+05:30
+2540	5	https://arxiv.org/abs/2607.11997	2026-07-16 18:00:15.762984+05:30
+2541	5	https://arxiv.org/abs/2607.12547	2026-07-16 18:00:15.762984+05:30
+2542	5	https://arxiv.org/abs/2607.12752	2026-07-16 18:00:15.762984+05:30
 \.
 
 
 --
+-- TOC entry 5176 (class 0 OID 252871)
+-- Dependencies: 236
 -- Data for Name: ingest_links; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.ingest_links (id, url, archived, created_at, updated_at, suggested_name) FROM stdin;
+1	https://deepmind.google/blog/rss.xml	f	2026-06-18 15:11:38.91895+05:30	2026-06-18 15:11:38.91895+05:30	Google DeepMind Blog
+2	https://www.technologyreview.com/feed	f	2026-06-18 15:11:57.857993+05:30	2026-06-18 15:11:57.857993+05:30	MIT Technology Review AI
+3	https://artificialintelligence-news.com/feed	f	2026-06-18 15:12:15.069864+05:30	2026-06-18 15:12:15.069864+05:30	AI News
+4	https://incidentdatabase.ai/rss.xml	f	2026-06-18 15:12:39.734482+05:30	2026-06-18 15:12:39.734482+05:30	Incident DB
+5	https://export.arxiv.org/rss/cs.AI	f	2026-06-18 15:12:56.939977+05:30	2026-06-18 15:12:56.939977+05:30	arXiv cs.AI
+6	https://export.arxiv.org/rss/stat.ML	f	2026-06-18 15:13:18.870931+05:30	2026-06-18 15:13:18.870931+05:30	arXiv stat.ML
 \.
 
 
 --
+-- TOC entry 5178 (class 0 OID 252880)
+-- Dependencies: 238
 -- Data for Name: jobs; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.jobs (id, article_id, url, status, job_type, source, ingest_link_id, ingest_link_item_id, tries, error_message, started_at, created_at, updated_at) FROM stdin;
+COPY public.jobs (id, article_id, url, status, job_type, source, ingest_link_id, ingest_link_item_id, tries, error_message, started_at, created_at, updated_at, batch_run_id, model_name, model_label) FROM stdin;
 \.
 
 
 --
+-- TOC entry 5180 (class 0 OID 252892)
+-- Dependencies: 240
 -- Data for Name: llm_observability; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -976,6 +3831,8 @@ COPY public.llm_observability (id, model_name, url, word_count, tokens_generated
 
 
 --
+-- TOC entry 5182 (class 0 OID 252899)
+-- Dependencies: 242
 -- Data for Name: password_reset_tokens; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -984,6 +3841,8 @@ COPY public.password_reset_tokens (id, user_id, token_hash, expires_at, used_at,
 
 
 --
+-- TOC entry 5183 (class 0 OID 252906)
+-- Dependencies: 243
 -- Data for Name: refresh_tokens; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -992,6 +3851,8 @@ COPY public.refresh_tokens (id, user_id, token_hash, user_agent, ip_address, rev
 
 
 --
+-- TOC entry 5184 (class 0 OID 252914)
+-- Dependencies: 244
 -- Data for Name: risk_mappings; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -2248,6 +5109,8 @@ COPY public.risk_mappings (risk_mapping_id, risk_id, risk_title, domains, descri
 
 
 --
+-- TOC entry 5186 (class 0 OID 252920)
+-- Dependencies: 246
 -- Data for Name: risks; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -2256,6 +5119,8 @@ COPY public.risks (id, article_id, risk_title, domains, primary_risk, secondary_
 
 
 --
+-- TOC entry 5187 (class 0 OID 252928)
+-- Dependencies: 247
 -- Data for Name: user_profile_update_logs; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -2264,23 +5129,29 @@ COPY public.user_profile_update_logs (id, target_user_id, updated_by_user_id, re
 
 
 --
+-- TOC entry 5188 (class 0 OID 252935)
+-- Dependencies: 248
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.users (id, email, username, password_hash, full_name, is_active, created_at, updated_at, account_status) FROM stdin;
-b4898e43-779a-402d-85d5-4f4d8cd3c5c8	admin@work.com	Admin	$2b$12$MIblIO3N5YSJ5WXBWmR6DOpmBgLbbnUJd21J4/i1TZxy7/02binXO	Administrator	t	2026-06-18 14:33:11.089368+05:30	2026-06-18 14:33:11.089368+05:30	completed
-a8b1cce0-e275-46eb-a491-b9af7355d7c3	asad@accelerateai.io	Asad	$2b$12$MIblIO3N5YSJ5WXBWmR6DOpmBgLbbnUJd21J4/i1TZxy7/02binXO	Asad	t	2026-06-18 14:33:11.105118+05:30	2026-06-18 14:33:11.105118+05:30	completed
+2a3864cb-775c-44ed-bb49-d545238bca15	admin@work.com	Admin	$2b$12$wubJ/whwGDpBzT9FPhdjaeyZgCBMCzufO0b4Ac80Gr60fGqA0N78e	Administrator	t	2026-06-16 09:43:07.159683+05:30	2026-06-16 09:43:07.159683+05:30	completed
+2607ab8d-046c-49be-9cd3-424564aca27f	asad@accelerateai.io	Asad	$2b$12$wubJ/whwGDpBzT9FPhdjaeyZgCBMCzufO0b4Ac80Gr60fGqA0N78e	Asad	t	2026-06-16 09:43:07.169968+05:30	2026-06-16 09:43:07.169968+05:30	completed
 \.
 
 
 --
+-- TOC entry 5212 (class 0 OID 0)
+-- Dependencies: 219
 -- Name: __drizzle_migrations_id_seq; Type: SEQUENCE SET; Schema: drizzle; Owner: postgres
 --
 
-SELECT pg_catalog.setval('drizzle.__drizzle_migrations_id_seq', 45, true);
+SELECT pg_catalog.setval('drizzle.__drizzle_migrations_id_seq', 50, true);
 
 
 --
+-- TOC entry 5213 (class 0 OID 0)
+-- Dependencies: 221
 -- Name: aiid_reports_new_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2288,13 +5159,17 @@ SELECT pg_catalog.setval('public.aiid_reports_new_id_seq', 1, false);
 
 
 --
+-- TOC entry 5214 (class 0 OID 0)
+-- Dependencies: 223
 -- Name: application_logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.application_logs_id_seq', 6, true);
+SELECT pg_catalog.setval('public.application_logs_id_seq', 1, true);
 
 
 --
+-- TOC entry 5215 (class 0 OID 0)
+-- Dependencies: 225
 -- Name: articles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2302,6 +5177,26 @@ SELECT pg_catalog.setval('public.articles_id_seq', 1, false);
 
 
 --
+-- TOC entry 5216 (class 0 OID 0)
+-- Dependencies: 251
+-- Name: batch_run_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.batch_run_items_id_seq', 1, false);
+
+
+--
+-- TOC entry 5217 (class 0 OID 0)
+-- Dependencies: 249
+-- Name: batch_runs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.batch_runs_id_seq', 1, false);
+
+
+--
+-- TOC entry 5218 (class 0 OID 0)
+-- Dependencies: 227
 -- Name: cron_job_events_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2309,6 +5204,8 @@ SELECT pg_catalog.setval('public.cron_job_events_id_seq', 1, false);
 
 
 --
+-- TOC entry 5219 (class 0 OID 0)
+-- Dependencies: 231
 -- Name: etl_report_upload_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2316,6 +5213,8 @@ SELECT pg_catalog.setval('public.etl_report_upload_items_id_seq', 1, false);
 
 
 --
+-- TOC entry 5220 (class 0 OID 0)
+-- Dependencies: 233
 -- Name: etl_report_uploads_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2323,20 +5222,26 @@ SELECT pg_catalog.setval('public.etl_report_uploads_id_seq', 1, false);
 
 
 --
+-- TOC entry 5221 (class 0 OID 0)
+-- Dependencies: 235
 -- Name: ingest_link_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.ingest_link_items_id_seq', 1, false);
+SELECT pg_catalog.setval('public.ingest_link_items_id_seq', 2571, true);
 
 
 --
+-- TOC entry 5222 (class 0 OID 0)
+-- Dependencies: 237
 -- Name: ingest_links_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.ingest_links_id_seq', 1, false);
+SELECT pg_catalog.setval('public.ingest_links_id_seq', 6, true);
 
 
 --
+-- TOC entry 5223 (class 0 OID 0)
+-- Dependencies: 239
 -- Name: jobs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2344,6 +5249,8 @@ SELECT pg_catalog.setval('public.jobs_id_seq', 1, false);
 
 
 --
+-- TOC entry 5224 (class 0 OID 0)
+-- Dependencies: 241
 -- Name: llm_observability_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2351,6 +5258,8 @@ SELECT pg_catalog.setval('public.llm_observability_id_seq', 1, false);
 
 
 --
+-- TOC entry 5225 (class 0 OID 0)
+-- Dependencies: 245
 -- Name: risk_mappings_risk_mapping_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -2358,6 +5267,7 @@ SELECT pg_catalog.setval('public.risk_mappings_risk_mapping_id_seq', 1, false);
 
 
 --
+-- TOC entry 4887 (class 2606 OID 258762)
 -- Name: __drizzle_migrations __drizzle_migrations_pkey; Type: CONSTRAINT; Schema: drizzle; Owner: postgres
 --
 
@@ -2366,6 +5276,7 @@ ALTER TABLE ONLY drizzle.__drizzle_migrations
 
 
 --
+-- TOC entry 4891 (class 2606 OID 258764)
 -- Name: aiid_reports aiid_reports_new_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2374,6 +5285,7 @@ ALTER TABLE ONLY public.aiid_reports
 
 
 --
+-- TOC entry 4901 (class 2606 OID 258766)
 -- Name: application_logs application_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2382,6 +5294,7 @@ ALTER TABLE ONLY public.application_logs
 
 
 --
+-- TOC entry 4904 (class 2606 OID 258768)
 -- Name: articles articles_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2390,6 +5303,7 @@ ALTER TABLE ONLY public.articles
 
 
 --
+-- TOC entry 4908 (class 2606 OID 258770)
 -- Name: articles articles_url_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2398,6 +5312,25 @@ ALTER TABLE ONLY public.articles
 
 
 --
+-- TOC entry 4990 (class 2606 OID 271837)
+-- Name: batch_run_items batch_run_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items
+    ADD CONSTRAINT batch_run_items_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 4985 (class 2606 OID 271826)
+-- Name: batch_runs batch_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_runs
+    ADD CONSTRAINT batch_runs_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 4911 (class 2606 OID 258772)
 -- Name: cron_job_events cron_job_events_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2406,6 +5339,7 @@ ALTER TABLE ONLY public.cron_job_events
 
 
 --
+-- TOC entry 4913 (class 2606 OID 258774)
 -- Name: cron_job_schedule_feeds cron_job_schedule_feeds_schedule_id_ingest_link_id_pk; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2414,6 +5348,7 @@ ALTER TABLE ONLY public.cron_job_schedule_feeds
 
 
 --
+-- TOC entry 4915 (class 2606 OID 258776)
 -- Name: cron_job_schedules cron_job_schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2422,6 +5357,7 @@ ALTER TABLE ONLY public.cron_job_schedules
 
 
 --
+-- TOC entry 4917 (class 2606 OID 258778)
 -- Name: etl_report_upload_items etl_report_upload_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2430,6 +5366,7 @@ ALTER TABLE ONLY public.etl_report_upload_items
 
 
 --
+-- TOC entry 4924 (class 2606 OID 258780)
 -- Name: etl_report_uploads etl_report_uploads_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2438,6 +5375,7 @@ ALTER TABLE ONLY public.etl_report_uploads
 
 
 --
+-- TOC entry 4929 (class 2606 OID 258782)
 -- Name: ingest_link_items ingest_link_items_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2446,6 +5384,7 @@ ALTER TABLE ONLY public.ingest_link_items
 
 
 --
+-- TOC entry 4933 (class 2606 OID 258784)
 -- Name: ingest_links ingest_links_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2454,6 +5393,7 @@ ALTER TABLE ONLY public.ingest_links
 
 
 --
+-- TOC entry 4941 (class 2606 OID 258786)
 -- Name: jobs jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2462,6 +5402,7 @@ ALTER TABLE ONLY public.jobs
 
 
 --
+-- TOC entry 4947 (class 2606 OID 258788)
 -- Name: llm_observability llm_observability_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2470,6 +5411,7 @@ ALTER TABLE ONLY public.llm_observability
 
 
 --
+-- TOC entry 4949 (class 2606 OID 258790)
 -- Name: password_reset_tokens password_reset_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2478,6 +5420,7 @@ ALTER TABLE ONLY public.password_reset_tokens
 
 
 --
+-- TOC entry 4951 (class 2606 OID 258792)
 -- Name: password_reset_tokens password_reset_tokens_token_hash_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2486,6 +5429,7 @@ ALTER TABLE ONLY public.password_reset_tokens
 
 
 --
+-- TOC entry 4955 (class 2606 OID 258794)
 -- Name: refresh_tokens refresh_tokens_access_token_hash_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2494,6 +5438,7 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
+-- TOC entry 4957 (class 2606 OID 258796)
 -- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2502,6 +5447,7 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
+-- TOC entry 4959 (class 2606 OID 258798)
 -- Name: refresh_tokens refresh_tokens_token_hash_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2510,6 +5456,7 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
+-- TOC entry 4964 (class 2606 OID 258800)
 -- Name: risk_mappings risk_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2518,6 +5465,7 @@ ALTER TABLE ONLY public.risk_mappings
 
 
 --
+-- TOC entry 4968 (class 2606 OID 258802)
 -- Name: risks risks_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2526,6 +5474,7 @@ ALTER TABLE ONLY public.risks
 
 
 --
+-- TOC entry 4972 (class 2606 OID 258804)
 -- Name: user_profile_update_logs user_profile_update_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2534,6 +5483,7 @@ ALTER TABLE ONLY public.user_profile_update_logs
 
 
 --
+-- TOC entry 4976 (class 2606 OID 258806)
 -- Name: users users_email_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2542,6 +5492,7 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- TOC entry 4978 (class 2606 OID 258808)
 -- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2550,6 +5501,7 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- TOC entry 4981 (class 2606 OID 258810)
 -- Name: users users_username_unique; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2558,6 +5510,7 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- TOC entry 4888 (class 1259 OID 258811)
 -- Name: aiid_reports_date_published_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2565,6 +5518,7 @@ CREATE INDEX aiid_reports_date_published_idx ON public.aiid_reports USING btree 
 
 
 --
+-- TOC entry 4889 (class 1259 OID 258812)
 -- Name: aiid_reports_imported_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2572,6 +5526,7 @@ CREATE INDEX aiid_reports_imported_at_idx ON public.aiid_reports USING btree (im
 
 
 --
+-- TOC entry 4892 (class 1259 OID 258813)
 -- Name: aiid_reports_object_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2579,6 +5534,7 @@ CREATE UNIQUE INDEX aiid_reports_object_id_idx ON public.aiid_reports USING btre
 
 
 --
+-- TOC entry 4893 (class 1259 OID 258814)
 -- Name: aiid_reports_report_number_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2586,6 +5542,7 @@ CREATE INDEX aiid_reports_report_number_idx ON public.aiid_reports USING btree (
 
 
 --
+-- TOC entry 4894 (class 1259 OID 258815)
 -- Name: aiid_reports_upload_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2593,6 +5550,7 @@ CREATE INDEX aiid_reports_upload_id_idx ON public.aiid_reports USING btree (uplo
 
 
 --
+-- TOC entry 4895 (class 1259 OID 258816)
 -- Name: aiid_reports_url_unique_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2600,6 +5558,7 @@ CREATE UNIQUE INDEX aiid_reports_url_unique_idx ON public.aiid_reports USING btr
 
 
 --
+-- TOC entry 4896 (class 1259 OID 258817)
 -- Name: application_logs_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2607,6 +5566,7 @@ CREATE INDEX application_logs_created_at_idx ON public.application_logs USING bt
 
 
 --
+-- TOC entry 4897 (class 1259 OID 258818)
 -- Name: application_logs_ip_address_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2614,6 +5574,7 @@ CREATE INDEX application_logs_ip_address_idx ON public.application_logs USING bt
 
 
 --
+-- TOC entry 4898 (class 1259 OID 258819)
 -- Name: application_logs_label_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2621,6 +5582,7 @@ CREATE INDEX application_logs_label_idx ON public.application_logs USING btree (
 
 
 --
+-- TOC entry 4899 (class 1259 OID 258820)
 -- Name: application_logs_level_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2628,6 +5590,7 @@ CREATE INDEX application_logs_level_idx ON public.application_logs USING btree (
 
 
 --
+-- TOC entry 4902 (class 1259 OID 258821)
 -- Name: articles_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2635,6 +5598,7 @@ CREATE INDEX articles_created_at_idx ON public.articles USING btree (created_at)
 
 
 --
+-- TOC entry 4905 (class 1259 OID 258822)
 -- Name: articles_sha256_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2642,6 +5606,7 @@ CREATE INDEX articles_sha256_idx ON public.articles USING btree (sha256);
 
 
 --
+-- TOC entry 4906 (class 1259 OID 258823)
 -- Name: articles_url_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2649,6 +5614,71 @@ CREATE INDEX articles_url_idx ON public.articles USING btree (url);
 
 
 --
+-- TOC entry 4987 (class 1259 OID 271866)
+-- Name: batch_run_items_batch_run_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_run_items_batch_run_id_idx ON public.batch_run_items USING btree (batch_run_id);
+
+
+--
+-- TOC entry 4988 (class 1259 OID 271868)
+-- Name: batch_run_items_ingest_link_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_run_items_ingest_link_id_idx ON public.batch_run_items USING btree (ingest_link_id);
+
+
+--
+-- TOC entry 4991 (class 1259 OID 271870)
+-- Name: batch_run_items_report_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_run_items_report_id_idx ON public.batch_run_items USING btree (report_id);
+
+
+--
+-- TOC entry 4992 (class 1259 OID 271867)
+-- Name: batch_run_items_source_type_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_run_items_source_type_idx ON public.batch_run_items USING btree (source_type);
+
+
+--
+-- TOC entry 4993 (class 1259 OID 271869)
+-- Name: batch_run_items_upload_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_run_items_upload_id_idx ON public.batch_run_items USING btree (upload_id);
+
+
+--
+-- TOC entry 4982 (class 1259 OID 271864)
+-- Name: batch_runs_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_runs_created_at_idx ON public.batch_runs USING btree (created_at);
+
+
+--
+-- TOC entry 4983 (class 1259 OID 271865)
+-- Name: batch_runs_model_name_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_runs_model_name_idx ON public.batch_runs USING btree (model_name);
+
+
+--
+-- TOC entry 4986 (class 1259 OID 271863)
+-- Name: batch_runs_status_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX batch_runs_status_idx ON public.batch_runs USING btree (status);
+
+
+--
+-- TOC entry 4909 (class 1259 OID 258824)
 -- Name: cron_job_events_job_id_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2656,6 +5686,7 @@ CREATE INDEX cron_job_events_job_id_created_at_idx ON public.cron_job_events USI
 
 
 --
+-- TOC entry 4918 (class 1259 OID 258825)
 -- Name: etl_report_upload_items_upload_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2663,6 +5694,7 @@ CREATE INDEX etl_report_upload_items_upload_id_idx ON public.etl_report_upload_i
 
 
 --
+-- TOC entry 4919 (class 1259 OID 258826)
 -- Name: etl_report_upload_items_upload_row_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2670,6 +5702,7 @@ CREATE INDEX etl_report_upload_items_upload_row_idx ON public.etl_report_upload_
 
 
 --
+-- TOC entry 4920 (class 1259 OID 258827)
 -- Name: etl_report_uploads_archived_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2677,6 +5710,7 @@ CREATE INDEX etl_report_uploads_archived_idx ON public.etl_report_uploads USING 
 
 
 --
+-- TOC entry 4921 (class 1259 OID 258828)
 -- Name: etl_report_uploads_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2684,6 +5718,7 @@ CREATE INDEX etl_report_uploads_created_at_idx ON public.etl_report_uploads USIN
 
 
 --
+-- TOC entry 4922 (class 1259 OID 258829)
 -- Name: etl_report_uploads_file_sha256_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2691,6 +5726,7 @@ CREATE INDEX etl_report_uploads_file_sha256_idx ON public.etl_report_uploads USI
 
 
 --
+-- TOC entry 4925 (class 1259 OID 258830)
 -- Name: etl_report_uploads_status_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2698,6 +5734,7 @@ CREATE INDEX etl_report_uploads_status_idx ON public.etl_report_uploads USING bt
 
 
 --
+-- TOC entry 4961 (class 1259 OID 258831)
 -- Name: idx_risk_mappings_domains; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2705,6 +5742,7 @@ CREATE INDEX idx_risk_mappings_domains ON public.risk_mappings USING btree (doma
 
 
 --
+-- TOC entry 4962 (class 1259 OID 258832)
 -- Name: idx_risk_mappings_risk_type_detected; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2712,6 +5750,7 @@ CREATE INDEX idx_risk_mappings_risk_type_detected ON public.risk_mappings USING 
 
 
 --
+-- TOC entry 4926 (class 1259 OID 258833)
 -- Name: ingest_link_items_feed_url_uidx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2719,6 +5758,7 @@ CREATE UNIQUE INDEX ingest_link_items_feed_url_uidx ON public.ingest_link_items 
 
 
 --
+-- TOC entry 4927 (class 1259 OID 258834)
 -- Name: ingest_link_items_ingest_link_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2726,6 +5766,7 @@ CREATE INDEX ingest_link_items_ingest_link_id_idx ON public.ingest_link_items US
 
 
 --
+-- TOC entry 4930 (class 1259 OID 258835)
 -- Name: ingest_links_archived_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2733,6 +5774,7 @@ CREATE INDEX ingest_links_archived_idx ON public.ingest_links USING btree (archi
 
 
 --
+-- TOC entry 4931 (class 1259 OID 258836)
 -- Name: ingest_links_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2740,6 +5782,7 @@ CREATE INDEX ingest_links_created_at_idx ON public.ingest_links USING btree (cre
 
 
 --
+-- TOC entry 4934 (class 1259 OID 258837)
 -- Name: ingest_links_url_unique; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2747,6 +5790,7 @@ CREATE UNIQUE INDEX ingest_links_url_unique ON public.ingest_links USING btree (
 
 
 --
+-- TOC entry 4935 (class 1259 OID 258838)
 -- Name: jobs_article_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2754,6 +5798,15 @@ CREATE INDEX jobs_article_id_idx ON public.jobs USING btree (article_id);
 
 
 --
+-- TOC entry 4936 (class 1259 OID 271876)
+-- Name: jobs_batch_run_id_idx; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX jobs_batch_run_id_idx ON public.jobs USING btree (batch_run_id);
+
+
+--
+-- TOC entry 4937 (class 1259 OID 258839)
 -- Name: jobs_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2761,6 +5814,7 @@ CREATE INDEX jobs_created_at_idx ON public.jobs USING btree (created_at);
 
 
 --
+-- TOC entry 4938 (class 1259 OID 258840)
 -- Name: jobs_ingest_link_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2768,6 +5822,7 @@ CREATE INDEX jobs_ingest_link_id_idx ON public.jobs USING btree (ingest_link_id)
 
 
 --
+-- TOC entry 4939 (class 1259 OID 258841)
 -- Name: jobs_ingest_link_item_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2775,6 +5830,7 @@ CREATE INDEX jobs_ingest_link_item_id_idx ON public.jobs USING btree (ingest_lin
 
 
 --
+-- TOC entry 4942 (class 1259 OID 258842)
 -- Name: jobs_status_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2782,6 +5838,7 @@ CREATE INDEX jobs_status_idx ON public.jobs USING btree (status);
 
 
 --
+-- TOC entry 4943 (class 1259 OID 258843)
 -- Name: jobs_url_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2789,6 +5846,7 @@ CREATE INDEX jobs_url_idx ON public.jobs USING btree (url);
 
 
 --
+-- TOC entry 4944 (class 1259 OID 258844)
 -- Name: llm_observability_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2796,6 +5854,7 @@ CREATE INDEX llm_observability_created_at_idx ON public.llm_observability USING 
 
 
 --
+-- TOC entry 4945 (class 1259 OID 258845)
 -- Name: llm_observability_model_name_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2803,6 +5862,7 @@ CREATE INDEX llm_observability_model_name_idx ON public.llm_observability USING 
 
 
 --
+-- TOC entry 4952 (class 1259 OID 258846)
 -- Name: password_reset_tokens_user_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2810,6 +5870,7 @@ CREATE INDEX password_reset_tokens_user_id_idx ON public.password_reset_tokens U
 
 
 --
+-- TOC entry 4953 (class 1259 OID 258847)
 -- Name: refresh_tokens_access_token_hash_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2817,6 +5878,7 @@ CREATE INDEX refresh_tokens_access_token_hash_idx ON public.refresh_tokens USING
 
 
 --
+-- TOC entry 4960 (class 1259 OID 258848)
 -- Name: refresh_tokens_user_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2824,6 +5886,7 @@ CREATE INDEX refresh_tokens_user_id_idx ON public.refresh_tokens USING btree (us
 
 
 --
+-- TOC entry 4965 (class 1259 OID 258849)
 -- Name: risks_article_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2831,6 +5894,7 @@ CREATE INDEX risks_article_id_idx ON public.risks USING btree (article_id);
 
 
 --
+-- TOC entry 4966 (class 1259 OID 258850)
 -- Name: risks_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2838,6 +5902,7 @@ CREATE INDEX risks_created_at_idx ON public.risks USING btree (created_at);
 
 
 --
+-- TOC entry 4969 (class 1259 OID 258851)
 -- Name: risks_primary_risk_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2845,6 +5910,7 @@ CREATE INDEX risks_primary_risk_idx ON public.risks USING btree (primary_risk);
 
 
 --
+-- TOC entry 4970 (class 1259 OID 258852)
 -- Name: user_profile_update_logs_created_at_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2852,6 +5918,7 @@ CREATE INDEX user_profile_update_logs_created_at_idx ON public.user_profile_upda
 
 
 --
+-- TOC entry 4973 (class 1259 OID 258853)
 -- Name: user_profile_update_logs_target_user_id_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2859,6 +5926,7 @@ CREATE INDEX user_profile_update_logs_target_user_id_idx ON public.user_profile_
 
 
 --
+-- TOC entry 4974 (class 1259 OID 258854)
 -- Name: users_email_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2866,6 +5934,7 @@ CREATE INDEX users_email_idx ON public.users USING btree (email);
 
 
 --
+-- TOC entry 4979 (class 1259 OID 258855)
 -- Name: users_username_idx; Type: INDEX; Schema: public; Owner: postgres
 --
 
@@ -2873,6 +5942,7 @@ CREATE INDEX users_username_idx ON public.users USING btree (username);
 
 
 --
+-- TOC entry 4994 (class 2606 OID 258856)
 -- Name: aiid_reports aiid_reports_upload_id_etl_report_uploads_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2881,6 +5951,52 @@ ALTER TABLE ONLY public.aiid_reports
 
 
 --
+-- TOC entry 5008 (class 2606 OID 271838)
+-- Name: batch_run_items batch_run_items_batch_run_id_batch_runs_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items
+    ADD CONSTRAINT batch_run_items_batch_run_id_batch_runs_id_fk FOREIGN KEY (batch_run_id) REFERENCES public.batch_runs(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 5009 (class 2606 OID 271843)
+-- Name: batch_run_items batch_run_items_ingest_link_id_ingest_links_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items
+    ADD CONSTRAINT batch_run_items_ingest_link_id_ingest_links_id_fk FOREIGN KEY (ingest_link_id) REFERENCES public.ingest_links(id) ON DELETE SET NULL;
+
+
+--
+-- TOC entry 5010 (class 2606 OID 271848)
+-- Name: batch_run_items batch_run_items_ingest_link_item_id_ingest_link_items_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items
+    ADD CONSTRAINT batch_run_items_ingest_link_item_id_ingest_link_items_id_fk FOREIGN KEY (ingest_link_item_id) REFERENCES public.ingest_link_items(id) ON DELETE SET NULL;
+
+
+--
+-- TOC entry 5011 (class 2606 OID 271858)
+-- Name: batch_run_items batch_run_items_report_id_aiid_reports_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items
+    ADD CONSTRAINT batch_run_items_report_id_aiid_reports_id_fk FOREIGN KEY (report_id) REFERENCES public.aiid_reports(id) ON DELETE SET NULL;
+
+
+--
+-- TOC entry 5012 (class 2606 OID 271853)
+-- Name: batch_run_items batch_run_items_upload_id_etl_report_uploads_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.batch_run_items
+    ADD CONSTRAINT batch_run_items_upload_id_etl_report_uploads_id_fk FOREIGN KEY (upload_id) REFERENCES public.etl_report_uploads(id) ON DELETE SET NULL;
+
+
+--
+-- TOC entry 4995 (class 2606 OID 258861)
 -- Name: cron_job_schedule_feeds cron_job_schedule_feeds_ingest_link_id_ingest_links_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2889,6 +6005,7 @@ ALTER TABLE ONLY public.cron_job_schedule_feeds
 
 
 --
+-- TOC entry 4996 (class 2606 OID 258866)
 -- Name: cron_job_schedule_feeds cron_job_schedule_feeds_schedule_id_cron_job_schedules_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2897,6 +6014,7 @@ ALTER TABLE ONLY public.cron_job_schedule_feeds
 
 
 --
+-- TOC entry 4997 (class 2606 OID 258871)
 -- Name: etl_report_upload_items etl_report_upload_items_upload_id_etl_report_uploads_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2905,6 +6023,7 @@ ALTER TABLE ONLY public.etl_report_upload_items
 
 
 --
+-- TOC entry 4998 (class 2606 OID 258876)
 -- Name: ingest_link_items ingest_link_items_ingest_link_id_ingest_links_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2913,6 +6032,7 @@ ALTER TABLE ONLY public.ingest_link_items
 
 
 --
+-- TOC entry 4999 (class 2606 OID 258881)
 -- Name: jobs jobs_article_id_articles_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2921,6 +6041,16 @@ ALTER TABLE ONLY public.jobs
 
 
 --
+-- TOC entry 5000 (class 2606 OID 271871)
+-- Name: jobs jobs_batch_run_id_batch_runs_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.jobs
+    ADD CONSTRAINT jobs_batch_run_id_batch_runs_id_fk FOREIGN KEY (batch_run_id) REFERENCES public.batch_runs(id) ON DELETE SET NULL;
+
+
+--
+-- TOC entry 5001 (class 2606 OID 258886)
 -- Name: jobs jobs_ingest_link_id_ingest_links_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2929,6 +6059,7 @@ ALTER TABLE ONLY public.jobs
 
 
 --
+-- TOC entry 5002 (class 2606 OID 258891)
 -- Name: jobs jobs_ingest_link_item_id_ingest_link_items_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2937,6 +6068,7 @@ ALTER TABLE ONLY public.jobs
 
 
 --
+-- TOC entry 5003 (class 2606 OID 258896)
 -- Name: password_reset_tokens password_reset_tokens_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2945,6 +6077,7 @@ ALTER TABLE ONLY public.password_reset_tokens
 
 
 --
+-- TOC entry 5004 (class 2606 OID 258901)
 -- Name: refresh_tokens refresh_tokens_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2953,6 +6086,7 @@ ALTER TABLE ONLY public.refresh_tokens
 
 
 --
+-- TOC entry 5005 (class 2606 OID 258906)
 -- Name: risks risks_article_id_articles_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2961,6 +6095,7 @@ ALTER TABLE ONLY public.risks
 
 
 --
+-- TOC entry 5006 (class 2606 OID 258911)
 -- Name: user_profile_update_logs user_profile_update_logs_target_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2969,6 +6104,7 @@ ALTER TABLE ONLY public.user_profile_update_logs
 
 
 --
+-- TOC entry 5007 (class 2606 OID 258916)
 -- Name: user_profile_update_logs user_profile_update_logs_updated_by_user_id_users_id_fk; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -2976,9 +6112,11 @@ ALTER TABLE ONLY public.user_profile_update_logs
     ADD CONSTRAINT user_profile_update_logs_updated_by_user_id_users_id_fk FOREIGN KEY (updated_by_user_id) REFERENCES public.users(id);
 
 
+-- Completed on 2026-07-17 14:55:48
+
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict GPr3NQ4XAaS9h4tOZIgYaho1rO6uUnbXUXfNGXFs0TZHgNrsDCbj0weyLqg2Zeg
+\unrestrict z8EOWhAE4KRBCOGdCZLSabQXLabxJxrQv70CtwqwQ2e8PjPhescdg0nLbUEhWcO
 

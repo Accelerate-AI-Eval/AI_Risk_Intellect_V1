@@ -31,7 +31,7 @@ import {
 import { withUsModelPrefix } from "../../utils/bedrockModelId.js";
 
 export type ExtractRiskResult =
-  | { outcome: "done"; riskId: string; created: boolean }
+  | { outcome: "done"; riskId: string; created: boolean; modelName: string }
   | { outcome: "skipped"; reason: string };
 
 const UNKNOWN_MODEL_KEY = "__unknown__";
@@ -244,6 +244,7 @@ async function persistTranslatedArticleTitle(
  */
 export async function extractRiskForArticle(
   articleId: number,
+  options?: { modelId?: string | null },
 ): Promise<ExtractRiskResult> {
   const [article] = await db
     .select({
@@ -270,11 +271,18 @@ export async function extractRiskForArticle(
       text,
       title: article.title ?? "",
       url: article.url,
+      ...(options?.modelId?.trim()
+        ? { modelId: options.modelId.trim() }
+        : {}),
     });
 
     const resolvedModel = displayModelName(result.model);
     const modelKey = normalizeModelKey(resolvedModel);
     const existing = await findExistingRiskForArticleModel(articleId, modelKey);
+
+    console.log(
+      `[batch-worker] extracted url=${article.url} model=${resolvedModel} articleId=${articleId} created=${!existing}`,
+    );
 
     await recordObservabilityMetrics({
       modelName: resolvedModel,
@@ -323,6 +331,7 @@ export async function extractRiskForArticle(
         outcome: "done",
         riskId: existing.id,
         created: false,
+        modelName: resolvedModel,
       };
     }
 
@@ -356,7 +365,12 @@ export async function extractRiskForArticle(
       })
       .where(eq(articles.id, articleId));
 
-    return { outcome: "done", riskId: row!.id, created: true };
+    return {
+      outcome: "done",
+      riskId: row!.id,
+      created: true,
+      modelName: resolvedModel,
+    };
   } catch (err) {
     if (err instanceof StubExtractionError) {
       // StubExtractionError means Python responded; the LLM path ran but returned

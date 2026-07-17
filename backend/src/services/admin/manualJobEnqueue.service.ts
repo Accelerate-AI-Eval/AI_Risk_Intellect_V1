@@ -2,6 +2,7 @@ import { db } from "../../db/index.js";
 import { createArticleWithIngestJob } from "../../jobs/jobFactory.js";
 import { HttpError } from "../../utils/httpError.js";
 import { normalizeUrl } from "../../utils/fetchUtils.js";
+import { resolveEnqueueModel } from "./discoveryEnqueue.service.js";
 
 export type ManualJobEnqueueResult = {
   job: {
@@ -29,10 +30,14 @@ export async function enqueueManualJobUrl(
     throw HttpError.badRequest("URL is not valid.");
   }
 
+  const model = await resolveEnqueueModel();
+
   const result = await db.transaction(async (tx) =>
     createArticleWithIngestJob(tx, {
       url: normalized,
       source: "manual",
+      modelName: model.modelName,
+      modelLabel: model.modelLabel,
     }),
   );
 

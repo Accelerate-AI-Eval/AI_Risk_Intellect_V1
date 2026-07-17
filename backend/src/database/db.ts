@@ -10,7 +10,7 @@ const DATABASE_PASSWORD = process.env.DATABASE_PASSWORD ?? "Postgresql123";
 const DATABASE_HOST = process.env.DATABASE_HOST ?? "localhost";
 const DATABASE_PORT = process.env.DATABASE_PORT ?? "5432";
 // const DATABASE_NAME = process.env.DATABASE_NAME ?? "ai_risk_empty_db";
-const DATABASE_NAME = process.env.DATABASE_NAME ?? "ai_risk_db";
+const DATABASE_NAME = process.env.DATABASE_NAME ?? "july17_2026_ai_risk_db";
 // const DATABASE_NAME = process.env.DATABASE_NAME ?? "aai_risk_testing_db";
 
 const DATABASE_URI =

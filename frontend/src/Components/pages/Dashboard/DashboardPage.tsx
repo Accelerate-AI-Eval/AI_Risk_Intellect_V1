@@ -387,6 +387,56 @@ function SectorIndustryPanel({
   );
 }
 
+const SEVERITY_DONUT_ORDER = ["critical", "high", "medium", "low"] as const;
+
+function parseSeverityCount(count: string): number {
+  const parsed = Number(String(count).replace(/,/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function buildSeverityDonutGradient(
+  rows: DashboardApiStats["severity"]["rows"],
+  total: number,
+): string {
+  const byKey = new Map(rows.map((row) => [row.key, row]));
+  const ordered = SEVERITY_DONUT_ORDER.map((key) => byKey.get(key)).filter(
+    (row): row is NonNullable<typeof row> => row != null,
+  );
+  const countedTotal = ordered.reduce(
+    (sum, row) => sum + parseSeverityCount(row.count),
+    0,
+  );
+  const sliceTotal = countedTotal > 0 ? countedTotal : total;
+
+  if (sliceTotal <= 0) {
+    return "conic-gradient(from -90deg, #64748b 0turn 1turn)";
+  }
+
+  const stops: string[] = [];
+  let cursor = 0;
+
+  for (const row of ordered) {
+    const count = parseSeverityCount(row.count);
+    if (count <= 0) continue;
+    const start = cursor;
+    cursor += count / sliceTotal;
+    stops.push(`${row.color} ${start}turn ${cursor}turn`);
+  }
+
+  if (stops.length === 0) {
+    return "conic-gradient(from -90deg, #64748b 0turn 1turn)";
+  }
+
+  // Snap the last stop to a full turn so floating-point gaps never appear.
+  const last = stops[stops.length - 1]!;
+  const snapIndex = last.lastIndexOf(" ");
+  if (snapIndex > 0) {
+    stops[stops.length - 1] = `${last.slice(0, snapIndex)} 1turn`;
+  }
+
+  return `conic-gradient(from -90deg, ${stops.join(", ")})`;
+}
+
 function RiskSeverityDistributionCard({
   severity,
 }: {
@@ -397,6 +447,10 @@ function RiskSeverityDistributionCard({
     severity.totalDelta >= 0
       ? `+${severity.totalDelta.toLocaleString("en-US")}`
       : severity.totalDelta.toLocaleString("en-US");
+  const donutGradient = useMemo(
+    () => buildSeverityDonutGradient(severity.rows, severity.total),
+    [severity.rows, severity.total],
+  );
 
   return (
     <article className="dashInsight dashInsight--severity">
@@ -419,7 +473,11 @@ function RiskSeverityDistributionCard({
       </header>
 
       <div className="dashInsight__body dashInsight__body--severity">
-        <div className="dashDonut" aria-hidden>
+        <div
+          className="dashDonut"
+          style={{ background: donutGradient }}
+          aria-hidden
+        >
           <div className="dashDonut__hole" />
         </div>
 

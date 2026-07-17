@@ -310,6 +310,7 @@
 /* Shared inner-card shell (classification, analysis, catalog, evidence) */
 .riskDetail__classCard,
 .riskDetail__analysisBlock,
+.riskDetail__extractedRisk,
 .riskDetail__catalogMatch,
 .riskDetail__evidenceItem {
   display: flex;
@@ -881,13 +882,6 @@ html.app-theme-dark .riskDetail--page {
   }
 }
 
-.riskDetail__extractedRisk {
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-}
-
 .riskDetail__riskIdPill {
   display: inline-flex;
   align-items: center;
@@ -909,6 +903,10 @@ html.app-theme-dark .riskDetail--page {
 
 .riskDetail__extractedRiskId {
   margin: 0 0 0.35rem;
+}
+
+.riskDetail__extractedRisk .riskDetail__catalogMatchHead .riskDetail__extractedRiskId {
+  margin: 0;
 }
 
 .riskDetail__extractedRisk .riskDetail__description {
@@ -1021,6 +1019,25 @@ html:not(.app-theme-dark) .riskDetail__domainHighlight {
   margin-bottom: 0.5rem;
 }
 
+.riskDetail__catalogMatchScores {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.riskDetail__catalogMatchScoresLabel {
+  flex: 0 0 100%;
+  color: var(--risk-detail-muted);
+  font-size: var(--risk-detail-font-label);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-align: right;
+  text-transform: uppercase;
+}
+
 .riskDetail__catalogMatchScore {
   display: inline-flex;
   align-items: center;
@@ -1035,6 +1052,30 @@ html:not(.app-theme-dark) .riskDetail__domainHighlight {
   text-transform: uppercase;
   color: var(--risk-detail-score-color);
   white-space: nowrap;
+}
+
+.riskDetail__catalogMatchScore--domain {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+}
+
+.riskDetail__catalogMatchScore--description {
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.12);
+  color: #c4b5fd;
+}
+
+html:not(.app-theme-dark) .riskDetail__catalogMatchScore--domain {
+  color: #0284c7;
+  border-color: rgba(2, 132, 199, 0.35);
+  background: rgba(14, 165, 233, 0.1);
+}
+
+html:not(.app-theme-dark) .riskDetail__catalogMatchScore--description {
+  color: #7c3aed;
+  border-color: rgba(124, 58, 237, 0.3);
+  background: rgba(139, 92, 246, 0.1);
 }
 
 .riskDetail__catalogMatchTitleRow {

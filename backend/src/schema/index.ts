@@ -14,3 +14,5 @@ export * from "./aiid/reportUploads.js";
 export * from "./aiid/reportUploadItems.js";
 export * from "./cronJobs/cronJobSchedules.js";
 export * from "./cronJobs/cronJobEvents.js";
+export * from "./batchRuns/batchRuns.js";
+export * from "./batchRuns/batchRunItems.js";

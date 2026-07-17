@@ -345,6 +345,7 @@ export async function findCatalogRiskMatches(
         row.domains ?? "",
         extractedText,
       );
+
       const accuracy = 0.35 * domainScore + 0.65 * descriptionScore;
       const domainPct = Math.round(domainScore * 100);
       const descriptionPct = Math.round(descriptionScore * 100);

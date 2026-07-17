@@ -34,6 +34,8 @@ import {
   startDiscoverySchema,
   updateIngestLinkSchema,
   startReportsRunSchema,
+  startBatchRunSchema,
+  batchRunIdSchema,
   saveCronJobSchema,
   cronJobIdSchema,
 } from "../validators/admin.validators.js";
@@ -50,6 +52,11 @@ import {
   listReportUploadsHandler,
 } from "../controllers/admin/etlReportUploads.controller.js";
 import { startReportsRunHandler } from "../controllers/admin/etlReportsRun.controller.js";
+import {
+  getBatchRunHandler,
+  listBatchRunsHandler,
+  startBatchRunHandler,
+} from "../controllers/admin/batchRuns.controller.js";
 import { listReportsLogsHandler } from "../controllers/admin/reportsLogs.controller.js";
 import {
   listCronJobsHandler,
@@ -282,6 +289,26 @@ adminRouter.post(
   requireAuth,
   validate(startReportsRunSchema),
   asyncHandler(startReportsRunHandler),
+);
+
+adminRouter.get(
+  "/batch-runs",
+  requireAuth,
+  asyncHandler(listBatchRunsHandler),
+);
+
+adminRouter.get(
+  "/batch-runs/:id",
+  requireAuth,
+  validate(batchRunIdSchema, "params"),
+  asyncHandler(getBatchRunHandler),
+);
+
+adminRouter.post(
+  "/batch-runs/start",
+  requireAuth,
+  validate(startBatchRunSchema),
+  asyncHandler(startBatchRunHandler),
 );
 
 adminRouter.get(

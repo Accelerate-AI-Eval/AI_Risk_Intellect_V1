@@ -263,12 +263,18 @@ function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
     <li className="riskDetail__catalogMatch">
       <div className="riskDetail__catalogMatchHead">
         <span className="riskDetail__riskIdPill">{match.riskId}</span>
-        <span
-          className="riskDetail__catalogMatchScore"
-          title={`Domain: ${match.domainMatchPercent}% · Description: ${match.descriptionMatchPercent}%`}
-        >
-          {match.accuracyPercent}% match
-        </span>
+        <div className="riskDetail__catalogMatchScores" aria-label="Match scores">
+          <span className="riskDetail__catalogMatchScoresLabel">Match</span>
+          <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--accuracy">
+            {match.accuracyPercent}% accuracy
+          </span>
+          <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--domain">
+            {match.domainMatchPercent}% domain
+          </span>
+          <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--description">
+            {match.descriptionMatchPercent}% description
+          </span>
+        </div>
       </div>
       <div className="riskDetail__catalogMatchTitleRow">
         <p className="riskDetail__innerCardTitle riskDetail__catalogMatchTitle">{match.title}</p>
@@ -518,9 +524,28 @@ export function RiskDetailView({
                   Extracted Risk (from article)
                 </h3>
                 <div className="riskDetail__extractedRisk">
-                  <span className="riskDetail__riskIdPill riskDetail__extractedRiskId">
-                    {formatRiskId(risk)}
-                  </span>
+                  <div className="riskDetail__catalogMatchHead">
+                    <span className="riskDetail__riskIdPill riskDetail__extractedRiskId">
+                      {formatRiskId(risk)}
+                    </span>
+                    <div
+                      className="riskDetail__catalogMatchScores"
+                      aria-label="Extracted risk scores"
+                    >
+                      <span className="riskDetail__catalogMatchScoresLabel">
+                        Match
+                      </span>
+                      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--accuracy">
+                        {risk.scores.overall.value}% score
+                      </span>
+                      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--domain">
+                        {(risk.riskAnalysis.catalogMatches?.[0]?.domainMatchPercent ?? 0)}% domain
+                      </span>
+                      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--description">
+                        {(risk.riskAnalysis.catalogMatches?.[0]?.descriptionMatchPercent ?? 0)}% description
+                      </span>
+                    </div>
+                  </div>
                   <div className="riskDetail__catalogMatchTitleRow">
                     <p className="riskDetail__extractedRiskTitle">{risk.title}</p>
                     <span className="riskDetail__domainHighlight riskDetail__domainHighlight--inline">

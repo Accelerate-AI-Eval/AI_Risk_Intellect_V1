@@ -213,6 +213,13 @@ function parseDiscoveryIngestLinkItemIds(): number[] | null {
   return ids.length > 0 ? ids : null;
 }
 
+function parseBatchRunId(): number | null {
+  const raw = process.env.BATCH_RUN_ID?.trim();
+  if (!raw) return null;
+  const id = Number.parseInt(raw, 10);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
 function hasManualDiscoveryEnv(): boolean {
   return (
     parseDiscoveryIngestLinkItemIds() != null ||
@@ -323,7 +330,9 @@ async function runExtractedUrlDiscoveryCycle(
     return 0;
   }
 
-  const n = await enqueueDiscoveryBatch(toEnqueue);
+  const n = await enqueueDiscoveryBatch(toEnqueue, {
+    batchRunId: parseBatchRunId(),
+  });
   log.info(
     "[rss-discovery] enqueued %d ingest job(s) from %d extracted URL(s) across %d feed(s)",
     n,
@@ -363,7 +372,9 @@ async function runSelectedExtractedItemsCycle(
     return;
   }
 
-  const n = await enqueueDiscoveryBatch(toEnqueue);
+  const n = await enqueueDiscoveryBatch(toEnqueue, {
+    batchRunId: parseBatchRunId(),
+  });
   log.info(
     "[rss-discovery] enqueued %d ingest job(s) from %d selected extracted URL(s)",
     n,
