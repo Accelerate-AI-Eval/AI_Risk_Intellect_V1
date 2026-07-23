@@ -20,6 +20,7 @@ import { ReviewPage } from './Components/pages/Review/ReviewPage'
 import { SettingsPage } from './Components/pages/Settings/SettingsPage'
 import { AccountPage } from './Components/pages/Account/AccountPage'
 import { ObservabilityPage } from './Components/pages/Observability/ObservabilityPage'
+import { ApiKeysPage } from './Components/pages/ApiKeys/ApiKeysPage'
 import { RequireAuth } from './Components/RequireAuth'
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
             <Route path="/observability" element={<ObservabilityPage />} />
             <Route path="/review" element={<ReviewPage />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/api-keys" element={<ApiKeysPage />} />
             {/* Settings content lives on Controls; redirect legacy URLs */}
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/admin" element={<Navigate to="/controls" replace />} />

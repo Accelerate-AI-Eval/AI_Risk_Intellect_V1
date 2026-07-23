@@ -1,3 +1,4 @@
+import "../bootstrap.js";
 import bcrypt from "bcryptjs";
 import { eq, or } from "drizzle-orm";
 import { db, pool } from "../database/db.js";

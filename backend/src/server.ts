@@ -47,6 +47,10 @@ app.use(
       "Authorization",
       "Accept",
       "X-Requested-With",
+      "X-Api-Key",
+      "X-Webhook-Signature",
+      "X-Webhook-Timestamp",
+      "X-Webhook-Delivery-Id",
     ],
     credentials: true,
     exposedHeaders: ["Content-Disposition"],
@@ -55,7 +59,19 @@ app.use(
 );
 
 app.use(cookieParser());
-app.use(express.json({ limit: "10mb" }));
+
+/** Preserve raw body for HMAC verification on webhook routes. */
+app.use(
+  express.json({
+    limit: "10mb",
+    verify: (req, _res, buf) => {
+      const url = req.url ?? "";
+      if (url.includes("/webhooks/")) {
+        (req as typeof req & { rawBody?: string }).rawBody = buf.toString("utf8");
+      }
+    },
+  }),
+);
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(httpLoggerMiddleware);
 

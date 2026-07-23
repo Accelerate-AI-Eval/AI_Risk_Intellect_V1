@@ -9,6 +9,8 @@ import { dashboardRouter } from "./dashboard.routes.js";
 import { observabilityRouter } from "./observability.routes.js";
 import { notificationsRouter } from "../notifications/notifications.routes.js";
 import { internalRouter } from "./internal.routes.js";
+import { apiKeysRouter } from "./apiKeys.routes.js";
+import { webhooksRouter } from "./webhooks.routes.js";
 
 export const apiRouter: Router = Router();
 
@@ -26,3 +28,5 @@ apiRouter.use("/risks", risksRouter);
 apiRouter.use("/dashboard", dashboardRouter);
 apiRouter.use("/observability", observabilityRouter);
 apiRouter.use("/notifications", notificationsRouter);
+apiRouter.use("/keys", apiKeysRouter);
+apiRouter.use("/webhooks", webhooksRouter);

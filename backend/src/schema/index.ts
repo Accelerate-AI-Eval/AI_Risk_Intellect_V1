@@ -16,3 +16,6 @@ export * from "./cronJobs/cronJobSchedules.js";
 export * from "./cronJobs/cronJobEvents.js";
 export * from "./batchRuns/batchRuns.js";
 export * from "./batchRuns/batchRunItems.js";
+export * from "./apiKeys/apiKeys.js";
+export * from "./apiKeys/apiKeyAuditLogs.js";
+export * from "./apiKeys/webhookDeliveries.js";

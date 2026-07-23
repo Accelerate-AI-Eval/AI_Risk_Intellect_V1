@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { requireAuth } from "../middleware/auth.middleware.js";
+import { requireAuthOrApiKey } from "../middleware/requireAuthOrApiKey.middleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   approveReviewRiskHandler,
@@ -13,30 +13,35 @@ import {
   rejectReviewRiskHandler,
   updateReviewFeedbackHandler,
 } from "../controllers/risks/risks.controller.js";
+import { requireAuth } from "../middleware/auth.middleware.js";
 
 export const risksRouter: Router = Router();
 
-risksRouter.get("/", requireAuth, asyncHandler(listRisksHandler));
+/** Read endpoints: JWT (UI) or API key (external AI-Q). */
+risksRouter.get("/", requireAuthOrApiKey, asyncHandler(listRisksHandler));
 risksRouter.get(
   "/review-queue",
-  requireAuth,
+  requireAuthOrApiKey,
   asyncHandler(listReviewQueueHandler),
 );
 risksRouter.get(
   "/review-queue/pending-count",
-  requireAuth,
+  requireAuthOrApiKey,
   asyncHandler(pendingReviewCountHandler),
 );
 risksRouter.get(
   "/review-feedback",
-  requireAuth,
+  requireAuthOrApiKey,
   asyncHandler(listReviewFeedbackHandler),
 );
 risksRouter.get(
   "/taxonomy-domains",
-  requireAuth,
+  requireAuthOrApiKey,
   asyncHandler(listTaxonomyDomainsHandler),
 );
+risksRouter.get("/:id", requireAuthOrApiKey, asyncHandler(getRiskByIdHandler));
+
+/** Review mutations stay JWT-only (interactive UI). */
 risksRouter.post(
   "/:id/review/approve",
   requireAuth,
@@ -57,4 +62,3 @@ risksRouter.patch(
   requireAuth,
   asyncHandler(updateReviewFeedbackHandler),
 );
-risksRouter.get("/:id", requireAuth, asyncHandler(getRiskByIdHandler));

@@ -5,6 +5,7 @@ import {
   Briefcase,
   ClipboardCheck,
   FileText,
+  KeyRound,
   LayoutDashboard,
   // Settings,
   Settings2,
@@ -28,6 +29,7 @@ export const SIDEBAR_NAV: readonly SidebarNavItem[] = [
   // { to: "/admin", label: "Admin", icon: Shield },
   { to: "/observability", label: "Observability", icon: Activity },
   // { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/api-keys", label: "API Keys", icon: KeyRound },
   { to: "/users", label: "Users", icon: Users },
 ];
 
