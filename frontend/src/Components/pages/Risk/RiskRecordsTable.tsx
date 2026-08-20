@@ -4,8 +4,10 @@ import { ChartLine, Info } from "lucide-react";
 import { DataTablePagination } from "../../common/DataTablePagination";
 import {
   formatArticleId,
+  formatProductCell,
   formatRiskDomain,
   formatRiskId,
+  formatSeverityCell,
   type RiskDetail,
 } from "./riskData";
 import { getHumanReviewMoveDetails } from "./humanReviewHelpers";
@@ -84,7 +86,13 @@ export function RiskRecordsTable({
                   INDUSTRY
                 </th>
                 <th scope="col" className="riskPage__th riskPage__th--left">
+                  AI PRODUCT
+                </th>
+                <th scope="col" className="riskPage__th riskPage__th--left">
                   INTENT
+                </th>
+                <th scope="col" className="riskPage__th riskPage__th--left">
+                  SEVERITY
                 </th>
                 <th
                   scope="col"
@@ -103,13 +111,13 @@ export function RiskRecordsTable({
             <tbody>
               {loadState === "loading" ? (
                 <tr>
-                  <td className="riskPage__td riskPage__emptyCell" colSpan={11}>
+                  <td className="riskPage__td riskPage__emptyCell" colSpan={13}>
                     Loading risks…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td className="riskPage__td riskPage__emptyCell" colSpan={11}>
+                  <td className="riskPage__td riskPage__emptyCell" colSpan={13}>
                     {searchQuery.trim()
                       ? "No risks match your filters or search."
                       : loadState === "error"
@@ -144,7 +152,13 @@ export function RiskRecordsTable({
                     </td>
                     <td className="riskPage__td riskPage__td--muted">{row.sector}</td>
                     <td className="riskPage__td riskPage__td--muted">{row.industry}</td>
+                    <td className="riskPage__td riskPage__td--muted">
+                      {formatProductCell(row.product)}
+                    </td>
                     <td className="riskPage__td riskPage__td--muted">{row.intent}</td>
+                    <td className="riskPage__td riskPage__td--muted">
+                      {formatSeverityCell(row.riskScoring)}
+                    </td>
                     <td className="riskPage__td riskPage__td--right riskPage__td--score riskPage__td--sticky riskPage__td--stickyRight riskPage__td--stickyScore">
                       {row.qualityScore}
                     </td>

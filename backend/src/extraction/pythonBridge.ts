@@ -19,6 +19,18 @@ export type RiskExtractionObject = {
     sector?: string;
     industry?: string;
     intent?: string;
+    ai_product_name?: string | null;
+    ai_product_vendor?: string | null;
+    [key: string]: unknown;
+  };
+  risk_scoring?: {
+    likelihood?: number | null;
+    likelihood_reasoning?: string;
+    impact?: number | null;
+    impact_reasoning?: string;
+    loss_categories?: string[];
+    severity_score?: number | null;
+    severity_band?: string | null;
     [key: string]: unknown;
   };
   justification?: {

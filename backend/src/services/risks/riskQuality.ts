@@ -186,7 +186,31 @@ export function needsQualityReview(input: {
 export const NON_ENGLISH_REVIEW_REASON =
   "Non-English source content requires human review before approval.";
 
+export const JUDGE_NO_MATCH_REVIEW_REASON =
+  "Top catalog match was judged not to describe the same risk; this may be a catalog gap.";
 
+export const DUPLICATE_RISK_REVIEW_REASON =
+  "Near-duplicate of an existing risk detected via semantic similarity.";
+
+export const MISSING_JUSTIFICATION_REVIEW_REASON =
+  "Extraction returned no taxonomy justification (keyword matches / evidence excerpts).";
+
+/** True when semantic dedup flagged this risk as a near-duplicate. */
+export function isDuplicateFlaggedRisk(extractionJson: unknown): boolean {
+  const ext = (extractionJson ?? {}) as {
+    dedup?: { duplicate_of_risk_id?: unknown };
+  };
+  return Boolean(ext.dedup && ext.dedup.duplicate_of_risk_id);
+}
+
+/** True when the match judge rejected the top catalog candidate. */
+export function isJudgeNoMatchRisk(extractionJson: unknown): boolean {
+  const ext = (extractionJson ?? {}) as {
+    catalog_matches?: Array<{ judgeVerdict?: unknown }>;
+  };
+  const top = Array.isArray(ext.catalog_matches) ? ext.catalog_matches[0] : null;
+  return top?.judgeVerdict === "no_match";
+}
 
 export function isNonEnglishRisk(extractionJson: unknown): boolean {
 
@@ -221,6 +245,10 @@ export function needsHumanReview(input: {
 }): boolean {
 
   if (isNonEnglishRisk(input.extractionJson)) return true;
+
+  if (isDuplicateFlaggedRisk(input.extractionJson)) return true;
+
+  if (isJudgeNoMatchRisk(input.extractionJson)) return true;
 
   return needsQualityReview(input);
 

@@ -50,6 +50,7 @@ import {
   exportReportUploadItemsHandler,
   listReportUploadItemsHandler,
   listReportUploadsHandler,
+  restoreReportUploadHandler,
 } from "../controllers/admin/etlReportUploads.controller.js";
 import { startReportsRunHandler } from "../controllers/admin/etlReportsRun.controller.js";
 import {
@@ -267,6 +268,13 @@ adminRouter.post(
   requireAuth,
   validate(ingestLinkIdSchema, "params"),
   asyncHandler(archiveReportUploadHandler),
+);
+
+adminRouter.post(
+  "/etl/reports/uploads/:id/restore",
+  requireAuth,
+  validate(ingestLinkIdSchema, "params"),
+  asyncHandler(restoreReportUploadHandler),
 );
 
 adminRouter.post(

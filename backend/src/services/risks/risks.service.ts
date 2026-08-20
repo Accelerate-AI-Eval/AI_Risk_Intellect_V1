@@ -4,12 +4,15 @@ import { articles } from "../../schema/articles/articles.js";
 import { risks } from "../../schema/risks/risks.js";
 import { HttpError } from "../../utils/httpError.js";
 import {
+  extractMatchSignalsFromExtraction,
   findCatalogRiskMatches,
   isDomainInTaxonomy,
   listTaxonomyDomains,
   mergeCatalogMatchesIntoExtraction,
   parseCatalogMatchesFromExtraction,
 } from "./riskCatalogMatch.service.js";
+import { embedText } from "../aws/bedrockEmbeddings.service.js";
+import { buildRiskEmbeddingText } from "./riskEmbedding.service.js";
 import {
   mapRiskRowToDto,
   type RiskDto,
@@ -130,6 +133,12 @@ export async function listRisks(): Promise<{
       industry: risks.industry,
       intent: risks.intent,
       qualityScore: risks.qualityScore,
+      likelihood: risks.likelihood,
+      impact: risks.impact,
+      severityScore: risks.severityScore,
+      severityBand: risks.severityBand,
+      aiProductName: risks.aiProductName,
+      aiProductVendor: risks.aiProductVendor,
       extractionJson: risks.extractionJson,
       modelName: risks.modelName,
       sourceFlag: risks.sourceFlag,
@@ -182,6 +191,12 @@ export async function getRiskById(riskId: string): Promise<RiskDto> {
       industry: risks.industry,
       intent: risks.intent,
       qualityScore: risks.qualityScore,
+      likelihood: risks.likelihood,
+      impact: risks.impact,
+      severityScore: risks.severityScore,
+      severityBand: risks.severityBand,
+      aiProductName: risks.aiProductName,
+      aiProductVendor: risks.aiProductVendor,
       extractionJson: risks.extractionJson,
       modelName: risks.modelName,
       sourceFlag: risks.sourceFlag,
@@ -211,12 +226,21 @@ export async function getRiskById(riskId: string): Promise<RiskDto> {
       extractedRisk.description ?? row.riskTitle ?? "",
     ).trim();
 
+    const matchSignals = extractMatchSignalsFromExtraction(extractionJson);
+    const riskEmbedding = await embedText(
+      buildRiskEmbeddingText(row.riskTitle, description || row.riskTitle),
+    );
+
     stored = await findCatalogRiskMatches({
       domain: row.domains ?? String(extractedRisk.domains ?? ""),
       title: row.riskTitle,
       description: description || row.riskTitle,
       primaryRisk: row.primaryRisk ?? undefined,
       secondaryRisk: row.secondaryRisk ?? undefined,
+      keywordMatches: matchSignals.keywordMatches,
+      evidenceExcerpts: matchSignals.evidenceExcerpts,
+      riskEmbedding,
+      evidenceStrengthScore: matchSignals.evidenceStrengthScore,
       limit: 5,
     });
 
@@ -253,6 +277,12 @@ export async function listReviewQueueRisks(): Promise<{
       industry: risks.industry,
       intent: risks.intent,
       qualityScore: risks.qualityScore,
+      likelihood: risks.likelihood,
+      impact: risks.impact,
+      severityScore: risks.severityScore,
+      severityBand: risks.severityBand,
+      aiProductName: risks.aiProductName,
+      aiProductVendor: risks.aiProductVendor,
       extractionJson: risks.extractionJson,
       modelName: risks.modelName,
       sourceFlag: risks.sourceFlag,

@@ -126,6 +126,7 @@ export type EtlReportUploadRow = {
   skippedRows: number;
   failedRows: number;
   errorMessage: string | null;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -181,7 +182,13 @@ export async function fetchEtlReportUploads(): Promise<
       };
     }
 
-    return { ok: true, uploads: data.uploads ?? [] };
+    return {
+      ok: true,
+      uploads: (data.uploads ?? []).map((upload) => ({
+        ...upload,
+        archived: Boolean(upload.archived),
+      })),
+    };
   } catch {
     return {
       ok: false,
@@ -352,12 +359,18 @@ export async function reuploadEtlReportUpload(
 
 export async function archiveEtlReportUpload(
   id: number,
-): Promise<{ ok: true } | { ok: false; message: string }> {
+): Promise<
+  | { ok: true; message: string; upload: EtlReportUploadRow }
+  | { ok: false; message: string }
+> {
   try {
     const res = await authFetch(`/admin/etl/reports/uploads/${id}/archive`, {
       method: "POST",
     });
-    const data = (await res.json().catch(() => ({}))) as ApiErrorBody;
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      message?: string;
+      upload?: EtlReportUploadRow;
+    };
 
     if (!res.ok) {
       return {
@@ -366,11 +379,58 @@ export async function archiveEtlReportUpload(
       };
     }
 
-    return { ok: true };
+    if (!data.upload) {
+      return { ok: false, message: "Could not archive report upload." };
+    }
+
+    return {
+      ok: true,
+      message: data.message ?? "Report upload archived.",
+      upload: { ...data.upload, archived: Boolean(data.upload.archived) },
+    };
   } catch {
     return {
       ok: false,
       message: "Network error while archiving report upload.",
+    };
+  }
+}
+
+export async function restoreEtlReportUpload(
+  id: number,
+): Promise<
+  | { ok: true; message: string; upload: EtlReportUploadRow }
+  | { ok: false; message: string }
+> {
+  try {
+    const res = await authFetch(`/admin/etl/reports/uploads/${id}/restore`, {
+      method: "POST",
+    });
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      message?: string;
+      upload?: EtlReportUploadRow;
+    };
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not restore report upload."),
+      };
+    }
+
+    if (!data.upload) {
+      return { ok: false, message: "Could not restore report upload." };
+    }
+
+    return {
+      ok: true,
+      message: data.message ?? "Report upload restored.",
+      upload: { ...data.upload, archived: Boolean(data.upload.archived) },
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Network error while restoring report upload.",
     };
   }
 }

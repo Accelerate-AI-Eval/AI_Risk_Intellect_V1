@@ -242,7 +242,8 @@ export function AdminBatchRunSection({
       ]);
       if (linksResult.ok)
         setLinks(linksResult.links.filter((link) => !link.archived));
-      if (uploadsResult.ok) setUploads(uploadsResult.uploads);
+      if (uploadsResult.ok)
+        setUploads(uploadsResult.uploads.filter((upload) => !upload.archived));
       if (logsResult.ok) setLogs(logsResult.logs);
     } finally {
       setSourcesLoading(false);

@@ -95,6 +95,7 @@ export type EtlReportUploadDto = {
   failedRows: number;
   errorMessage: string | null;
   extractionStatus: EtlExtractionDisplayStatus;
+  archived: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -112,6 +113,7 @@ function toDto(row: EtlReportUpload): EtlReportUploadDto {
     failedRows: row.failedRows,
     errorMessage: row.errorMessage ?? null,
     extractionStatus: deriveEtlExtractionStatus(row),
+    archived: row.archived,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -253,6 +255,15 @@ export async function getReportRefsByUploadIds(
   return refs;
 }
 
+export async function listReportUploads(): Promise<EtlReportUploadDto[]> {
+  const rows = await db
+    .select()
+    .from(etlReportUploads)
+    .orderBy(etlReportUploads.archived, desc(etlReportUploads.createdAt));
+
+  return rows.map(toDto);
+}
+
 export async function listActiveReportUploads(): Promise<EtlReportUploadDto[]> {
   const rows = await db
     .select()
@@ -382,7 +393,7 @@ export async function listReportUploadItems(
     .from(etlReportUploads)
     .where(eq(etlReportUploads.id, uploadId));
 
-  if (!upload || upload.archived) {
+  if (!upload) {
     throw HttpError.notFound("Report upload not found.");
   }
 
@@ -431,6 +442,20 @@ export async function archiveReportUpload(id: number): Promise<EtlReportUploadDt
 
   if (!row) {
     throw HttpError.notFound("Report upload not found.");
+  }
+
+  return toDto(row);
+}
+
+export async function restoreReportUpload(id: number): Promise<EtlReportUploadDto> {
+  const [row] = await db
+    .update(etlReportUploads)
+    .set({ archived: false, updatedAt: new Date() })
+    .where(and(eq(etlReportUploads.id, id), eq(etlReportUploads.archived, true)))
+    .returning();
+
+  if (!row) {
+    throw HttpError.notFound("Archived report upload not found.");
   }
 
   return toDto(row);

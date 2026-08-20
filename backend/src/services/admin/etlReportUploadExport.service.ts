@@ -23,7 +23,7 @@ export async function buildReportUploadItemsExcel(uploadId: number): Promise<{
     .from(etlReportUploads)
     .where(eq(etlReportUploads.id, uploadId));
 
-  if (!upload || upload.archived) {
+  if (!upload) {
     throw HttpError.notFound("Report upload not found.");
   }
 

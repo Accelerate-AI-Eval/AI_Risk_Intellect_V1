@@ -1,8 +1,20 @@
-CREATE TYPE "public"."batch_run_status" AS ENUM('pending', 'running', 'completed', 'partial', 'failed');
+DO $$ BEGIN
+  CREATE TYPE "public"."batch_run_status" AS ENUM('pending', 'running', 'completed', 'partial', 'failed');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-CREATE TYPE "public"."batch_run_item_source" AS ENUM('rss', 'etl');
+DO $$ BEGIN
+  CREATE TYPE "public"."batch_run_item_source" AS ENUM('rss', 'etl');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
-CREATE TYPE "public"."batch_run_item_status" AS ENUM('pending', 'started', 'failed');
+DO $$ BEGIN
+  CREATE TYPE "public"."batch_run_item_status" AS ENUM('pending', 'started', 'failed');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "batch_runs" (
 	"id" serial PRIMARY KEY NOT NULL,

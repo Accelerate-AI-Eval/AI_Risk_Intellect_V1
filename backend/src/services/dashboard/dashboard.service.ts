@@ -63,6 +63,13 @@ export type DashboardStats = {
     totalDeltaPct: string;
     confidencePct: number;
   };
+  /** Real likelihood×impact severity distribution (5×5 matrix bands). */
+  riskRating: {
+    rows: DashboardSeverityRow[];
+    total: number;
+    scored: number;
+    unscored: number;
+  };
   confidence: {
     avgPct: number;
     breakdown: { high: number; medium: number; low: number };
@@ -337,6 +344,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       sector: risks.sector,
       industry: risks.industry,
       qualityScore: risks.qualityScore,
+      severityBand: risks.severityBand,
       extractionJson: risks.extractionJson,
       createdAt: risks.createdAt,
     })
@@ -375,6 +383,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const riskSpark = buildWeeklySparkline(riskDailyMap, 12);
 
   const severityCounts = { low: 0, medium: 0, high: 0, critical: 0 };
+  const ratingCounts = { low: 0, medium: 0, high: 0, critical: 0 };
+  let ratingUnscored = 0;
   const confidenceCounts = { high: 0, medium: 0, low: 0 };
   const taxonomyCounts = Object.fromEntries(
     TAXONOMY_KEYS.map((k) => [k, 0]),
@@ -400,6 +410,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     });
     severityCounts[severityKey(score)] += 1;
     confidenceCounts[confidenceKey(score)] += 1;
+
+    const band = (row.severityBand ?? "").toLowerCase();
+    if (band === "low" || band === "medium" || band === "high" || band === "critical") {
+      ratingCounts[band] += 1;
+    } else {
+      ratingUnscored += 1;
+    }
 
     if (score != null) {
       scoreSum += score;
@@ -442,6 +459,25 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     const count = severityCounts[key];
     const pct =
       severityTotal > 0 ? (count / severityTotal) * 100 : 0;
+    return {
+      key,
+      label: severityLabels[key],
+      color: severityColors[key],
+      pct: formatPct(pct, 0),
+      count: formatCount(count),
+      delta: "0",
+      deltaPct: "(0.0%)",
+      trend: "up" as const,
+    };
+  });
+
+  const ratingScored =
+    ratingCounts.low + ratingCounts.medium + ratingCounts.high + ratingCounts.critical;
+  const ratingRows: DashboardSeverityRow[] = (
+    ["low", "medium", "high", "critical"] as const
+  ).map((key) => {
+    const count = ratingCounts[key];
+    const pct = ratingScored > 0 ? (count / ratingScored) * 100 : 0;
     return {
       key,
       label: severityLabels[key],
@@ -546,6 +582,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
             ? formatPct(100)
             : "0.0%",
       confidencePct: avgConfidence,
+    },
+    riskRating: {
+      rows: ratingRows,
+      total: totalRisks,
+      scored: ratingScored,
+      unscored: ratingUnscored,
     },
     confidence: {
       avgPct: avgConfidence,

@@ -547,6 +547,79 @@ function RiskSeverityDistributionCard({
   );
 }
 
+function RiskRatingDistributionCard({
+  riskRating,
+}: {
+  riskRating: NonNullable<DashboardApiStats["riskRating"]>;
+}) {
+  const scoredFormatted = riskRating.scored.toLocaleString("en-US");
+  const unscoredFormatted = riskRating.unscored.toLocaleString("en-US");
+
+  return (
+    <article className="dashInsight dashInsight--severity">
+      <header className="dashInsight__head">
+        <h3 className="dashInsight__title">
+          <AlertTriangle
+            size={16}
+            strokeWidth={2}
+            className="dashInsight__titleIcon dashInsight__titleIcon--amber"
+            aria-hidden
+          />
+          Risk rating (Likelihood × Impact)
+        </h3>
+        <p className="dashInsight__confidence">
+          Scored:{" "}
+          <span className="dashInsight__confidenceValue">{scoredFormatted}</span>
+        </p>
+      </header>
+
+      <div className="dashInsight__body dashInsight__body--severity">
+        <div className="dashDonut" aria-hidden>
+          <div className="dashDonut__hole" />
+        </div>
+
+        <div className="dashSeverityLegend">
+          <ul className="dashSeverityLegend__list">
+            {riskRating.rows.map((row) => (
+              <li key={row.key} className="dashSeverityLegend__row">
+                <span className="dashSeverityLegend__label">
+                  <span
+                    className="dashSeverityLegend__dot"
+                    style={{ background: row.color }}
+                  />
+                  {row.label}
+                </span>
+                <span className="dashSeverityLegend__pct">{row.pct}</span>
+                <span className="dashSeverityLegend__count">{row.count}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="dashSeverityLegend__divider" />
+          <div className="dashSeverityLegend__row dashSeverityLegend__row--total">
+            <span className="dashSeverityLegend__label">Unscored</span>
+            <span className="dashSeverityLegend__pct">—</span>
+            <span className="dashSeverityLegend__count">{unscoredFormatted}</span>
+          </div>
+        </div>
+      </div>
+
+      <footer className="dashInsight__foot">
+        <Info
+          size={14}
+          strokeWidth={2}
+          className="dashInsight__footIcon"
+          aria-hidden
+        />
+        <p>
+          Bands come from a FAIR-informed 5×5 matrix: likelihood (1–5) ×
+          impact (1–5), scored per entry during LLM analysis. Unscored entries
+          predate scoring and can be backfilled.
+        </p>
+      </footer>
+    </article>
+  );
+}
+
 function AnalysisConfidenceCard({
   confidence,
 }: {
@@ -1111,6 +1184,9 @@ export function DashboardPage() {
         </h2>
         <div className="dashboardPage__insightsRow">
           <RiskSeverityDistributionCard severity={data.severity} />
+          {data.riskRating ? (
+            <RiskRatingDistributionCard riskRating={data.riskRating} />
+          ) : null}
           <AnalysisConfidenceCard confidence={data.confidence} />
         </div>
       </section>

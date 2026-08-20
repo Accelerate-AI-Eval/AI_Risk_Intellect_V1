@@ -19,6 +19,7 @@ import {
   Layers,
   ExternalLink,
   Link2,
+  Package,
   Quote,
   ScrollText,
   SearchCheck,
@@ -32,6 +33,7 @@ import {
   formatArticleId,
   formatEvidenceFactValue,
   formatEvidenceStrength,
+  formatProductCell,
   formatRiskDomain,
   orderEvidenceBreakdown,
   formatRiskId,
@@ -258,23 +260,40 @@ function DetailInfoCard({
   );
 }
 
+function CatalogMatchScores({
+  accuracyPercent,
+  domainMatchPercent,
+  descriptionMatchPercent,
+}: Pick<
+  CatalogRiskMatch,
+  "accuracyPercent" | "domainMatchPercent" | "descriptionMatchPercent"
+>) {
+  return (
+    <div className="riskDetail__catalogMatchScores">
+      <span className="riskDetail__catalogMatchScoresLabel">Match</span>
+      <span className="riskDetail__catalogMatchScore">
+        {accuracyPercent}% accuracy score
+      </span>
+      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--domain">
+        {domainMatchPercent}% domain
+      </span>
+      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--description">
+        {descriptionMatchPercent}% description
+      </span>
+    </div>
+  );
+}
+
 function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
   return (
     <li className="riskDetail__catalogMatch">
       <div className="riskDetail__catalogMatchHead">
         <span className="riskDetail__riskIdPill">{match.riskId}</span>
-        <div className="riskDetail__catalogMatchScores" aria-label="Match scores">
-          <span className="riskDetail__catalogMatchScoresLabel">Match</span>
-          <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--accuracy">
-            {match.accuracyPercent}% accuracy
-          </span>
-          <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--domain">
-            {match.domainMatchPercent}% domain
-          </span>
-          <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--description">
-            {match.descriptionMatchPercent}% description
-          </span>
-        </div>
+        <CatalogMatchScores
+          accuracyPercent={match.accuracyPercent}
+          domainMatchPercent={match.domainMatchPercent}
+          descriptionMatchPercent={match.descriptionMatchPercent}
+        />
       </div>
       <div className="riskDetail__catalogMatchTitleRow">
         <p className="riskDetail__innerCardTitle riskDetail__catalogMatchTitle">{match.title}</p>
@@ -313,6 +332,7 @@ export function RiskDetailView({
   }, [risk.id, initialTab, controlledTab]);
 
   const tabPanelId = `${baseId}-panel`;
+  const bestCatalogMatch = (risk.riskAnalysis.catalogMatches ?? [])[0];
 
   return (
     <div className="riskDetail riskDetail--page">
@@ -442,6 +462,60 @@ export function RiskDetailView({
                     icon={ShieldCheck}
                   />
                   <DetailInfoCard title="Intent" value={risk.intent} icon={Flag} />
+                  <DetailInfoCard
+                    title="AI Product"
+                    value={formatProductCell(risk.product)}
+                    icon={Package}
+                  />
+                </dl>
+              </section>
+
+              <section
+                className="riskDetail__section riskDetail__cardSection"
+                aria-labelledby={`${baseId}-riskRating`}
+              >
+                <h3 id={`${baseId}-riskRating`} className="riskDetail__sectionTitle">
+                  <Gauge size={16} strokeWidth={2} aria-hidden />
+                  Risk Rating (Likelihood × Impact)
+                </h3>
+                <dl className="riskDetail__classification riskDetail__classification--rating">
+                  <DetailInfoCard title="Likelihood" icon={BarChart3}>
+                    <span>
+                      {risk.riskScoring?.likelihood != null
+                        ? `${risk.riskScoring.likelihood} — ${risk.riskScoring.likelihoodLabel}`
+                        : "—"}
+                    </span>
+                    {risk.riskScoring?.likelihoodReasoning ? (
+                      <p className="riskDetail__ratingReasoning">
+                        {risk.riskScoring.likelihoodReasoning}
+                      </p>
+                    ) : null}
+                  </DetailInfoCard>
+                  <DetailInfoCard title="Impact" icon={AlertTriangle}>
+                    <span>
+                      {risk.riskScoring?.impact != null
+                        ? `${risk.riskScoring.impact} — ${risk.riskScoring.impactLabel}`
+                        : "—"}
+                    </span>
+                    {risk.riskScoring?.impactReasoning ? (
+                      <p className="riskDetail__ratingReasoning">
+                        {risk.riskScoring.impactReasoning}
+                      </p>
+                    ) : null}
+                  </DetailInfoCard>
+                  <DetailInfoCard title="Severity" icon={Gauge}>
+                    <span>
+                      {risk.riskScoring?.severityScore != null
+                        ? `${risk.riskScoring.severityScore} / 25 — ${risk.riskScoring.severityBand}`
+                        : "—"}
+                    </span>
+                    {risk.riskScoring?.lossCategories?.length ? (
+                      <p className="riskDetail__ratingReasoning">
+                        Loss categories (FAIR):{" "}
+                        {risk.riskScoring.lossCategories.join(", ")}
+                      </p>
+                    ) : null}
+                  </DetailInfoCard>
                 </dl>
               </section>
 
@@ -528,23 +602,15 @@ export function RiskDetailView({
                     <span className="riskDetail__riskIdPill riskDetail__extractedRiskId">
                       {formatRiskId(risk)}
                     </span>
-                    <div
-                      className="riskDetail__catalogMatchScores"
-                      aria-label="Extracted risk scores"
-                    >
-                      <span className="riskDetail__catalogMatchScoresLabel">
-                        Match
-                      </span>
-                      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--accuracy">
-                        {risk.scores.overall.value}% score
-                      </span>
-                      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--domain">
-                        {(risk.riskAnalysis.catalogMatches?.[0]?.domainMatchPercent ?? 0)}% domain
-                      </span>
-                      <span className="riskDetail__catalogMatchScore riskDetail__catalogMatchScore--description">
-                        {(risk.riskAnalysis.catalogMatches?.[0]?.descriptionMatchPercent ?? 0)}% description
-                      </span>
-                    </div>
+                    {bestCatalogMatch ? (
+                      <CatalogMatchScores
+                        accuracyPercent={bestCatalogMatch.accuracyPercent}
+                        domainMatchPercent={bestCatalogMatch.domainMatchPercent}
+                        descriptionMatchPercent={
+                          bestCatalogMatch.descriptionMatchPercent
+                        }
+                      />
+                    ) : null}
                   </div>
                   <div className="riskDetail__catalogMatchTitleRow">
                     <p className="riskDetail__extractedRiskTitle">{risk.title}</p>

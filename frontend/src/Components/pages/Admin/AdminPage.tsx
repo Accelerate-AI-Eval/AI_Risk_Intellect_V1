@@ -48,7 +48,7 @@ import { ModelCompatibilityChecker } from "./ModelCompatibilityChecker";
 import "./adminPage.css";
 
 type AdminTab = "controls" | "rss" | "etl" | "batches";
-type RssSubTab = "links" | "logs";
+type RssSubTab = "links" | "archive" | "logs";
 
 const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [
   { key: "controls", label: "Controls", icon: Settings2 },

@@ -285,29 +285,43 @@
     {
       "idx": 40,
       "version": "7",
-      "when": 1782400000000,
+      "when": 1783814401000,
       "tag": "0040_batch_runs",
       "breakpoints": true
     },
     {
       "idx": 41,
       "version": "7",
-      "when": 1782500000000,
+      "when": 1783814402000,
       "tag": "0041_jobs_batch_run_id",
       "breakpoints": true
     },
     {
       "idx": 42,
       "version": "7",
-      "when": 1782600000000,
+      "when": 1783814403000,
       "tag": "0042_jobs_model_name",
       "breakpoints": true
     },
     {
       "idx": 43,
       "version": "7",
-      "when": 1782700000000,
+      "when": 1783814404000,
       "tag": "0043_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1782800000000,
+      "tag": "0044_risks_scoring_product",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1782900000000,
+      "tag": "0045_risk_embeddings",
       "breakpoints": true
     }
   ]

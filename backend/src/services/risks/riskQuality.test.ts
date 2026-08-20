@@ -60,3 +60,34 @@ test("needsHumanReview keeps high-quality English risks on main list", () => {
   assert.equal(isRiskVisibleInMainList(highQualityEnglish), true);
   assert.equal(isRiskInReviewQueue(highQualityEnglish), false);
 });
+
+test("needsHumanReview flags semantic duplicates regardless of quality", () => {
+  const duplicate = {
+    qualityScore: 95,
+    extractionJson: {
+      source_language: "en",
+      dedup: { duplicate_of_risk_id: "abc", similarity: 0.97 },
+    },
+  };
+  assert.equal(needsHumanReview(duplicate), true);
+});
+
+test("needsHumanReview flags judge-rejected top matches", () => {
+  const judged = {
+    qualityScore: 95,
+    extractionJson: {
+      source_language: "en",
+      catalog_matches: [{ judgeVerdict: "no_match" }],
+    },
+  };
+  assert.equal(needsHumanReview(judged), true);
+
+  const matched = {
+    qualityScore: 95,
+    extractionJson: {
+      source_language: "en",
+      catalog_matches: [{ judgeVerdict: "match" }],
+    },
+  };
+  assert.equal(needsHumanReview(matched), false);
+});

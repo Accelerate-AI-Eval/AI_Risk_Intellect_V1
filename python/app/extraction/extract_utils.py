@@ -118,6 +118,17 @@ def _stub(text: str) -> dict:
             "secondary_risks": "Technical/Performance Risk",
             "sector": "Private",
             "industry": "Technology & Software",
+            "ai_product_name": None,
+            "ai_product_vendor": None,
+        },
+        "risk_scoring": {
+            "likelihood": None,
+            "likelihood_reasoning": "",
+            "impact": None,
+            "impact_reasoning": "",
+            "loss_categories": [],
+            "severity_score": None,
+            "severity_band": None,
         },
         "controls": [
             {

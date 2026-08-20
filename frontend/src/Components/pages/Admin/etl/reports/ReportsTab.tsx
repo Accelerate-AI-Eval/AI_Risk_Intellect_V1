@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import {
   Archive,
+  ArchiveRestore,
   ChevronDown,
   ChevronRight,
   Database,
@@ -48,6 +49,7 @@ import {
   exportEtlReportUploadItems,
   fetchEtlReportUploadItems,
   fetchEtlReportUploads,
+  restoreEtlReportUpload,
   reuploadEtlReportUpload,
   reportUploadItemDisplayCount,
   type EtlExtractionDisplayStatus,
@@ -75,6 +77,8 @@ interface ReportsTabProps {
   }) => void;
   onWorkerStop: () => void;
 }
+
+type EtlSubTab = "uploads" | "archive";
 
 const TABLE_COL_SPAN = 8;
 const TERMINAL_DISCOVERY_STATUSES = new Set(["EXECUTED", "SKIPPED", "FAILED"]);
@@ -121,6 +125,9 @@ function extractionStatusPillClass(status: EtlExtractionDisplayStatus): string {
 }
 
 function uploadItemsEmptyMessage(row: EtlReportUploadRow): string {
+  if (row.archived) {
+    return "No report URLs stored for this archived upload.";
+  }
   if (row.status === "pending") {
     return "Use Extract to import report URLs from the saved file.";
   }
@@ -243,6 +250,7 @@ export function ReportsTab({
   const [logRows, setLogRows] = useState<ReportsLogRow[]>([]);
   const [logsRefreshing, setLogsRefreshing] = useState(false);
   const [runWarmup, setRunWarmup] = useState(false);
+  const [etlTab, setEtlTab] = useState<EtlSubTab>("uploads");
   const [uploadSearchQuery, setUploadSearchQuery] = useState("");
   const [uploadPageSize, setUploadPageSize] = useState(10);
   const [uploadSort, setUploadSort] = useState<TableSortState<UploadSortKey> | null>(
@@ -316,9 +324,22 @@ export function ReportsTab({
     return map;
   }, [uploads, latestLogRows]);
 
+  const tabUploads = useMemo(
+    () =>
+      uploads.filter((row) =>
+        etlTab === "archive" ? row.archived : !row.archived,
+      ),
+    [uploads, etlTab],
+  );
+
+  const activeUploads = useMemo(
+    () => uploads.filter((row) => !row.archived),
+    [uploads],
+  );
+
   const filteredUploads = useMemo(
-    () => uploads.filter((row) => uploadMatchesSearch(row, uploadSearchQuery)),
-    [uploads, uploadSearchQuery],
+    () => tabUploads.filter((row) => uploadMatchesSearch(row, uploadSearchQuery)),
+    [tabUploads, uploadSearchQuery],
   );
 
   const sortedUploads = useMemo(() => {
@@ -336,7 +357,7 @@ export function ReportsTab({
   const uploadPager = usePagination({
     items: sortedUploads,
     pageSize: uploadPageSize,
-    resetKey: `${uploadSearchQuery}|${uploadSort?.key ?? ""}|${uploadSort?.direction ?? ""}`,
+    resetKey: `${etlTab}|${uploadSearchQuery}|${uploadSort?.key ?? ""}|${uploadSort?.direction ?? ""}`,
   });
 
   const uploadPageRows = uploadPager.pageItems ?? [];
@@ -455,8 +476,8 @@ export function ReportsTab({
   const hasExtractingUpload = useMemo(
     () =>
       actionId != null ||
-      uploads.some((row) => row.status === "processing"),
-    [actionId, uploads],
+      activeUploads.some((row) => row.status === "processing"),
+    [actionId, activeUploads],
   );
 
   useEffect(() => {
@@ -480,8 +501,13 @@ export function ReportsTab({
       loadUploads({ silent: true }),
       loadReportsLogs({ silent: true }),
     ]);
-    toast.success("Report uploads refreshed.", { autoClose: 2000 });
-  }, [loadUploads, loadReportsLogs]);
+    toast.success(
+      etlTab === "archive"
+        ? "Archived report uploads refreshed."
+        : "Report uploads refreshed.",
+      { autoClose: 2000 },
+    );
+  }, [loadUploads, loadReportsLogs, etlTab]);
 
   async function handleUploadSubmit({
     suggestedName,
@@ -582,13 +608,29 @@ export function ReportsTab({
       return;
     }
 
-    toast.success("Report upload archived.", { autoClose: 2500 });
+    toast.success(result.message, { autoClose: 2500 });
     if (expandedUploadId === id) setExpandedUploadId(null);
-    setUploadItemsById((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setUploads((prev) =>
+      prev.map((row) => (row.id === id ? result.upload : row)),
+    );
+    void loadUploads({ silent: true });
+  }
+
+  async function handleRestoreUpload(id: number) {
+    setActionId(id);
+    const result = await restoreEtlReportUpload(id);
+    setActionId(null);
+
+    if (!result.ok) {
+      toast.error(result.message, { autoClose: 3000 });
+      return;
+    }
+
+    toast.success(result.message, { autoClose: 2500 });
+    if (expandedUploadId === id) setExpandedUploadId(null);
+    setUploads((prev) =>
+      prev.map((row) => (row.id === id ? result.upload : row)),
+    );
     void loadUploads({ silent: true });
   }
 
@@ -667,22 +709,56 @@ export function ReportsTab({
 
       <section
         className="adminPage__rssWorkspace"
-        aria-labelledby={sid("workspace-title")}
+        aria-label="Report uploads"
       >
-        <h2
-          id={sid("workspace-title")}
-          className="adminPage__cardTitle adminPage__rssWorkspaceTitle"
-        >
-          Report uploads
-        </h2>
+        <div className="adminPage__rssWorkspaceHead">
+          <div className="adminPage__rssWorkspaceTopRow">
+            <div
+              className="adminPage__tabs adminPage__tabs--sub"
+              role="tablist"
+              aria-label="ETL report sections"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={etlTab === "uploads"}
+                className={`adminPage__tab${etlTab === "uploads" ? " adminPage__tab--selected" : ""}`}
+                onClick={() => {
+                  closeUploadRowMenu();
+                  setExpandedUploadId(null);
+                  setEtlTab("uploads");
+                }}
+              >
+                Uploads
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={etlTab === "archive"}
+                className={`adminPage__tab${etlTab === "archive" ? " adminPage__tab--selected" : ""}`}
+                onClick={() => {
+                  closeUploadRowMenu();
+                  setExpandedUploadId(null);
+                  setEtlTab("archive");
+                }}
+              >
+                Archive
+              </button>
+            </div>
+          </div>
+        </div>
 
         <AdminDataTable
-          ariaLabel="Report uploads"
+          ariaLabel={etlTab === "archive" ? "Archived report uploads" : "Report uploads"}
           wrapClassName="adminPage__tableWrap--links"
           filters={
             <div
               className="adminPage__dataTableToolbar"
-              aria-label="Report uploads toolbar"
+              aria-label={
+                etlTab === "archive"
+                  ? "Archived report uploads toolbar"
+                  : "Report uploads toolbar"
+              }
             >
               <div className="adminPage__dataTableToolbarActions">
                 <button
@@ -708,19 +784,21 @@ export function ReportsTab({
                   />
                   Refresh
                 </button>
-                <button
-                  type="button"
-                  className="usersPage__inviteBtn adminPage__rssIngestBtn"
-                  onClick={() => {
-                    setReuploadTarget(null);
-                    setUploadDialogOpen(true);
-                  }}
-                  disabled={uploading}
-                  aria-busy={uploading}
-                >
-                  <Plus size={18} strokeWidth={2} aria-hidden />
-                  Upload file
-                </button>
+                {etlTab === "uploads" ? (
+                  <button
+                    type="button"
+                    className="usersPage__inviteBtn adminPage__rssIngestBtn"
+                    onClick={() => {
+                      setReuploadTarget(null);
+                      setUploadDialogOpen(true);
+                    }}
+                    disabled={uploading}
+                    aria-busy={uploading}
+                  >
+                    <Plus size={18} strokeWidth={2} aria-hidden />
+                    Upload file
+                  </button>
+                ) : null}
               </div>
               <div className="adminPage__dataTableToolbarSearch">
                 <Search
@@ -854,7 +932,9 @@ export function ReportsTab({
                       >
                         {uploadSearchQuery.trim()
                           ? "No uploads match your search."
-                          : "No report uploads yet. Upload a CSV or Excel file to get started."}
+                          : etlTab === "archive"
+                            ? "No archived report uploads."
+                            : "No report uploads yet. Upload a CSV or Excel file to get started."}
                       </td>
                     </tr>
                   ) : (
@@ -889,7 +969,13 @@ export function ReportsTab({
 
                       return (
                         <Fragment key={row.id}>
-                          <tr>
+                          <tr
+                            className={
+                              row.archived
+                                ? "adminPage__tableRow--archived"
+                                : undefined
+                            }
+                          >
                             <td className="adminPage__td adminPage__th--center">
                               <span
                                 className="adminPage__id"
@@ -1212,71 +1298,110 @@ export function ReportsTab({
                 visibility: uploadRowMenuPosition ? "visible" : "hidden",
               }}
             >
-              <button
-                type="button"
-                className="adminPage__rowMenuItem adminPage__rowMenuItem--extract"
-                role="menuitem"
-                disabled={uploadRowMenuUpload.status === "processing"}
-                onClick={() => {
-                  closeUploadRowMenu();
-                  void handleExtractUpload(uploadRowMenuUpload.id);
-                }}
-              >
-                <Zap size={14} strokeWidth={2} aria-hidden />
-                Extract
-              </button>
-              <button
-                type="button"
-                className="adminPage__rowMenuItem"
-                role="menuitem"
-                disabled={
-                  exportUploadId === uploadRowMenuUpload.id ||
-                  uploadRowMenuUpload.status === "processing" ||
-                  !canExportReportUpload(uploadRowMenuUpload)
-                }
-                aria-busy={exportUploadId === uploadRowMenuUpload.id}
-                onClick={() => {
-                  closeUploadRowMenu();
-                  void handleExportUpload(uploadRowMenuUpload.id);
-                }}
-              >
-                <Download size={14} strokeWidth={2} aria-hidden />
-                {exportUploadId === uploadRowMenuUpload.id
-                  ? "Exporting…"
-                  : "Export"}
-              </button>
-              <button
-                type="button"
-                className="adminPage__rowMenuItem"
-                role="menuitem"
-                disabled={uploadRowMenuUpload.status === "processing"}
-                onClick={() => {
-                  closeUploadRowMenu();
-                  openReuploadDialog(uploadRowMenuUpload);
-                }}
-              >
-                <Upload size={14} strokeWidth={2} aria-hidden />
-                Reupload
-              </button>
-              <button
-                type="button"
-                className="adminPage__rowMenuItem adminPage__rowMenuItem--danger"
-                role="menuitem"
-                onClick={() => {
-                  closeUploadRowMenu();
-                  void handleArchiveUpload(uploadRowMenuUpload.id);
-                }}
-              >
-                <Archive size={14} strokeWidth={2} aria-hidden />
-                Archive
-              </button>
+              {uploadRowMenuUpload.archived ? (
+                <>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem"
+                    role="menuitem"
+                    disabled={
+                      exportUploadId === uploadRowMenuUpload.id ||
+                      !canExportReportUpload(uploadRowMenuUpload)
+                    }
+                    aria-busy={exportUploadId === uploadRowMenuUpload.id}
+                    onClick={() => {
+                      closeUploadRowMenu();
+                      void handleExportUpload(uploadRowMenuUpload.id);
+                    }}
+                  >
+                    <Download size={14} strokeWidth={2} aria-hidden />
+                    {exportUploadId === uploadRowMenuUpload.id
+                      ? "Exporting…"
+                      : "Export"}
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem adminPage__rowMenuItem--restore"
+                    role="menuitem"
+                    onClick={() => {
+                      closeUploadRowMenu();
+                      void handleRestoreUpload(uploadRowMenuUpload.id);
+                    }}
+                  >
+                    <ArchiveRestore size={14} strokeWidth={2} aria-hidden />
+                    Restore
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem adminPage__rowMenuItem--extract"
+                    role="menuitem"
+                    disabled={uploadRowMenuUpload.status === "processing"}
+                    onClick={() => {
+                      closeUploadRowMenu();
+                      void handleExtractUpload(uploadRowMenuUpload.id);
+                    }}
+                  >
+                    <Zap size={14} strokeWidth={2} aria-hidden />
+                    Extract
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem"
+                    role="menuitem"
+                    disabled={
+                      exportUploadId === uploadRowMenuUpload.id ||
+                      uploadRowMenuUpload.status === "processing" ||
+                      !canExportReportUpload(uploadRowMenuUpload)
+                    }
+                    aria-busy={exportUploadId === uploadRowMenuUpload.id}
+                    onClick={() => {
+                      closeUploadRowMenu();
+                      void handleExportUpload(uploadRowMenuUpload.id);
+                    }}
+                  >
+                    <Download size={14} strokeWidth={2} aria-hidden />
+                    {exportUploadId === uploadRowMenuUpload.id
+                      ? "Exporting…"
+                      : "Export"}
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem"
+                    role="menuitem"
+                    disabled={uploadRowMenuUpload.status === "processing"}
+                    onClick={() => {
+                      closeUploadRowMenu();
+                      openReuploadDialog(uploadRowMenuUpload);
+                    }}
+                  >
+                    <Upload size={14} strokeWidth={2} aria-hidden />
+                    Reupload
+                  </button>
+                  <button
+                    type="button"
+                    className="adminPage__rowMenuItem adminPage__rowMenuItem--danger"
+                    role="menuitem"
+                    disabled={uploadRowMenuUpload.status === "processing"}
+                    onClick={() => {
+                      closeUploadRowMenu();
+                      void handleArchiveUpload(uploadRowMenuUpload.id);
+                    }}
+                  >
+                    <Archive size={14} strokeWidth={2} aria-hidden />
+                    Archive
+                  </button>
+                </>
+              )}
             </div>,
             document.body,
           )
         : null}
       <ReportsStartDialog
         open={startDialogOpen}
-        uploads={uploads}
+        uploads={activeUploads}
         uploadsLoading={uploadsLoading}
         starting={workerStatus === "starting"}
         onClose={() => setStartDialogOpen(false)}

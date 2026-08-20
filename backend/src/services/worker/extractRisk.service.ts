@@ -8,16 +8,32 @@ import {
   type RiskExtractionObject,
 } from "../../extraction/pythonBridge.js";
 import {
+  extractMatchSignalsFromExtraction,
   findCatalogRiskMatches,
   isDomainInTaxonomy,
   mergeCatalogMatchesIntoExtraction,
   resolveCatalogDomain,
 } from "../risks/riskCatalogMatch.service.js";
+import { embedText } from "../aws/bedrockEmbeddings.service.js";
+import {
+  buildRiskEmbeddingText,
+  upsertRiskEmbedding,
+} from "../risks/riskEmbedding.service.js";
+import {
+  isJudgeEnabled,
+  judgeAndApplyVerdicts,
+} from "../risks/riskMatchJudge.service.js";
 import { recordObservabilityMetrics } from "../observability/observability.service.js";
 import {
+  DUPLICATE_RISK_REVIEW_REASON,
+  JUDGE_NO_MATCH_REVIEW_REASON,
+  MISSING_JUSTIFICATION_REVIEW_REASON,
   NON_ENGLISH_REVIEW_REASON,
   resolveQualityScore100,
 } from "../risks/riskQuality.js";
+import { findDuplicateRisk } from "../risks/riskDedup.service.js";
+import { preserveReviewState } from "../risks/riskReviewState.js";
+import { resolveRiskScoring } from "../risks/riskScoring.js";
 import {
   detectTextLanguage,
   isEnglishLanguageCode,
@@ -34,6 +50,16 @@ export type ExtractRiskResult =
   | { outcome: "done"; riskId: string; created: boolean; modelName: string }
   | { outcome: "skipped"; reason: string };
 
+function appendReviewReason(
+  extractionJson: Record<string, unknown>,
+  reason: string,
+): void {
+  extractionJson.review_status = "pending";
+  const existing = String(extractionJson.review_reason ?? "").trim();
+  extractionJson.review_reason =
+    existing && !existing.includes(reason) ? `${existing} ${reason}` : existing || reason;
+}
+
 const UNKNOWN_MODEL_KEY = "__unknown__";
 
 /** Normalize model id for comparison (case-insensitive, trimmed, with `us.` prefix). */
@@ -49,12 +75,20 @@ function displayModelName(modelName: string): string {
 async function findExistingRiskForArticleModel(
   articleId: number,
   modelKey: string,
-): Promise<{ id: string; modelName: string | null; qualityScore: number | null } | null> {
+): Promise<{
+  id: string;
+  modelName: string | null;
+  qualityScore: number | null;
+  extractionJson: unknown;
+  likelihood: number | null;
+} | null> {
   const rows = await db
     .select({
       id: risks.id,
       modelName: risks.modelName,
       qualityScore: risks.qualityScore,
+      extractionJson: risks.extractionJson,
+      likelihood: risks.likelihood,
     })
     .from(risks)
     .where(eq(risks.articleId, articleId));
@@ -134,14 +168,37 @@ async function buildPersistedExtraction(input: {
   const domains = domainResolution.domain ?? (rawDomain || null);
   const inTaxonomy = isDomainInTaxonomy(domains ?? "");
 
-  const catalogMatches = await findCatalogRiskMatches({
+  const matchSignals = extractMatchSignalsFromExtraction(input.result.object);
+  const embeddingText = buildRiskEmbeddingText(
+    riskTitle,
+    description || riskTitle,
+  );
+  const riskEmbedding = await embedText(embeddingText);
+
+  let catalogMatches = await findCatalogRiskMatches({
     domain: domains ?? "",
     title: riskTitle,
     description: description || riskTitle,
     primaryRisk: (risk.primary_risk as string) ?? undefined,
     secondaryRisk: (risk.secondary_risks as string) ?? undefined,
+    domainConfidence: domainResolution.confidence,
+    keywordMatches: matchSignals.keywordMatches,
+    evidenceExcerpts: matchSignals.evidenceExcerpts,
+    riskEmbedding,
+    evidenceStrengthScore: matchSignals.evidenceStrengthScore,
     limit: 5,
   });
+
+  if (isJudgeEnabled() && catalogMatches.length > 0) {
+    catalogMatches = await judgeAndApplyVerdicts(catalogMatches, {
+      title: riskTitle,
+      description: description || riskTitle,
+      domain: domains,
+      primaryRisk: (risk.primary_risk as string) ?? null,
+      secondaryRisk: (risk.secondary_risks as string) ?? null,
+      keywordMatches: matchSignals.keywordMatches,
+    });
+  }
 
   const extractionJson = mergeCatalogMatchesIntoExtraction(
     {
@@ -175,6 +232,38 @@ async function buildPersistedExtraction(input: {
       "Extracted domain does not match any of the 7 risk taxonomy domains.";
   }
 
+  // Semantic near-duplicate check: flag for review, never block insertion.
+  if (riskEmbedding) {
+    try {
+      const duplicate = await findDuplicateRisk({
+        embedding: riskEmbedding,
+        domain: domains,
+        excludeArticleId: input.articleId,
+      });
+      if (duplicate) {
+        extractionJson.dedup = {
+          duplicate_of_risk_id: duplicate.riskId,
+          duplicate_of_article_id: duplicate.articleId,
+          similarity: Math.round(duplicate.similarity * 1000) / 1000,
+        };
+        appendReviewReason(extractionJson, DUPLICATE_RISK_REVIEW_REASON);
+      }
+    } catch {
+      // Dedup is advisory; a failed lookup must not fail extraction.
+    }
+  }
+
+  if (catalogMatches[0]?.judgeVerdict === "no_match") {
+    appendReviewReason(extractionJson, JUDGE_NO_MATCH_REVIEW_REASON);
+  }
+
+  if (
+    matchSignals.keywordMatches.length === 0 &&
+    matchSignals.evidenceExcerpts.length === 0
+  ) {
+    appendReviewReason(extractionJson, MISSING_JUSTIFICATION_REVIEW_REASON);
+  }
+
   const sourceLanguage = await detectTextLanguage(input.articleText);
   if (sourceLanguage) {
     extractionJson.source_language = sourceLanguage;
@@ -198,6 +287,34 @@ async function buildPersistedExtraction(input: {
     articleTitle = localized.articleTitle;
   }
 
+  const scoring = resolveRiskScoring({
+    likelihood: null,
+    impact: null,
+    extractionJson: input.result.object,
+  });
+  extractionJson.risk_scoring = {
+    likelihood: scoring.likelihood,
+    likelihood_reasoning: scoring.likelihoodReasoning,
+    impact: scoring.impact,
+    impact_reasoning: scoring.impactReasoning,
+    loss_categories: scoring.lossCategories,
+    severity_score: scoring.severityScore,
+    severity_band: scoring.severityBand,
+  };
+  const likelihood = scoring.likelihood;
+  const impact = scoring.impact;
+  const severityScore = scoring.severityScore;
+  const aiProductName =
+    typeof risk.ai_product_name === "string" && risk.ai_product_name.trim()
+      ? risk.ai_product_name.trim().slice(0, 256)
+      : null;
+  const aiProductVendor =
+    aiProductName != null &&
+    typeof risk.ai_product_vendor === "string" &&
+    risk.ai_product_vendor.trim()
+      ? risk.ai_product_vendor.trim().slice(0, 256)
+      : null;
+
   return {
     riskTitle,
     articleTitle,
@@ -208,17 +325,46 @@ async function buildPersistedExtraction(input: {
     industry: (risk.industry as string) ?? null,
     intent: (risk.intent as string) ?? null,
     qualityScore: qualityScoreFromObject(input.result.object),
+    likelihood,
+    impact,
+    severityScore,
+    severityBand: scoring.severityBand,
+    aiProductName,
+    aiProductVendor,
     extractionJson,
     modelName: input.resolvedModel,
     sourceFlag: input.result.sourceFlag,
+    riskEmbedding,
+    embeddingText,
   };
 }
 
 function toRiskInsertValues(
   persisted: Awaited<ReturnType<typeof buildPersistedExtraction>>,
 ) {
-  const { articleTitle: _articleTitle, ...riskRow } = persisted;
+  const {
+    articleTitle: _articleTitle,
+    riskEmbedding: _riskEmbedding,
+    embeddingText: _embeddingText,
+    ...riskRow
+  } = persisted;
   return riskRow;
+}
+
+async function persistRiskEmbedding(
+  riskId: string,
+  persisted: Awaited<ReturnType<typeof buildPersistedExtraction>>,
+): Promise<void> {
+  if (!persisted.riskEmbedding) return;
+  try {
+    await upsertRiskEmbedding({
+      riskId,
+      embedding: persisted.riskEmbedding,
+      text: persisted.embeddingText,
+    });
+  } catch {
+    // Embedding persistence must never fail the extraction pipeline.
+  }
 }
 
 function qualityScoreFromObject(obj: RiskExtractionObject): number | null {
@@ -239,12 +385,14 @@ async function persistTranslatedArticleTitle(
 /**
  * Run LLM risk extraction on ingested article text and persist `risks` row.
  * At most one risk per (article, model). Re-runs with the same model return the
- * existing risk without inserting a duplicate.
+ * existing risk without inserting a duplicate, unless `forceReextract` is set —
+ * then the row is rebuilt in place with review state preserved
+ * (see riskReviewState.ts).
  * Stub/fallback extractions return `skipped` (not persisted).
  */
 export async function extractRiskForArticle(
   articleId: number,
-  options?: { modelId?: string | null },
+  options?: { modelId?: string | null; forceReextract?: boolean },
 ): Promise<ExtractRiskResult> {
   const [article] = await db
     .select({
@@ -295,6 +443,45 @@ export async function extractRiskForArticle(
       durationMs: result.metrics.duration_ms,
     });
 
+    if (existing && options?.forceReextract) {
+      const persisted = await buildPersistedExtraction({
+        articleId,
+        articleText: text,
+        articleTitle: article.title,
+        result,
+        resolvedModel,
+      });
+
+      const preservedExtraction = preserveReviewState(
+        (existing.extractionJson ?? {}) as Record<string, unknown>,
+        persisted.extractionJson,
+      );
+      preservedExtraction._reextracted_at = new Date().toISOString();
+
+      await db
+        .update(risks)
+        .set({
+          ...toRiskInsertValues(persisted),
+          extractionJson: preservedExtraction,
+          updatedAt: new Date(),
+        })
+        .where(eq(risks.id, existing.id));
+
+      await persistRiskEmbedding(existing.id, persisted);
+      await persistTranslatedArticleTitle(
+        articleId,
+        article.title,
+        persisted.articleTitle,
+      );
+
+      return {
+        outcome: "done",
+        riskId: existing.id,
+        created: false,
+        modelName: resolvedModel,
+      };
+    }
+
     if (existing) {
       const persisted = await buildPersistedExtraction({
         articleId,
@@ -310,8 +497,16 @@ export async function extractRiskForArticle(
       const shouldRefreshNonEnglish = Boolean(
         (persisted.extractionJson as { is_non_english?: boolean }).is_non_english,
       );
+      // Backfill hook: rows analyzed before likelihood/impact scoring existed
+      // get refreshed once a re-extraction produces scores.
+      const shouldRefreshMissingScoring =
+        existing.likelihood == null && persisted.likelihood != null;
 
-      if (shouldRefreshStoredScore || shouldRefreshNonEnglish) {
+      if (
+        shouldRefreshStoredScore ||
+        shouldRefreshNonEnglish ||
+        shouldRefreshMissingScoring
+      ) {
         await db
           .update(risks)
           .set({
@@ -320,6 +515,8 @@ export async function extractRiskForArticle(
           })
           .where(eq(risks.id, existing.id));
       }
+
+      await persistRiskEmbedding(existing.id, persisted);
 
       await persistTranslatedArticleTitle(
         articleId,
@@ -350,6 +547,8 @@ export async function extractRiskForArticle(
         ...toRiskInsertValues(persisted),
       })
       .returning({ id: risks.id });
+
+    await persistRiskEmbedding(row!.id, persisted);
 
     await persistTranslatedArticleTitle(
       articleId,

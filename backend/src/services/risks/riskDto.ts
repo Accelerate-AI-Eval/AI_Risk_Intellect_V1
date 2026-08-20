@@ -2,6 +2,11 @@ import { normalizeNarrativeText } from "../../utils/normalizeNarrativeText.js";
 import { decodeDisplayTitle } from "../../utils/decodeHtmlEntities.js";
 import { parseCatalogMatchesFromExtraction } from "./riskCatalogMatch.service.js";
 import { resolveQualityScore100 } from "./riskQuality.js";
+import {
+  impactLabel,
+  likelihoodLabel,
+  resolveRiskScoring,
+} from "./riskScoring.js";
 
 export type EvidenceBreakdownItem = {
   field: string;
@@ -71,6 +76,21 @@ export type RiskDto = {
   articleUrl: string;
   ingestedAt: string;
   modelName: string | null;
+  riskScoring: {
+    likelihood: number | null;
+    likelihoodLabel: string;
+    impact: number | null;
+    impactLabel: string;
+    severityScore: number | null;
+    severityBand: string;
+    likelihoodReasoning: string;
+    impactReasoning: string;
+    lossCategories: string[];
+  };
+  product: {
+    name: string | null;
+    vendor: string | null;
+  };
   humanReview: HumanReviewInfo;
   riskAnalysis: {
     risk_identified: string;
@@ -108,6 +128,7 @@ export type RiskDto = {
 
 type ExtractionJson = {
   risk?: Record<string, unknown>;
+  risk_scoring?: Record<string, unknown>;
   analysis?: Record<string, unknown>;
   review_status?: string;
   review_classification?: string;
@@ -148,6 +169,12 @@ type RiskRowInput = {
   industry: string | null;
   intent: string | null;
   qualityScore: number | null;
+  likelihood: number | null;
+  impact: number | null;
+  severityScore: number | null;
+  severityBand: string | null;
+  aiProductName: string | null;
+  aiProductVendor: string | null;
   extractionJson: unknown;
   modelName: string | null;
   createdAt: Date;
@@ -347,6 +374,17 @@ export function mapRiskRowToDto(
     self.decision_rationale ?? justification.decision_rationale,
   );
 
+  const scoring = resolveRiskScoring({
+    likelihood: row.likelihood,
+    impact: row.impact,
+    extractionJson: ext,
+  });
+  const productName =
+    str(row.aiProductName ?? risk.ai_product_name) || null;
+  const productVendor = productName
+    ? str(row.aiProductVendor ?? risk.ai_product_vendor) || null
+    : null;
+
   return {
     id: row.id,
     displayId,
@@ -375,6 +413,21 @@ export function mapRiskRowToDto(
     articleUrl: row.articleUrl,
     ingestedAt: row.createdAt.toISOString(),
     modelName: row.modelName,
+    riskScoring: {
+      likelihood: scoring.likelihood,
+      likelihoodLabel: likelihoodLabel(scoring.likelihood) ?? "—",
+      impact: scoring.impact,
+      impactLabel: impactLabel(scoring.impact) ?? "—",
+      severityScore: scoring.severityScore,
+      severityBand: scoring.severityBand ?? "—",
+      likelihoodReasoning: scoring.likelihoodReasoning,
+      impactReasoning: scoring.impactReasoning,
+      lossCategories: scoring.lossCategories,
+    },
+    product: {
+      name: productName,
+      vendor: productVendor,
+    },
     humanReview: parseHumanReview(ext),
     riskAnalysis: {
       risk_identified: narrative(analysis.risk_identified),
