@@ -1,7 +1,9 @@
-import { desc, inArray, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { risks } from "../../schema/risks/risks.js";
+import { llmObservability } from "../../schema/observability/llmObservability.js";
+import { HttpError } from "../../utils/httpError.js";
 
 export type JobListItem = {
   id: number;
@@ -16,6 +18,8 @@ export type JobListItem = {
   createdAt: Date;
   updatedAt: Date;
   riskFetchedAt: Date | null;
+  llmDurationMs: number | null;
+  wordCount: number | null;
 };
 
 export type JobListMetrics = {
@@ -69,10 +73,38 @@ export async function listJobs(): Promise<{
     );
   }
 
-  const rowsWithRiskFetchedAt: JobListItem[] = rows.map((row) => ({
-    ...row,
-    riskFetchedAt: riskFetchedAtByArticleId.get(row.articleId) ?? null,
-  }));
+  const urls = [...new Set(rows.map((row) => row.url).filter(Boolean))];
+  const llmByUrl = new Map<string, { durationMs: number; wordCount: number }>();
+  if (urls.length > 0) {
+    const obsRows = await db
+      .select({
+        url: llmObservability.url,
+        durationMs: llmObservability.durationMs,
+        wordCount: llmObservability.wordCount,
+        createdAt: llmObservability.createdAt,
+      })
+      .from(llmObservability)
+      .where(inArray(llmObservability.url, urls))
+      .orderBy(desc(llmObservability.createdAt));
+
+    for (const row of obsRows) {
+      if (llmByUrl.has(row.url)) continue;
+      llmByUrl.set(row.url, {
+        durationMs: row.durationMs,
+        wordCount: row.wordCount,
+      });
+    }
+  }
+
+  const rowsWithRiskFetchedAt: JobListItem[] = rows.map((row) => {
+    const llm = llmByUrl.get(row.url);
+    return {
+      ...row,
+      riskFetchedAt: riskFetchedAtByArticleId.get(row.articleId) ?? null,
+      llmDurationMs: llm?.durationMs ?? null,
+      wordCount: llm?.wordCount ?? null,
+    };
+  });
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
@@ -104,4 +136,25 @@ export async function listJobs(): Promise<{
       skipped: counts?.skipped ?? 0,
     },
   };
+}
+
+export async function deleteJob(jobId: number): Promise<{ id: number }> {
+  const [job] = await db
+    .select({ id: jobs.id, status: jobs.status })
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+
+  if (!job) {
+    throw HttpError.notFound("Job not found.");
+  }
+
+  if (job.status === "running") {
+    throw HttpError.conflict(
+      "This job is still running. Wait for it to finish, then delete it.",
+    );
+  }
+
+  await db.delete(jobs).where(eq(jobs.id, jobId));
+  return { id: job.id };
 }

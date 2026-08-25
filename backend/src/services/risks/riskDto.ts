@@ -1,7 +1,7 @@
 import { normalizeNarrativeText } from "../../utils/normalizeNarrativeText.js";
 import { decodeDisplayTitle } from "../../utils/decodeHtmlEntities.js";
 import { parseCatalogMatchesFromExtraction } from "./riskCatalogMatch.service.js";
-import { resolveQualityScore100 } from "./riskQuality.js";
+import { resolveQualityScore100, resolveReviewWhy } from "./riskQuality.js";
 import {
   impactLabel,
   likelihoodLabel,
@@ -27,6 +27,7 @@ export type ReviewQueueItemDto = {
   scoreLabel: string;
   priority: "Low" | "Medium" | "High";
   category: string;
+  reviewWhy: string;
   reviewReason: string;
   articleUrl: string;
   ingestedAt: string;
@@ -64,6 +65,8 @@ export type RiskDto = {
   industry: string;
   intent: string;
   qualityScore: string;
+  reviewWhy: string;
+  reviewReason: string;
   primaryKey: string;
   tagKey: string;
   confidence: "HIGH" | "MEDIUM" | "LOW";
@@ -374,6 +377,11 @@ export function mapRiskRowToDto(
     self.decision_rationale ?? justification.decision_rationale,
   );
 
+  const reviewWhy = resolveReviewWhy({
+    qualityScore: row.qualityScore,
+    extractionJson: ext,
+    domains: row.domains,
+  });
   const scoring = resolveRiskScoring({
     likelihood: row.likelihood,
     impact: row.impact,
@@ -398,6 +406,8 @@ export function mapRiskRowToDto(
     qualityScore: formatQualityScore(
       typeof quality === "number" && !Number.isNaN(quality) ? quality : null,
     ),
+    reviewWhy: reviewWhy.label,
+    reviewReason: reviewWhy.reason,
     primaryKey: primaryKeyFromLabel(primaryRisk),
     tagKey: tagKeyFromDomain(domain),
     confidence: confidenceFromScore(

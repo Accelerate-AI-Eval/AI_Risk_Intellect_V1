@@ -75,6 +75,8 @@ export type RiskDetail = {
   industry: string;
   intent: string;
   qualityScore: string;
+  reviewWhy?: string;
+  reviewReason?: string;
   primaryKey: string;
   tagKey: string;
   confidence: "HIGH" | "MEDIUM" | "LOW";
@@ -521,6 +523,8 @@ export function normalizeRisksFromApi(raw: unknown): {
     industry: r.industry ?? "—",
     intent: r.intent ?? "—",
     qualityScore: r.qualityScore ?? "—",
+    reviewWhy: r.reviewWhy?.trim() || "Review",
+    reviewReason: r.reviewReason?.trim() || "",
     primaryKey: r.primaryKey ?? "technical",
     tagKey: r.tagKey ?? "general",
     confidence: r.confidence ?? "MEDIUM",

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { toast } from "react-toastify";
 
-import { RotateCw, Search } from "lucide-react";
+import { FilterX, RotateCw, Search } from "lucide-react";
 
 import { readApiErrorMessage } from "../../../utils/readApiErrorMessage";
 import { authFetch } from "../../../utils/authFetch";
@@ -15,14 +15,19 @@ import { usePagination } from "../../../utils/usePagination";
 import { PageHeader } from "../../Layout/PageHeader";
 
 import { normalizeRisksFromApi, type RiskDetail } from "../Risk/riskData";
+import { riskMatchesFilters } from "../Risk/riskListHelpers";
 
 import { notifyPendingReviewCountChanged } from "../../../utils/reviewQueueEvents";
 
 import { ReviewFeedbackDialog, type ReviewDialogMode } from "./ReviewFeedbackDialog";
 
+import { DomainRemapDialog } from "./DomainRemapDialog";
+
 import { ReviewFeedbackPanel } from "./ReviewFeedbackPanel";
 
 import { ReviewRecordsTable } from "./ReviewRecordsTable";
+
+import { REVIEW_WHY_LABELS } from "./reviewData";
 
 import {
   normalizeReviewFeedbackFromApi,
@@ -101,6 +106,8 @@ export function ReviewPage() {
 
   const [reviewSearch, setReviewSearch] = useState("");
 
+  const [whyFilter, setWhyFilter] = useState("all");
+
   const [refreshing, setRefreshing] = useState(false);
 
   const [reviewPageSize, setReviewPageSize] = useState(10);
@@ -120,6 +127,12 @@ export function ReviewPage() {
   const [dialogMode, setDialogMode] = useState<ReviewDialogMode>("edit");
 
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const [domainTarget, setDomainTarget] = useState<RiskDetail | null>(null);
+
+  const [taxonomyDomains, setTaxonomyDomains] = useState<string[]>([]);
+
+  const [domainSubmitting, setDomainSubmitting] = useState(false);
 
   const [feedbackSamples, setFeedbackSamples] = useState<ReviewFeedbackSample[]>([]);
 
@@ -174,6 +187,23 @@ export function ReviewPage() {
     }
   }, []);
 
+  const loadTaxonomyDomains = useCallback(async () => {
+    const token = sessionStorage.getItem("accessToken");
+    if (!token) return;
+    try {
+      const res = await authFetch("/risks/taxonomy-domains");
+      if (!res.ok) return;
+      const data = (await res.json()) as { domains?: string[] };
+      setTaxonomyDomains(
+        Array.isArray(data.domains)
+          ? data.domains.filter((domain) => domain.trim())
+          : [],
+      );
+    } catch {
+      setTaxonomyDomains([]);
+    }
+  }, []);
+
   const loadFeedbackSamples = useCallback(async () => {
     const token = sessionStorage.getItem("accessToken");
 
@@ -212,6 +242,10 @@ export function ReviewPage() {
   }, [loadFeedbackSamples]);
 
   useEffect(() => {
+    void loadTaxonomyDomains();
+  }, [loadTaxonomyDomains]);
+
+  useEffect(() => {
     setReviewSearch("");
   }, [tab]);
 
@@ -241,13 +275,44 @@ export function ReviewPage() {
 
 
 
+  const whyCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      const label = row.reviewWhy?.trim() || "Review";
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return counts;
+  }, [rows]);
+
+  const whyOptions = useMemo(() => {
+    const extras = [...whyCounts.keys()].filter(
+      (label) =>
+        !(REVIEW_WHY_LABELS as readonly string[]).includes(label),
+    );
+    extras.sort((a, b) => a.localeCompare(b));
+    return [...REVIEW_WHY_LABELS, ...extras];
+  }, [whyCounts]);
+
+  const queueRows = useMemo(() => {
+    const q = reviewSearch.trim().toLowerCase();
+    return rows.filter((row) => {
+      const why = row.reviewWhy?.trim() || "Review";
+      if (whyFilter !== "all" && why !== whyFilter) return false;
+      if (!q) return true;
+      if (riskMatchesFilters(row, "all", "all", reviewSearch)) return true;
+      return [row.reviewWhy, row.reviewReason]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q));
+    });
+  }, [rows, reviewSearch, whyFilter]);
+
   const pager = usePagination({
 
-    items: rows,
+    items: queueRows,
 
     pageSize: reviewPageSize,
 
-    resetKey: String(rows.length),
+    resetKey: `${queueRows.length}|${reviewSearch}|${whyFilter}`,
 
   });
 
@@ -551,6 +616,7 @@ export function ReviewPage() {
     async (
       feedback: string,
       classification: "raw" | "structured",
+      domain?: string,
     ) => {
 
       if (!editTarget || editSubmitting) return;
@@ -573,7 +639,7 @@ export function ReviewPage() {
 
             headers: { "Content-Type": "application/json" },
 
-            body: JSON.stringify({ classification, feedback }),
+            body: JSON.stringify({ classification, feedback, domain }),
 
           },
 
@@ -622,7 +688,41 @@ export function ReviewPage() {
 
   );
 
-
+  const handleRemapDomain = useCallback(
+    async (domain: string) => {
+      if (!domainTarget || domainSubmitting) return;
+      setDomainSubmitting(true);
+      setActingId(domainTarget.id);
+      try {
+        const res = await authFetch(
+          `/risks/${encodeURIComponent(domainTarget.id)}/review/domain`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domain }),
+          },
+        );
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(
+            readApiErrorMessage(body, "Could not update the domain. Try again."),
+            { autoClose: 4000 },
+          );
+          return;
+        }
+        setDomainTarget(null);
+        await loadReviewQueue();
+        notifyPendingReviewCountChanged();
+        toast.success("Domain updated.", { autoClose: 3000 });
+      } catch {
+        toast.error("Could not reach the server. Try again.", { autoClose: 4000 });
+      } finally {
+        setActingId(null);
+        setDomainSubmitting(false);
+      }
+    },
+    [domainTarget, domainSubmitting, loadReviewQueue],
+  );
 
   const handlePromoteClassifiedToRisks = useCallback(
 
@@ -710,9 +810,19 @@ export function ReviewPage() {
 
 
 
-  const searchPlaceholder = "Search feedback samples…";
+  const searchPlaceholder =
+    tab === "queue" ? "Search review queue…" : "Search feedback samples…";
 
-  const searchAriaLabel = "Search feedback samples";
+  const searchAriaLabel =
+    tab === "queue" ? "Search review queue" : "Search feedback samples";
+
+  const hasQueueFilters =
+    tab === "queue" && (whyFilter !== "all" || Boolean(reviewSearch.trim()));
+
+  const clearQueueFilters = () => {
+    setWhyFilter("all");
+    setReviewSearch("");
+  };
 
 
 
@@ -770,7 +880,7 @@ export function ReviewPage() {
 
 
 
-      <div className="usersPage__toolbar">
+      <div className="usersPage__toolbar reviewPage__toolbar">
 
         <div className="usersPage__tabs" role="tablist" aria-label="Human review sections">
 
@@ -822,37 +932,50 @@ export function ReviewPage() {
 
         </div>
 
-        {tab !== "queue" ? (
-
+        <div className="reviewPage__toolbarActions">
+          {tab === "queue" ? (
+            <select
+              id={fid("why")}
+              className="reviewPage__whySelect"
+              value={whyFilter}
+              onChange={(e) => setWhyFilter(e.target.value)}
+              aria-label="Filter review queue by why"
+            >
+              <option value="all">All</option>
+              {whyOptions.map((label) => (
+                <option key={label} value={label}>
+                  {label} ({whyCounts.get(label) ?? 0})
+                </option>
+              ))}
+            </select>
+          ) : null}
+          {tab === "queue" ? (
+            <button
+              type="button"
+              className="riskPage__clearBtn"
+              onClick={clearQueueFilters}
+              disabled={!hasQueueFilters}
+              aria-label="Clear Filter"
+              data-tooltip="Clear Filter"
+            >
+              <FilterX size={18} strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
           <div className="usersPage__searchWrap">
-
             <Search className="usersPage__searchIcon" size={18} strokeWidth={2} aria-hidden />
-
             <input
-
               id={fid("review-search")}
-
               type="search"
-
               className="usersPage__searchInput"
-
               placeholder={searchPlaceholder}
-
               value={reviewSearch}
-
               onChange={(e) => setReviewSearch(e.target.value)}
-
               aria-label={searchAriaLabel}
-
               autoComplete="off"
-
               enterKeyHint="search"
-
             />
-
           </div>
-
-        ) : null}
+        </div>
 
       </div>
 
@@ -905,8 +1028,15 @@ export function ReviewPage() {
               setDialogMode("edit");
               setEditTarget(row);
             }}
+            onEditDomain={(row) => {
+              setDomainTarget(row);
+            }}
 
-            emptyMessage="No items in the review queue."
+            emptyMessage={
+              reviewSearch.trim() || whyFilter !== "all"
+                ? "No review items match your filters."
+                : "No items in the review queue."
+            }
 
           />
 
@@ -996,6 +1126,14 @@ export function ReviewPage() {
 
         riskTitle={editTarget?.title ?? "this item"}
 
+        reviewWhy={editTarget?.reviewWhy}
+
+        reviewReason={editTarget?.reviewReason}
+
+        currentDomain={editTarget?.domain ?? ""}
+
+        taxonomyDomains={taxonomyDomains}
+
         submitting={editSubmitting}
 
         initialReview={editTarget?.humanReview}
@@ -1012,10 +1150,22 @@ export function ReviewPage() {
 
         onUpdateFeedback={(feedback) => void handleUpdateFeedback(feedback)}
 
-        onMoveToRisks={(feedback, classification) =>
-          void handleMoveToRisks(feedback, classification)
+        onMoveToRisks={(feedback, classification, domain) =>
+          void handleMoveToRisks(feedback, classification, domain)
         }
 
+      />
+
+      <DomainRemapDialog
+        open={domainTarget != null}
+        riskTitle={domainTarget?.title ?? "this item"}
+        currentDomain={domainTarget?.domain ?? ""}
+        taxonomyDomains={taxonomyDomains}
+        submitting={domainSubmitting}
+        onClose={() => {
+          if (!domainSubmitting) setDomainTarget(null);
+        }}
+        onSave={(domain) => void handleRemapDomain(domain)}
       />
 
     </main>

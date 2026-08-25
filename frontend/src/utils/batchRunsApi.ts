@@ -128,3 +128,28 @@ export async function fetchBatchRun(
     return { ok: false, message: "Network error while loading batch run." };
   }
 }
+
+export async function deleteBatchRun(
+  id: number,
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  try {
+    const res = await authFetch(`/admin/batch-runs/${id}`, {
+      method: "DELETE",
+    });
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      message?: string;
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not delete batch run."),
+      };
+    }
+    return {
+      ok: true,
+      message: data.message ?? "Batch deleted.",
+    };
+  } catch {
+    return { ok: false, message: "Network error while deleting batch run." };
+  }
+}

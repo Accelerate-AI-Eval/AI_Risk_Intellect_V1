@@ -3,6 +3,7 @@ import {
   approveReviewRisk,
   classifyReviewRisk,
   rejectReviewRisk,
+  remapReviewDomain,
   resolveReviewer,
   updateReviewFeedback,
 } from "../../services/risks/riskReview.service.js";
@@ -99,6 +100,26 @@ export async function approveReviewRiskHandler(
     feedback,
     reviewer,
   });
+  res.status(200).json(result);
+}
+
+export async function remapReviewDomainHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = req.user?.sub;
+  if (!userId) {
+    throw HttpError.unauthorized("Authentication required.");
+  }
+
+  const riskId = String(req.params.id ?? "").trim();
+  const body = (req.body ?? {}) as { domain?: string };
+  const domain = typeof body.domain === "string" ? body.domain.trim() : "";
+  if (!domain) {
+    throw HttpError.unprocessable("Select one of the 7 available taxonomy domains.");
+  }
+  const reviewer = await resolveReviewer(userId);
+  const result = await remapReviewDomain(riskId, { domain, reviewer });
   res.status(200).json(result);
 }
 

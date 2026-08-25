@@ -29,7 +29,7 @@ export function MainLayout() {
           />
           <div className="mainLayout__brandText">
             <span className="mainLayout__brandTitle">AI-Q</span>
-            <span className="mainLayout__brandTagline">AI RISK INTELLECT</span>
+            <span className="mainLayout__brandTagline">AI RISK INTELLIGENCE</span>
           </div>
         </div>
         <nav className="mainLayout__nav">

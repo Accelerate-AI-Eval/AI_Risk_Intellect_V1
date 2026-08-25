@@ -3,6 +3,7 @@ import {
   getBatchRunById,
   listBatchRuns,
   startBatchRun,
+  deleteBatchRun,
 } from "../../services/admin/batchRuns.service.js";
 import type { StartBatchRunInput } from "../../validators/admin.validators.js";
 
@@ -37,4 +38,20 @@ export async function getBatchRunHandler(
   const id = Number(req.params.id);
   const batch = await getBatchRunById(id);
   res.status(200).json({ batch });
+}
+
+export async function deleteBatchRunHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const id = Number(req.params.id);
+  const batch = await deleteBatchRun(id);
+  res.status(200).json({
+    ok: true,
+    message:
+      batch.status === "running"
+        ? "Processing batch deleted. Remaining jobs for this batch were removed from the queue."
+        : "Queued batch deleted.",
+    batch,
+  });
 }

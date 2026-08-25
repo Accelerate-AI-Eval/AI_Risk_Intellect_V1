@@ -7,7 +7,7 @@ export const DB_DEFAULTS = {
   password: "Postgresql123",
   host: "localhost",
   port: "5432",
-  name: "july17_2026_ai_risk_db",
+  name: "ai_risk_db_24Aug2026",
 } as const;
 
 export function databaseUrlFromParts(env: NodeJS.ProcessEnv = process.env): string {

@@ -25,6 +25,7 @@ import {
 } from "../risks/riskMatchJudge.service.js";
 import { recordObservabilityMetrics } from "../observability/observability.service.js";
 import {
+  DOMAIN_REVIEW_REASON,
   DUPLICATE_RISK_REVIEW_REASON,
   JUDGE_NO_MATCH_REVIEW_REASON,
   MISSING_JUSTIFICATION_REVIEW_REASON,
@@ -228,8 +229,7 @@ async function buildPersistedExtraction(input: {
 
   if (!inTaxonomy) {
     extractionJson.review_status = "pending";
-    extractionJson.review_reason =
-      "Extracted domain does not match any of the 7 risk taxonomy domains.";
+    extractionJson.review_reason = DOMAIN_REVIEW_REASON;
   }
 
   // Semantic near-duplicate check: flag for review, never block insertion.

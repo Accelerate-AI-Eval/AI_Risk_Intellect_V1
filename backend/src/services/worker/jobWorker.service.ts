@@ -86,6 +86,14 @@ async function finishJob(
   errorMessage: string | null,
   batchRefresh?: { ingestLinkItemId: number | null; url: string },
 ): Promise<void> {
+  const [existing] = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+
+  if (!existing) return;
+
   await db
     .update(jobs)
     .set({
@@ -105,6 +113,15 @@ async function finishJob(
       });
     }
   }
+}
+
+async function jobStillExists(jobId: number): Promise<boolean> {
+  const [row] = await db
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+  return row != null;
 }
 
 /**
@@ -177,6 +194,11 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       title: articleRow?.title ?? undefined,
     });
 
+    if (!(await jobStillExists(job.id))) {
+      log("deleted during ingest, aborting");
+      return;
+    }
+
     if (ingest.outcome === "skipped") {
       log("ingest skipped", { reason: ingest.reason });
       await finishJob(job.id, "skipped", ingest.reason, batchRefresh);
@@ -207,6 +229,12 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
     const extract = await extractRiskForArticle(job.articleId, {
       modelId: assigned.modelId !== "unknown" ? assigned.modelId : null,
     });
+
+    if (!(await jobStillExists(job.id))) {
+      log("deleted during risk extract, aborting");
+      return;
+    }
+
     if (extract.outcome === "skipped") {
       log("risk extract skipped", { reason: extract.reason });
       await finishJob(job.id, "skipped", extract.reason, batchRefresh);
@@ -226,6 +254,7 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     jobLog.error("Job failed", { jobId: job.id, message, err });
+    if (!(await jobStillExists(job.id))) return;
     await finishJob(job.id, "error", message, batchRefresh);
   }
 }

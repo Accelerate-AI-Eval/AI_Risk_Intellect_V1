@@ -151,6 +151,32 @@
   margin-top: 0.25rem;
 }
 
+.jobsPage__enqueueDialog > .jobsPage__enqueueDialogActions {
+  padding: 0 1.1rem 1.1rem;
+}
+
+.jobsPage__deleteConfirmText {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--jobs-muted);
+}
+
+.jobsPage__deleteConfirmBtn {
+  border: none;
+  background: #dc2626;
+  color: #fff;
+}
+
+.jobsPage__deleteConfirmBtn:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.jobsPage__deleteConfirmBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .jobsPage__enqueueBtn {
   display: inline-flex;
   align-items: center;
@@ -850,6 +876,59 @@ html:not(.app-theme-dark) .jobsPage__executionDuration {
   background: rgba(14, 116, 144, 0.1);
 }
 
+.jobsPage__executionDuration--slow {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.16);
+}
+
+html:not(.app-theme-dark) .jobsPage__executionDuration--slow {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.22);
+}
+
+.jobsPage__th--reason,
+.jobsPage__td--reason {
+  width: 3.75rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.jobsPage__slowReasonBtn {
+  color: #fbbf24;
+}
+
+.jobsPage__slowReasonBtn:hover,
+.jobsPage__slowReasonBtn.jobsPage__errorInfoBtn--open {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.16);
+}
+
+html:not(.app-theme-dark) .jobsPage__slowReasonBtn {
+  color: #b45309;
+}
+
+html:not(.app-theme-dark) .jobsPage__slowReasonBtn:hover,
+html:not(.app-theme-dark) .jobsPage__slowReasonBtn.jobsPage__errorInfoBtn--open {
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.2);
+}
+
+.jobsPage__slowReasons {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--jobs-text);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.jobsPage__slowReasons li + li {
+  margin-top: 0.35rem;
+}
+
+html:not(.app-theme-dark) .jobsPage__slowReasons {
+  color: #334155;
+}
+
 .jobsPage__th--info,
 .jobsPage__td--info {
   width: 3.25rem;
@@ -909,8 +988,6 @@ html:not(.app-theme-dark) .jobsPage__executionDuration {
 }
 
 .jobsPage__errorInfoPanel {
-  position: absolute;
-  left: 50%;
   z-index: 25;
   width: min(22rem, 85vw);
   padding: 0.85rem 0.95rem;
@@ -919,15 +996,17 @@ html:not(.app-theme-dark) .jobsPage__executionDuration {
   background: var(--jobs-card);
   color: var(--jobs-text);
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35);
-  transform: translateX(-50%);
   text-align: left;
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
 }
 
-.jobsPage__errorInfoPanel--below {
-  top: calc(100% + 6px);
+.jobsPage__errorInfoPanel--portal {
+  position: fixed;
+  z-index: 1200;
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .jobsPage__errorInfoTitle {

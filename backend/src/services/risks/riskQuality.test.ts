@@ -4,6 +4,7 @@ import {
   isNonEnglishRisk,
   needsHumanReview,
   needsQualityReview,
+  resolveReviewWhy,
 } from "./riskQuality.js";
 import {
   isRiskInReviewQueue,
@@ -70,6 +71,42 @@ test("needsHumanReview flags semantic duplicates regardless of quality", () => {
     },
   };
   assert.equal(needsHumanReview(duplicate), true);
+});
+
+test("resolveReviewWhy returns a one-word label for each gate", () => {
+  assert.equal(
+    resolveReviewWhy({
+      qualityScore: 95,
+      extractionJson: { is_non_english: true, source_language: "de" },
+    }).label,
+    "Language",
+  );
+  assert.equal(
+    resolveReviewWhy({
+      qualityScore: 95,
+      extractionJson: { dedup: { duplicate_of_risk_id: "abc" } },
+    }).label,
+    "Duplicate",
+  );
+  assert.equal(
+    resolveReviewWhy({
+      qualityScore: 95,
+      extractionJson: { catalog_matches: [{ judgeVerdict: "no_match" }] },
+    }).label,
+    "Catalog",
+  );
+  assert.equal(
+    resolveReviewWhy({ qualityScore: 80, extractionJson: {} }).label,
+    "Quality",
+  );
+  assert.equal(
+    resolveReviewWhy({
+      qualityScore: 95,
+      domains: "not-a-taxonomy-domain",
+      extractionJson: { source_language: "en" },
+    }).label,
+    "Domain",
+  );
 });
 
 test("needsHumanReview flags judge-rejected top matches", () => {

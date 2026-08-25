@@ -29,7 +29,7 @@ from app.ingestion.pipeline import (
     prepare_raw_ingest,
 )
 
-app = FastAPI(title="AI Risk Intellect Python", version="1.0.0")
+app = FastAPI(title="AI Risk Intelligence Python", version="1.0.0")
 
 
 class RawIngestBody(BaseModel):

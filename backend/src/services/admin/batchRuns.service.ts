@@ -1200,3 +1200,47 @@ export async function getBatchRunById(id: number): Promise<BatchRunDto> {
 
   return toBatchRunDto(row, await mapItemsToDto(items));
 }
+
+/** Remove a queued or processing batch and its in-flight ingest jobs. */
+export async function deleteBatchRun(id: number): Promise<{
+  id: number;
+  status: string;
+}> {
+  const [batch] = await db
+    .select({ id: batchRuns.id, status: batchRuns.status })
+    .from(batchRuns)
+    .where(eq(batchRuns.id, id))
+    .limit(1);
+
+  if (!batch) {
+    throw HttpError.notFound(`Batch run #${id} was not found.`);
+  }
+
+  if (batch.status !== "pending" && batch.status !== "running") {
+    throw HttpError.conflict(
+      "Only queued or processing batches can be deleted.",
+    );
+  }
+
+  const wasRunning = batch.status === "running";
+
+  await db
+    .delete(jobs)
+    .where(
+      and(
+        eq(jobs.batchRunId, id),
+        inArray(jobs.status, ["pending", "running"]),
+      ),
+    );
+
+  await db.delete(batchRuns).where(eq(batchRuns.id, id));
+
+  if (wasRunning) {
+    const activated = await tryActivateNextPendingBatch();
+    if (activated?.status === "running") {
+      await ensureBatchWorkerRunning();
+    }
+  }
+
+  return batch;
+}

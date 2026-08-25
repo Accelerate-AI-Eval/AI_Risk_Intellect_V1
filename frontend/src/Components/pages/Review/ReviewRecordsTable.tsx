@@ -1,4 +1,4 @@
-import { ChartLine, Eye, PencilLine } from "lucide-react";
+import { ChartLine, Eye, PencilLine, Tags } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { DataTablePagination } from "../../common/DataTablePagination";
 import {
@@ -11,6 +11,7 @@ import {
   isExistingHumanReview,
   isPendingHumanReview,
 } from "../Risk/humanReviewHelpers";
+import { ReviewWhyPill } from "./ReviewWhyPill";
 
 interface ReviewRecordsTableProps {
   rows: RiskDetail[];
@@ -27,6 +28,7 @@ interface ReviewRecordsTableProps {
   actingId: string | null;
   onView: (row: RiskDetail) => void;
   onEdit: (row: RiskDetail) => void;
+  onEditDomain: (row: RiskDetail) => void;
 }
 
 export function ReviewRecordsTable({
@@ -44,6 +46,7 @@ export function ReviewRecordsTable({
   actingId,
   onView,
   onEdit,
+  onEditDomain,
 }: ReviewRecordsTableProps) {
   const navigate = useNavigate();
 
@@ -87,6 +90,9 @@ export function ReviewRecordsTable({
                 <th scope="col" className="riskPage__th riskPage__th--left">
                   INTENT
                 </th>
+                <th scope="col" className="riskPage__th riskPage__th--left">
+                  WHY
+                </th>
                 <th scope="col" className="riskPage__th riskPage__th--right">
                   QUALITY SCORE
                 </th>
@@ -98,13 +104,13 @@ export function ReviewRecordsTable({
             <tbody>
               {loadState === "loading" ? (
                 <tr>
-                  <td className="riskPage__td riskPage__emptyCell" colSpan={11}>
+                  <td className="riskPage__td riskPage__emptyCell" colSpan={12}>
                     Loading review queue…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td className="riskPage__td riskPage__emptyCell" colSpan={11}>
+                  <td className="riskPage__td riskPage__emptyCell" colSpan={12}>
                     {loadState === "error"
                       ? "Could not load the review queue."
                       : (emptyMessage ??
@@ -140,6 +146,12 @@ export function ReviewRecordsTable({
                       <td className="riskPage__td riskPage__td--muted">{row.sector}</td>
                       <td className="riskPage__td riskPage__td--muted">{row.industry}</td>
                       <td className="riskPage__td riskPage__td--muted">{row.intent}</td>
+                      <td className="riskPage__td reviewPage__td--why">
+                        <ReviewWhyPill
+                          label={row.reviewWhy}
+                          reason={row.reviewReason}
+                        />
+                      </td>
                       <td className="riskPage__td riskPage__td--right riskPage__td--score">
                         {row.qualityScore}
                       </td>
@@ -174,6 +186,18 @@ export function ReviewRecordsTable({
                               onClick={() => onView(row)}
                             >
                               <Eye size={16} strokeWidth={2} aria-hidden />
+                            </button>
+                          ) : null}
+                          {row.reviewWhy === "Domain" ? (
+                            <button
+                              type="button"
+                              className="riskPage__actionBtn riskPage__actionBtn--edit"
+                              aria-label={`Edit domain for ${formatRiskId(row)}`}
+                              data-tooltip="Edit domain"
+                              disabled={isActing}
+                              onClick={() => onEditDomain(row)}
+                            >
+                              <Tags size={16} strokeWidth={2} aria-hidden />
                             </button>
                           ) : null}
                           <button

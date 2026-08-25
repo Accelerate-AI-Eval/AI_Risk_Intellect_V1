@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "react-toastify";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -21,10 +22,12 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
+import { readApiErrorMessage } from "../../../utils/readApiErrorMessage";
 import { formatDurationMs, formatJobExecutedAt } from "../../../utils/formatDate";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePagination } from "../../../utils/usePagination";
 import { usePolling } from "../../../utils/usePolling";
+import { positionTableTip } from "../../../utils/positionTableTip";
 import { PageHeader } from "../../Layout/PageHeader";
 import { DataTablePagination } from "../../common/DataTablePagination";
 import { UrlIngestionDialog } from "../../common/UrlIngestionDialog";
@@ -44,6 +47,7 @@ type Metric = {
 };
 
 const TERMINAL_JOB_STATUSES = new Set(["done", "completed", "error", "skipped"]);
+const SLOW_JOB_MS = 2 * 60 * 1000;
 
 type JobRow = {
   id: number;
@@ -54,6 +58,10 @@ type JobRow = {
   sourceKey: string;
   tries: string;
   executionTime: string;
+  executionMs: number | null;
+  llmDurationMs: number | null;
+  wordCount: number | null;
+  slowReasons: string[];
   executed: string;
   createdAt: string;
   startedAt: string;
@@ -101,27 +109,115 @@ function formatJobExecutedDisplay(
   return "—";
 }
 
+function jobExecutionMs(
+  row: Pick<
+    JobRow,
+    "status" | "startedAt" | "createdAt" | "updatedAt" | "riskFetchedAt"
+  >,
+): number | null {
+  const status = row.status.toLowerCase();
+  const startedAt = resolveJobStartedAt(row);
+  const startedMs = new Date(startedAt).getTime();
+  if (Number.isNaN(startedMs)) return null;
+
+  if (status === "running") return Math.max(0, Date.now() - startedMs);
+
+  if (!TERMINAL_JOB_STATUSES.has(status)) return null;
+
+  const completedAt = resolveJobCompletedAt(row);
+  const completedMs = new Date(completedAt).getTime();
+  if (Number.isNaN(completedMs)) return null;
+  return Math.max(0, completedMs - startedMs);
+}
+
 function formatJobExecutionTimeDisplay(
   row: Pick<
     JobRow,
     "status" | "startedAt" | "createdAt" | "updatedAt" | "riskFetchedAt"
   >,
 ): string {
+  return formatDurationMs(jobExecutionMs(row));
+}
+
+function buildSlowJobReasons(
+  row: Pick<
+    JobRow,
+    | "status"
+    | "tries"
+    | "errorMessage"
+    | "executionMs"
+    | "llmDurationMs"
+    | "wordCount"
+  >,
+): string[] {
+  if (row.executionMs == null || row.executionMs <= SLOW_JOB_MS) return [];
+
+  const points: string[] = [];
   const status = row.status.toLowerCase();
-  const startedAt = resolveJobStartedAt(row);
-  const startedMs = new Date(startedAt).getTime();
+  const error = row.errorMessage.trim();
+  const tries = Number(row.tries);
+  const total = formatDurationMs(row.executionMs);
+
+  points.push(
+    `Total run time is ${total}, which is over the 2-minute threshold.`,
+  );
 
   if (status === "running") {
-    if (Number.isNaN(startedMs)) return "—";
-    return formatDurationMs(Math.max(0, Date.now() - startedMs));
+    points.push(
+      "The worker is still fetching the page or waiting for LLM extraction to finish.",
+    );
+    return points;
   }
 
-  if (!TERMINAL_JOB_STATUSES.has(status)) return "—";
+  if (row.llmDurationMs != null && row.llmDurationMs > 0) {
+    points.push(
+      `LLM risk extraction took ${formatDurationMs(row.llmDurationMs)}.`,
+    );
+    const otherMs = row.executionMs - row.llmDurationMs;
+    if (otherMs >= 30_000) {
+      points.push(
+        `Page fetch and ingest took about ${formatDurationMs(otherMs)}.`,
+      );
+    }
+  } else if (status === "done") {
+    points.push(
+      "Most of the extra time is from LLM extraction, catalog matching, and embeddings.",
+    );
+  }
 
-  const completedAt = resolveJobCompletedAt(row);
-  const completedMs = new Date(completedAt).getTime();
-  if (Number.isNaN(startedMs) || Number.isNaN(completedMs)) return "—";
-  return formatDurationMs(Math.max(0, completedMs - startedMs));
+  if (row.wordCount != null && row.wordCount >= 2500) {
+    points.push(
+      `The article is long (${row.wordCount.toLocaleString()} words), so the model has more text to process.`,
+    );
+  }
+
+  if (Number.isFinite(tries) && tries > 1) {
+    points.push(
+      `This job ran ${tries} times, and each retry repeats ingest and extraction.`,
+    );
+  }
+
+  if (status === "error") {
+    if (/timeout/i.test(error)) {
+      points.push(
+        "The source site timed out. Ingest waits up to 2 minutes for a response.",
+      );
+    } else if (/fetch|reach|dns|ssl|firewall|did not respond/i.test(error)) {
+      points.push(
+        "Fetching the article was slow or blocked (DNS, SSL, firewall, or the site).",
+      );
+    } else if (error) {
+      points.push(`It then failed: ${formatJobIssueMessage(error)}`);
+    } else {
+      points.push("The job failed after this long run.");
+    }
+  }
+
+  if (status === "skipped" && error) {
+    points.push(`It was skipped because: ${error}`);
+  }
+
+  return points;
 }
 
 type JobMetrics = {
@@ -369,6 +465,176 @@ function formatJobIssueMessage(message: string): string {
   return trimmed;
 }
 
+function useJobsTableTip(
+  open: boolean,
+  wrapRef: RefObject<HTMLDivElement | null>,
+  estimatedWidth: number,
+) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({
+    top: 0,
+    left: 0,
+    maxWidth: estimatedWidth,
+    maxHeight: 240,
+  });
+
+  const updatePos = useCallback(() => {
+    const trigger = wrapRef.current;
+    if (!trigger) return;
+    setPos(
+      positionTableTip({
+        trigger,
+        panel: panelRef.current,
+        estimatedWidth,
+      }),
+    );
+  }, [estimatedWidth, wrapRef]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePos();
+    const frame = window.requestAnimationFrame(updatePos);
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, updatePos]);
+
+  useEffect(() => {
+    if (!open) return;
+    const scrollRoot = wrapRef.current?.closest(".jobsPage__tableScroll");
+    const onMove = () => updatePos();
+    scrollRoot?.addEventListener("scroll", onMove, { passive: true });
+    window.addEventListener("scroll", onMove, true);
+    window.addEventListener("resize", onMove);
+    return () => {
+      scrollRoot?.removeEventListener("scroll", onMove);
+      window.removeEventListener("scroll", onMove, true);
+      window.removeEventListener("resize", onMove);
+    };
+  }, [open, updatePos, wrapRef]);
+
+  return { panelRef, pos };
+}
+
+function JobSlowReasonIcon({
+  jobId,
+  executionTime,
+  reasons,
+}: {
+  jobId: number;
+  executionTime: string;
+  reasons: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+  const { panelRef, pos } = useJobsTableTip(open, wrapRef, 352);
+  const closeTimer = useRef(0);
+
+  const cancelClose = useCallback(() => {
+    window.clearTimeout(closeTimer.current);
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => {
+      if (pinned) return;
+      setOpen(false);
+    }, 120);
+  }, [cancelClose, pinned]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+        setPinned(false);
+      }
+    };
+    const onClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
+      setPinned(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick);
+    };
+  }, [open, panelRef]);
+
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+
+  if (reasons.length === 0) {
+    return (
+      <span className="jobsPage__infoEmpty" aria-hidden>
+        —
+      </span>
+    );
+  }
+
+  return (
+    <div
+      ref={wrapRef}
+      className="jobsPage__errorInfo"
+      onMouseEnter={() => {
+        cancelClose();
+        setOpen(true);
+      }}
+      onMouseLeave={scheduleClose}
+    >
+      <button
+        type="button"
+        className={`jobsPage__errorInfoBtn jobsPage__slowReasonBtn${open ? " jobsPage__errorInfoBtn--open" : ""}`}
+        aria-label={`Why job #${jobId} took ${executionTime}`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => {
+          if (pinned) {
+            setPinned(false);
+            setOpen(false);
+            return;
+          }
+          setPinned(true);
+          setOpen(true);
+        }}
+      >
+        <Timer size={16} strokeWidth={2} aria-hidden />
+      </button>
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              id={panelId}
+              role="tooltip"
+              className="jobsPage__errorInfoPanel jobsPage__errorInfoPanel--portal"
+              style={{
+                top: pos.top,
+                left: pos.left,
+                maxWidth: pos.maxWidth,
+                maxHeight: pos.maxHeight,
+              }}
+              onMouseEnter={cancelClose}
+              onMouseLeave={scheduleClose}
+            >
+              <p className="jobsPage__errorInfoTitle">Why this run was slow</p>
+              <p className="jobsPage__errorInfoMeta">
+                Job #{jobId} · {executionTime}
+              </p>
+              <ul className="jobsPage__slowReasons">
+                {reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
 function JobErrorInfoIcon({
   jobId,
   status,
@@ -381,6 +647,7 @@ function JobErrorInfoIcon({
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
+  const { panelRef, pos } = useJobsTableTip(open, wrapRef, 352);
   const statusKey = status.toLowerCase();
   const hasIssue = jobHasIssueInfo(status);
   const body =
@@ -393,9 +660,9 @@ function JobErrorInfoIcon({
       if (e.key === "Escape") setOpen(false);
     };
     const onClick = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick);
@@ -403,7 +670,7 @@ function JobErrorInfoIcon({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [open]);
+  }, [open, panelRef]);
 
   if (!hasIssue) {
     return <span className="jobsPage__infoEmpty" aria-hidden="true">—</span>;
@@ -424,20 +691,30 @@ function JobErrorInfoIcon({
       >
         <CircleAlert size={16} strokeWidth={2} aria-hidden />
       </button>
-      {open ? (
-        <div
-          id={panelId}
-          role="dialog"
-          aria-label={`Job #${jobId} processing details`}
-          className="jobsPage__errorInfoPanel jobsPage__errorInfoPanel--below"
-        >
-          <p className="jobsPage__errorInfoTitle">Why this URL was not processed</p>
-          <p className="jobsPage__errorInfoMeta">
-            Job #{jobId} · {status}
-          </p>
-          <p className="jobsPage__errorInfoBody">{body}</p>
-        </div>
-      ) : null}
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              id={panelId}
+              role="dialog"
+              aria-label={`Job #${jobId} processing details`}
+              className="jobsPage__errorInfoPanel jobsPage__errorInfoPanel--portal"
+              style={{
+                top: pos.top,
+                left: pos.left,
+                maxWidth: pos.maxWidth,
+                maxHeight: pos.maxHeight,
+              }}
+            >
+              <p className="jobsPage__errorInfoTitle">Why this URL was not processed</p>
+              <p className="jobsPage__errorInfoMeta">
+                Job #{jobId} · {status}
+              </p>
+              <p className="jobsPage__errorInfoBody">{body}</p>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -467,6 +744,8 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       startedAt?: string | null;
       updatedAt?: string;
       riskFetchedAt?: string | null;
+      llmDurationMs?: number | null;
+      wordCount?: number | null;
     }>;
     metrics?: Partial<JobMetrics>;
   };
@@ -483,6 +762,11 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       source: formatSourceLabel(j.source ?? ""),
       tries: String(j.tries ?? 0),
       executionTime: "—",
+      executionMs: null,
+      llmDurationMs:
+        typeof j.llmDurationMs === "number" ? j.llmDurationMs : null,
+      wordCount: typeof j.wordCount === "number" ? j.wordCount : null,
+      slowReasons: [],
       createdAt: j.createdAt ?? "",
       startedAt: j.startedAt ?? "",
       updatedAt,
@@ -491,7 +775,9 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       errorMessage: (j.errorMessage ?? "").trim(),
     };
     row.executed = formatJobExecutedDisplay(row);
-    row.executionTime = formatJobExecutionTimeDisplay(row);
+    row.executionMs = jobExecutionMs(row);
+    row.executionTime = formatDurationMs(row.executionMs);
+    row.slowReasons = buildSlowJobReasons(row);
     return row;
   });
 
@@ -542,6 +828,7 @@ function jobMatchesFilters(
     row.source,
     row.tries,
     row.executionTime,
+    ...row.slowReasons,
     row.executed,
     row.updatedAt,
     row.errorMessage,
@@ -563,6 +850,8 @@ export function JobsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [enqueueOpen, setEnqueueOpen] = useState(false);
   const [rowMenuOpenId, setRowMenuOpenId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<JobRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [rows, setRows] = useState<JobRow[]>([]);
   const [metrics, setMetrics] = useState<JobMetrics>(EMPTY_METRICS);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
@@ -688,6 +977,34 @@ export function JobsPage() {
     [loadJobs],
   );
 
+  const handleDeleteJob = useCallback(async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await authFetch(`/jobs/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        toast.error(
+          readApiErrorMessage(data, "Could not delete this job."),
+          { autoClose: 3500 },
+        );
+        return;
+      }
+      setDeleteTarget(null);
+      toast.success(data.message ?? "Job deleted.", { autoClose: 2500 });
+      await loadJobs();
+    } catch {
+      toast.error("Network error while deleting job.", { autoClose: 3000 });
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, deleting, loadJobs]);
+
   const clearFilters = () => {
     setStatus("all");
     setType("all");
@@ -741,6 +1058,55 @@ export function JobsPage() {
         onClose={() => setEnqueueOpen(false)}
         onEnqueued={() => void loadJobs()}
       />
+
+      {deleteTarget ? (
+        <div
+          className="jobsPage__enqueueOverlay"
+          role="presentation"
+          onMouseDown={(ev) => {
+            if (ev.target === ev.currentTarget && !deleting) setDeleteTarget(null);
+          }}
+        >
+          <div
+            className="jobsPage__enqueueDialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={`${baseId}-delete-title`}
+            aria-describedby={`${baseId}-delete-desc`}
+          >
+            <div className="jobsPage__enqueueDialogHead">
+              <h2 id={`${baseId}-delete-title`} className="jobsPage__enqueueDialogTitle">
+                Delete job #{deleteTarget.id}?
+              </h2>
+            </div>
+            <div className="jobsPage__enqueueDialogBody">
+              <p id={`${baseId}-delete-desc`} className="jobsPage__deleteConfirmText">
+                This removes the job from the queue. The article and any extracted
+                risks are not deleted.
+              </p>
+            </div>
+            <div className="jobsPage__enqueueDialogActions">
+              <button
+                type="button"
+                className="jobsPage__enqueueBtn jobsPage__enqueueBtn--cancel"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="jobsPage__enqueueBtn jobsPage__deleteConfirmBtn"
+                disabled={deleting}
+                aria-busy={deleting}
+                onClick={() => void handleDeleteJob()}
+              >
+                {deleting ? "Deleting…" : "Delete job"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* <div className="usersPage__tabs" role="tablist" aria-label="Job type">
         <button
@@ -923,6 +1289,13 @@ export function JobsPage() {
                         <th scope="col" className="jobsPage__th jobsPage__th--left">
                           EXECUTION TIME
                         </th>
+                <th
+                  scope="col"
+                  className="jobsPage__th jobsPage__th--center jobsPage__th--reason"
+                  aria-label="Execution time reasons"
+                >
+                  REASON
+                </th>
                 <th scope="col" className="jobsPage__th jobsPage__th--left">
                   ACTIONS
                 </th>
@@ -931,13 +1304,13 @@ export function JobsPage() {
             <tbody>
               {loadState === "loading" ? (
                   <tr>
-                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={9}>
+                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={10}>
                       Loading jobs…
                     </td>
                   </tr>
                 ) : filteredJobRows.length === 0 ? (
                   <tr>
-                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={9}>
+                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={10}>
                       {searchQuery.trim()
                         ? "No jobs match your filters or search."
                         : loadState === "error"
@@ -985,11 +1358,24 @@ export function JobsPage() {
                       </td>
                       <td className="jobsPage__td jobsPage__td--muted">
                         <div className="jobsPage__executionCell">
-                          <span className="jobsPage__executionDuration">
+                          <span
+                            className={`jobsPage__executionDuration${
+                              row.slowReasons.length > 0
+                                ? " jobsPage__executionDuration--slow"
+                                : ""
+                            }`}
+                          >
                             {row.executionTime}
                           </span>
                           <span className="jobsPage__executionAt">{row.executed}</span>
                         </div>
+                      </td>
+                      <td className="jobsPage__td jobsPage__td--center jobsPage__td--reason">
+                        <JobSlowReasonIcon
+                          jobId={row.id}
+                          executionTime={row.executionTime}
+                          reasons={row.slowReasons}
+                        />
                       </td>
                       <td className="jobsPage__td">
                         <div
@@ -1030,6 +1416,7 @@ export function JobsPage() {
                                 role="menuitem"
                                 onClick={() => {
                                   setRowMenuOpenId(null);
+                                  setDeleteTarget(row);
                                 }}
                               >
                                 <Trash2 size={16} strokeWidth={2} aria-hidden />

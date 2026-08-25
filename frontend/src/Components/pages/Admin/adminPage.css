@@ -2547,8 +2547,15 @@ html.app-theme-dark
   overflow: hidden;
 }
 
+.adminPage__batchHistoryRow {
+  display: flex;
+  align-items: stretch;
+}
+
 .adminPage__batchHistoryToggle {
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2561,6 +2568,47 @@ html.app-theme-dark
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.adminPage__batchDeleteBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  border: 0;
+  border-left: 1px solid var(--adm-border);
+  background: transparent;
+  color: #f87171;
+  cursor: pointer;
+}
+
+.adminPage__batchDeleteBtn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.adminPage__batchDeleteBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+html:not(.app-theme-dark) .adminPage__batchDeleteBtn {
+  color: #b91c1c;
+}
+
+html:not(.app-theme-dark) .adminPage__batchDeleteBtn:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.08);
+}
+
+.adminPage__batchDeleteConfirmText {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--adm-muted, #94a3b8);
+}
+
+html:not(.app-theme-dark) .adminPage__batchDeleteConfirmText {
+  color: #475569;
 }
 
 .adminPage__batchHistoryToggle:hover {

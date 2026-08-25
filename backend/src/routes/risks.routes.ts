@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   approveReviewRiskHandler,
   classifyReviewRiskHandler,
+  remapReviewDomainHandler,
   getRiskByIdHandler,
   listReviewQueueHandler,
   listRisksHandler,
@@ -46,6 +47,11 @@ risksRouter.post(
   "/:id/review/approve",
   requireAuth,
   asyncHandler(approveReviewRiskHandler),
+);
+risksRouter.patch(
+  "/:id/review/domain",
+  requireAuth,
+  asyncHandler(remapReviewDomainHandler),
 );
 risksRouter.post(
   "/:id/review/reject",

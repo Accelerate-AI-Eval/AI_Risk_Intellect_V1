@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
   ChevronDown,
@@ -8,9 +8,12 @@ import {
   Play,
   RefreshCw,
   Rss,
+  Trash2,
   Workflow,
+  X,
 } from "lucide-react";
 import {
+  deleteBatchRun,
   fetchBatchRun,
   fetchBatchRuns,
   startBatchRun,
@@ -180,6 +183,24 @@ function batchUrlStatusTitle(item: BatchRunItem): string {
   }
 }
 
+function canDeleteBatch(status: string): boolean {
+  return status === "pending" || status === "running";
+}
+
+function deleteBatchConfirmTitle(batch: BatchRun): string {
+  if (batch.status === "running") {
+    return `Delete processing Batch #${batch.id}?`;
+  }
+  return `Delete queued Batch #${batch.id}?`;
+}
+
+function deleteBatchConfirmBody(batch: BatchRun): string {
+  if (batch.status === "running") {
+    return "Remaining queued jobs for this batch will be removed. The next queued batch will start if one exists.";
+  }
+  return "This batch will not start.";
+}
+
 export function AdminBatchRunSection({
   idPrefix,
   busy = false,
@@ -187,6 +208,7 @@ export function AdminBatchRunSection({
   onRunEnd,
   onServicesChanged,
 }: AdminBatchRunSectionProps) {
+  const baseId = useId();
   // Model picker commented out — use active model from Controls.
   // const [options, setOptions] = useState<LlmModelOption[]>([]);
   // const [inferenceProfiles, setInferenceProfiles] = useState(false);
@@ -214,6 +236,8 @@ export function AdminBatchRunSection({
     Record<number, BatchRunItem[]>
   >({});
   const [itemsLoadingId, setItemsLoadingId] = useState<number | null>(null);
+  const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BatchRun | null>(null);
 
   const loadModelConfig = useCallback(async () => {
     setOptionsLoading(true);
@@ -357,6 +381,32 @@ export function AdminBatchRunSection({
       await reloadExpandedBatchItems(batchId);
     } finally {
       setItemsLoadingId(null);
+    }
+  };
+
+  const handleDeleteBatch = async () => {
+    if (!deleteTarget) return;
+    if (!canDeleteBatch(deleteTarget.status) || deletingBatchId != null) return;
+
+    setDeletingBatchId(deleteTarget.id);
+    try {
+      const result = await deleteBatchRun(deleteTarget.id);
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 3500 });
+        return;
+      }
+      toast.success(result.message, { autoClose: 3000 });
+      if (expandedBatchId === deleteTarget.id) setExpandedBatchId(null);
+      setBatchItemsById((prev) => {
+        const next = { ...prev };
+        delete next[deleteTarget.id];
+        return next;
+      });
+      setDeleteTarget(null);
+      await loadBatches(true);
+      onServicesChanged?.();
+    } finally {
+      setDeletingBatchId(null);
     }
   };
 
@@ -579,7 +629,8 @@ export function AdminBatchRunSection({
         <p className="adminPage__batchDetailsHint">
           Expand a batch to see its assigned model and every RSS / ETL URL.
           Status: <strong>Queued</strong> waits, <strong>Processing</strong>{" "}
-          runs under its model, then Completed / Partial / Failed.
+          runs under its model, then Completed / Partial / Failed. Delete a
+          queued or processing batch to remove it from the queue.
         </p>
 
         {batchesLoading ? (
@@ -597,40 +648,69 @@ export function AdminBatchRunSection({
               const isOpen = expandedBatchId === batch.id;
               const items = batchItemsById[batch.id] ?? [];
               const isLoadingItems = itemsLoadingId === batch.id;
+              const isDeleting = deletingBatchId === batch.id;
+              const showDelete = canDeleteBatch(batch.status);
               return (
                 <li key={batch.id} className="adminPage__batchHistoryItem">
-                  <button
-                    type="button"
-                    className="adminPage__batchHistoryToggle"
-                    aria-expanded={isOpen}
-                    onClick={() => void toggleBatchExpand(batch.id)}
-                  >
-                    <span className="adminPage__batchHistoryToggleMain">
-                      {isOpen ? (
-                        <ChevronDown size={16} strokeWidth={2} aria-hidden />
-                      ) : (
-                        <ChevronRight size={16} strokeWidth={2} aria-hidden />
-                      )}
-                      <span className="adminPage__batchHistoryId">
-                        Batch #{batch.id}
+                  <div className="adminPage__batchHistoryRow">
+                    <button
+                      type="button"
+                      className="adminPage__batchHistoryToggle"
+                      aria-expanded={isOpen}
+                      onClick={() => void toggleBatchExpand(batch.id)}
+                    >
+                      <span className="adminPage__batchHistoryToggleMain">
+                        {isOpen ? (
+                          <ChevronDown size={16} strokeWidth={2} aria-hidden />
+                        ) : (
+                          <ChevronRight size={16} strokeWidth={2} aria-hidden />
+                        )}
+                        <span className="adminPage__batchHistoryId">
+                          Batch #{batch.id}
+                        </span>
+                        <span
+                          className={`adminPage__statusPill ${batchStatusClass(batch.status)}`}
+                          title={batchStatusTitle(batch.status)}
+                        >
+                          {formatBatchStatusLabel(batch.status)}
+                        </span>
                       </span>
-                      <span
-                        className={`adminPage__statusPill ${batchStatusClass(batch.status)}`}
-                        title={batchStatusTitle(batch.status)}
+                      <span className="adminPage__batchHistoryMeta">
+                        <span title={batch.modelName}>
+                          {batch.modelLabel || batch.modelName}
+                        </span>
+                        <span>
+                          {batch.rssItemCount} RSS · {batch.etlItemCount} ETL
+                        </span>
+                        <span>{formatJobExecutedAt(batch.createdAt)}</span>
+                      </span>
+                    </button>
+                    {showDelete ? (
+                      <button
+                        type="button"
+                        className="adminPage__batchDeleteBtn"
+                        disabled={deletingBatchId != null}
+                        aria-busy={isDeleting}
+                        aria-label={`Delete batch #${batch.id}`}
+                        title={
+                          batch.status === "running"
+                            ? "Delete this processing batch"
+                            : "Delete this queued batch"
+                        }
+                        onClick={() => setDeleteTarget(batch)}
                       >
-                        {formatBatchStatusLabel(batch.status)}
-                      </span>
-                    </span>
-                    <span className="adminPage__batchHistoryMeta">
-                      <span title={batch.modelName}>
-                        {batch.modelLabel || batch.modelName}
-                      </span>
-                      <span>
-                        {batch.rssItemCount} RSS · {batch.etlItemCount} ETL
-                      </span>
-                      <span>{formatJobExecutedAt(batch.createdAt)}</span>
-                    </span>
-                  </button>
+                        {isDeleting ? (
+                          <Loader2
+                            className="usersPage__spinner"
+                            size={15}
+                            aria-hidden
+                          />
+                        ) : (
+                          <Trash2 size={15} strokeWidth={2} aria-hidden />
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
 
                   {isOpen ? (
                     <div className="adminPage__batchHistoryDetail">
@@ -751,6 +831,65 @@ export function AdminBatchRunSection({
           );
         }}
       />
+
+      {deleteTarget ? (
+        <div
+          className="usersPage__overlay"
+          role="presentation"
+          onMouseDown={(ev) => {
+            if (ev.target === ev.currentTarget && deletingBatchId == null) {
+              setDeleteTarget(null);
+            }
+          }}
+        >
+          <div
+            className="usersPage__dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={`${baseId}-delete-title`}
+            aria-describedby={`${baseId}-delete-desc`}
+          >
+            <div className="usersPage__dialogHead">
+              <h2 id={`${baseId}-delete-title`} className="usersPage__dialogTitle">
+                {deleteBatchConfirmTitle(deleteTarget)}
+              </h2>
+              <button
+                type="button"
+                className="usersPage__dialogClose"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deletingBatchId != null}
+                aria-label="Close"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <div className="usersPage__dialogBody">
+              <p id={`${baseId}-delete-desc`} className="adminPage__batchDeleteConfirmText">
+                {deleteBatchConfirmBody(deleteTarget)}
+              </p>
+              <div className="usersPage__dialogActions">
+                <button
+                  type="button"
+                  className="usersPage__btn usersPage__btn--logoutTone"
+                  disabled={deletingBatchId != null}
+                  onClick={() => setDeleteTarget(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="usersPage__btn usersPage__btn--primary usersPage__btn--inviteSend"
+                  disabled={deletingBatchId != null}
+                  aria-busy={deletingBatchId != null}
+                  onClick={() => void handleDeleteBatch()}
+                >
+                  {deletingBatchId != null ? "Deleting…" : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
