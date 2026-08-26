@@ -6,6 +6,7 @@ import {
   UrlFetchError,
 } from "../../utils/fetchUtils.js";
 import { resolveEnqueueModel } from "./discoveryEnqueue.service.js";
+import { isUrlDoNotExecute } from "../jobs/urlExecutionBlocks.service.js";
 
 export type RssEnqueueResult =
   | { status: "created"; url: string }
@@ -31,6 +32,10 @@ export async function enqueueRssUrl(
   }
 
   const model = await resolveEnqueueModel();
+
+  if (await isUrlDoNotExecute(normalized)) {
+    return { status: "skipped", url: normalized, reason: "do_not_execute" };
+  }
 
   const result = await db.transaction(async (tx) =>
     createArticleWithIngestJob(tx, {

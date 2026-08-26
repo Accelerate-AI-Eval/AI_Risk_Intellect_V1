@@ -8,6 +8,10 @@ import {
   type jobTypeEnum,
 } from "../schema/jobs/jobs.js";
 import { normalizeUrl } from "../utils/fetchUtils.js";
+import {
+  DO_NOT_EXECUTE_REASON,
+  isUrlDoNotExecute,
+} from "../services/jobs/urlExecutionBlocks.service.js";
 
 /** Status values that mean the job is already in flight (port of Python ACTIVE_STATUSES). */
 export const ACTIVE_JOB_STATUSES = ["pending", "running"] as const;
@@ -15,7 +19,7 @@ export const ACTIVE_JOB_STATUSES = ["pending", "running"] as const;
 type JobSource = (typeof jobSourceEnum.enumValues)[number];
 type JobType = (typeof jobTypeEnum.enumValues)[number];
 
-type DbLike = Pick<typeof db, "select" | "insert">;
+type DbLike = Pick<typeof db, "select" | "insert" | "update">;
 
 export type CreateJobInput = {
   url: string;
@@ -42,6 +46,29 @@ export type CreateArticleShellInput = {
 
 /** Re-export for callers that centralize on the job factory. */
 export { normalizeUrl };
+
+/** Stamp a batch onto an existing job so the Jobs BATCH column can show it. */
+async function attachBatchToJob(
+  conn: DbLike,
+  job: Job,
+  input: Pick<CreateJobInput, "batchRunId" | "modelName" | "modelLabel">,
+): Promise<Job> {
+  if (input.batchRunId == null) return job;
+  if (job.batchRunId === input.batchRunId) return job;
+
+  const patch: Partial<Job> = { batchRunId: input.batchRunId };
+  const modelName = input.modelName?.trim();
+  const modelLabel = input.modelLabel?.trim();
+  if (modelName && !job.modelName?.trim()) patch.modelName = modelName;
+  if (modelLabel && !job.modelLabel?.trim()) patch.modelLabel = modelLabel;
+
+  const [updated] = await conn
+    .update(jobs)
+    .set(patch)
+    .where(eq(jobs.id, job.id))
+    .returning();
+  return updated ?? { ...job, ...patch };
+}
 
 /**
  * Find an existing active job (pending or running) for the same URL and job type.
@@ -88,6 +115,50 @@ export async function createJob(
   const jobType = input.jobType ?? "ingest";
   const source = input.source ?? "manual";
 
+  if (await isUrlDoNotExecute(url)) {
+    const [blockedExisting] = await conn
+      .select()
+      .from(jobs)
+      .where(and(eq(jobs.url, url), eq(jobs.jobType, jobType)))
+      .limit(1);
+    if (blockedExisting) {
+      return {
+        job: await attachBatchToJob(conn, blockedExisting, input),
+        created: false,
+      };
+    }
+
+    const [skippedJob] = await conn
+      .insert(jobs)
+      .values({
+        articleId: input.articleId,
+        url,
+        status: "skipped",
+        errorMessage: DO_NOT_EXECUTE_REASON,
+        jobType,
+        source,
+        ...(input.ingestLinkId != null
+          ? { ingestLinkId: input.ingestLinkId }
+          : {}),
+        ...(input.ingestLinkItemId != null
+          ? { ingestLinkItemId: input.ingestLinkItemId }
+          : {}),
+        ...(input.batchRunId != null ? { batchRunId: input.batchRunId } : {}),
+        ...(input.modelName?.trim()
+          ? { modelName: input.modelName.trim() }
+          : {}),
+        ...(input.modelLabel?.trim()
+          ? { modelLabel: input.modelLabel.trim() }
+          : {}),
+      })
+      .returning();
+
+    if (!skippedJob) {
+      throw new Error("Failed to create job.");
+    }
+    return { job: skippedJob, created: true };
+  }
+
   if (!input.allowDuplicates) {
     if (input.ingestLinkItemId != null) {
       const [existingByItem] = await conn
@@ -101,13 +172,19 @@ export async function createJob(
         )
         .limit(1);
       if (existingByItem) {
-        return { job: existingByItem, created: false };
+        return {
+          job: await attachBatchToJob(conn, existingByItem, input),
+          created: false,
+        };
       }
     }
 
     const existing = await findExistingActiveJob(conn, { url, jobType });
     if (existing) {
-      return { job: existing, created: false };
+      return {
+        job: await attachBatchToJob(conn, existing, input),
+        created: false,
+      };
     }
   }
 

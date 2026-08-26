@@ -3,6 +3,7 @@ import { createArticleWithIngestJob } from "../../jobs/jobFactory.js";
 import { HttpError } from "../../utils/httpError.js";
 import { normalizeUrl } from "../../utils/fetchUtils.js";
 import { resolveEnqueueModel } from "./discoveryEnqueue.service.js";
+import { isUrlDoNotExecute } from "../jobs/urlExecutionBlocks.service.js";
 
 export type ManualJobEnqueueResult = {
   job: {
@@ -31,6 +32,12 @@ export async function enqueueManualJobUrl(
   }
 
   const model = await resolveEnqueueModel();
+
+  if (await isUrlDoNotExecute(normalized)) {
+    throw HttpError.conflict(
+      "This URL is marked do not execute. The LLM will not run for it.",
+    );
+  }
 
   const result = await db.transaction(async (tx) =>
     createArticleWithIngestJob(tx, {

@@ -13,7 +13,7 @@ let sessionExpirySignOutPending = false;
 let idleSignOutPending = false;
 let refreshInFlight: Promise<boolean> | null = null;
 
-const IDLE_LOGOUT_MS = 15 * 60 * 1000;
+const IDLE_LOGOUT_MS = 45 * 60 * 1000;
 
 async function tryRefreshAccessToken(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;

@@ -10,6 +10,7 @@ import { createLogger } from "../../logger/index.js";
 import { normalizeUrl } from "../../utils/fetchUtils.js";
 import { getLlmModelConfig } from "./llmModelConfig.service.js";
 import { requestWorkerServiceStart } from "./workerManager.service.js";
+import { isUrlDoNotExecute } from "../jobs/urlExecutionBlocks.service.js";
 
 const discoveryEnqueueLog = createLogger("discovery-enqueue");
 
@@ -137,6 +138,11 @@ export async function enqueueDiscoveryBatch(
       continue;
     }
 
+    if (await isUrlDoNotExecute(normalized)) {
+      skippedExisting += 1;
+      continue;
+    }
+
     const baseInput = {
       url: normalized,
       source: "rss" as const,
@@ -170,6 +176,7 @@ export async function enqueueDiscoveryBatch(
         createArticleWithIngestJob(tx, {
           url: normalized,
           source: "rss",
+          batchRunId: options?.batchRunId ?? null,
           ...(supportsModelColumns
             ? { modelName: model.modelName, modelLabel: model.modelLabel }
             : {}),
@@ -191,9 +198,10 @@ export async function enqueueDiscoveryBatch(
     );
   }
 
-  if (count > 0) {
+  if (count > 0 || (options?.batchRunId != null && skippedExisting > 0)) {
     discoveryEnqueueLog.info("Enqueued discovery jobs with assigned model", {
       count,
+      skippedExisting,
       modelName: model.modelName,
       batchRunId: options?.batchRunId ?? null,
     });

@@ -7,6 +7,7 @@ import {
   type EnqueueModelOptions,
 } from "./discoveryEnqueue.service.js";
 import type { ReportItemRef } from "./etlReportUploads.service.js";
+import { isUrlDoNotExecute } from "../jobs/urlExecutionBlocks.service.js";
 
 export type ReportsEnqueueItem = {
   url: string;
@@ -39,7 +40,11 @@ export async function enqueueReportsBatch(
       continue;
     }
 
-    if (activeJobs.has(normalized)) continue;
+    if (await isUrlDoNotExecute(normalized)) {
+      continue;
+    }
+
+    if (activeJobs.has(normalized) && options?.batchRunId == null) continue;
 
     let result;
     try {

@@ -1,9 +1,13 @@
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { jobs } from "../../schema/jobs/jobs.js";
+import { batchRunItems } from "../../schema/batchRuns/batchRunItems.js";
+import { batchRuns } from "../../schema/batchRuns/batchRuns.js";
 import { risks } from "../../schema/risks/risks.js";
 import { llmObservability } from "../../schema/observability/llmObservability.js";
 import { HttpError } from "../../utils/httpError.js";
+import { normalizeUrl } from "../../utils/fetchUtils.js";
+import { getDoNotExecuteUrlSet } from "./urlExecutionBlocks.service.js";
 
 export type JobListItem = {
   id: number;
@@ -20,6 +24,11 @@ export type JobListItem = {
   riskFetchedAt: Date | null;
   llmDurationMs: number | null;
   wordCount: number | null;
+  doNotExecute: boolean;
+  batchRunId: number | null;
+  batchName: string | null;
+  modelName: string | null;
+  modelLabel: string | null;
 };
 
 export type JobListMetrics = {
@@ -33,10 +42,126 @@ export type JobListMetrics = {
   skipped: number;
 };
 
+function batchDisplayName(batchRunId: number): string {
+  return `Batch #${batchRunId}`;
+}
+
+function batchStatusPriority(status: string): number {
+  const value = status.toLowerCase();
+  if (value === "running") return 0;
+  if (value === "pending") return 1;
+  return 2;
+}
+
+async function resolveBatchNamesForJobs(
+  rows: Array<{
+    id: number;
+    url: string;
+    ingestLinkItemId: number | null;
+    batchRunId: number | null;
+  }>,
+): Promise<Map<number, { batchRunId: number; batchName: string }>> {
+  const names = new Map<number, { batchRunId: number; batchName: string }>();
+  for (const row of rows) {
+    if (row.batchRunId == null) continue;
+    names.set(row.id, {
+      batchRunId: row.batchRunId,
+      batchName: batchDisplayName(row.batchRunId),
+    });
+  }
+
+  const missing = rows.filter((row) => row.batchRunId == null);
+  if (missing.length === 0) return names;
+
+  const urls = [...new Set(missing.map((row) => row.url).filter(Boolean))];
+  const ingestIds = [
+    ...new Set(
+      missing
+        .map((row) => row.ingestLinkItemId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
+
+  const filters = [];
+  if (urls.length > 0) filters.push(inArray(batchRunItems.url, urls));
+  if (ingestIds.length > 0) {
+    filters.push(inArray(batchRunItems.ingestLinkItemId, ingestIds));
+  }
+  if (filters.length === 0) return names;
+
+  const itemRows = await db
+    .select({
+      id: batchRunItems.id,
+      batchRunId: batchRunItems.batchRunId,
+      url: batchRunItems.url,
+      ingestLinkItemId: batchRunItems.ingestLinkItemId,
+      batchStatus: batchRuns.status,
+    })
+    .from(batchRunItems)
+    .innerJoin(batchRuns, eq(batchRuns.id, batchRunItems.batchRunId))
+    .where(or(...filters))
+    .orderBy(desc(batchRunItems.id));
+
+  type Candidate = { batchRunId: number; priority: number; itemId: number };
+  const byIngest = new Map<number, Candidate>();
+  const byUrl = new Map<string, Candidate>();
+
+  function keepBest<K>(map: Map<K, Candidate>, key: K, next: Candidate) {
+    const prev = map.get(key);
+    if (
+      !prev ||
+      next.priority < prev.priority ||
+      (next.priority === prev.priority && next.itemId > prev.itemId)
+    ) {
+      map.set(key, next);
+    }
+  }
+
+  for (const item of itemRows) {
+    const candidate: Candidate = {
+      batchRunId: item.batchRunId,
+      priority: batchStatusPriority(item.batchStatus),
+      itemId: item.id,
+    };
+    if (item.ingestLinkItemId != null) {
+      keepBest(byIngest, item.ingestLinkItemId, candidate);
+    }
+    const keys = new Set<string>([item.url, item.url.trim()]);
+    try {
+      keys.add(normalizeUrl(item.url));
+    } catch {
+      // keep raw URL keys
+    }
+    for (const key of keys) {
+      if (key) keepBest(byUrl, key, candidate);
+    }
+  }
+
+  for (const row of missing) {
+    const candidate =
+      (row.ingestLinkItemId != null ? byIngest.get(row.ingestLinkItemId) : undefined) ??
+      byUrl.get(row.url);
+    if (!candidate) continue;
+    names.set(row.id, {
+      batchRunId: candidate.batchRunId,
+      batchName: batchDisplayName(candidate.batchRunId),
+    });
+  }
+
+  return names;
+}
+
 export async function listJobs(): Promise<{
   jobs: JobListItem[];
   metrics: JobListMetrics;
 }> {
+  try {
+    const { skipStaleRunningJobs } = await import("../worker/jobWorker.service.js");
+    await skipStaleRunningJobs();
+  } catch {
+    // Listing jobs should still succeed if the timeout skip helper cannot load.
+  }
+
   const rows = await db
     .select({
       id: jobs.id,
@@ -50,8 +175,15 @@ export async function listJobs(): Promise<{
       startedAt: jobs.startedAt,
       createdAt: jobs.createdAt,
       updatedAt: jobs.updatedAt,
+      ingestLinkItemId: jobs.ingestLinkItemId,
+      batchRunId: jobs.batchRunId,
+      jobModelName: jobs.modelName,
+      jobModelLabel: jobs.modelLabel,
+      batchModelName: batchRuns.modelName,
+      batchModelLabel: batchRuns.modelLabel,
     })
     .from(jobs)
+    .leftJoin(batchRuns, eq(jobs.batchRunId, batchRuns.id))
     .orderBy(desc(jobs.createdAt));
 
   const articleIds = [...new Set(rows.map((row) => row.articleId).filter((id) => id > 0))];
@@ -74,6 +206,7 @@ export async function listJobs(): Promise<{
   }
 
   const urls = [...new Set(rows.map((row) => row.url).filter(Boolean))];
+  const blockedUrls = await getDoNotExecuteUrlSet(urls);
   const llmByUrl = new Map<string, { durationMs: number; wordCount: number }>();
   if (urls.length > 0) {
     const obsRows = await db
@@ -96,13 +229,34 @@ export async function listJobs(): Promise<{
     }
   }
 
+  const batchNames = await resolveBatchNamesForJobs(rows);
+
   const rowsWithRiskFetchedAt: JobListItem[] = rows.map((row) => {
     const llm = llmByUrl.get(row.url);
+    const resolvedBatch = batchNames.get(row.id);
+    const batchRunId = row.batchRunId ?? resolvedBatch?.batchRunId ?? null;
+    const modelName = row.jobModelName?.trim() || row.batchModelName?.trim() || null;
+    const modelLabel = row.jobModelLabel?.trim() || row.batchModelLabel?.trim() || modelName;
     return {
-      ...row,
+      id: row.id,
+      articleId: row.articleId,
+      url: row.url,
+      status: row.status,
+      jobType: row.jobType,
+      source: row.source,
+      tries: row.tries,
+      errorMessage: row.errorMessage,
+      startedAt: row.startedAt,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
       riskFetchedAt: riskFetchedAtByArticleId.get(row.articleId) ?? null,
       llmDurationMs: llm?.durationMs ?? null,
       wordCount: llm?.wordCount ?? null,
+      doNotExecute: blockedUrls.has(row.url),
+      batchRunId,
+      batchName: resolvedBatch?.batchName ?? (batchRunId != null ? batchDisplayName(batchRunId) : null),
+      modelName,
+      modelLabel,
     };
   });
 

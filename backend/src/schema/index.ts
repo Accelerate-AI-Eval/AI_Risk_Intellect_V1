@@ -6,6 +6,7 @@ export * from "./articles/articles.js";
 export * from "./ingestLinks/ingestLinks.js";
 export * from "./ingestLinks/ingestLinkItems.js";
 export * from "./jobs/jobs.js";
+export * from "./jobs/urlExecutionBlocks.js";
 export * from "./riskMappings/riskMappings.js";
 export * from "./riskMappings/riskMappingEmbeddings.js";
 export * from "./risks/risks.js";

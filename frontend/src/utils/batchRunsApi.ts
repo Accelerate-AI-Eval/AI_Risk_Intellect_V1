@@ -6,6 +6,14 @@ export type BatchRunItemProcessingStatus =
   | "done"
   | "failed";
 
+export type BatchRunCounts = {
+  total: number;
+  pending: number;
+  running: number;
+  done: number;
+  failed: number;
+};
+
 export type BatchRunItem = {
   id: number;
   sourceType: "rss" | "etl";
@@ -33,6 +41,7 @@ export type BatchRun = {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  counts?: BatchRunCounts;
   items?: BatchRunItem[];
 };
 

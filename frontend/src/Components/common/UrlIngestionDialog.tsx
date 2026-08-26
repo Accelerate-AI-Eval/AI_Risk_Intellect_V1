@@ -31,11 +31,13 @@ export function UrlIngestionDialog({
   const [ingestUrl, setIngestUrl] = useState("");
   const [suggestedName, setSuggestedName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [urlReason, setUrlReason] = useState("");
 
   const close = useCallback(() => {
     if (submitting) return;
     setIngestUrl("");
     setSuggestedName("");
+    setUrlReason("");
     onClose();
   }, [submitting, onClose]);
 
@@ -66,12 +68,16 @@ export function UrlIngestionDialog({
         toast.success(result.message, { autoClose: 3000 });
         setIngestUrl("");
         setSuggestedName("");
+        setUrlReason("");
         onEnqueued?.();
         onClose();
         return;
       }
 
       if (result.status === "conflict") {
+        if (/do not execute/i.test(result.message)) {
+          setUrlReason(result.message);
+        }
         toast.warning(result.message, { autoClose: 3500 });
         return;
       }
@@ -200,7 +206,10 @@ export function UrlIngestionDialog({
               isJobs ? "https://example.com/article" : "https://feeds.example.com/rss.xml"
             }
             value={ingestUrl}
-            onChange={(e) => setIngestUrl(e.target.value)}
+            onChange={(e) => {
+              setIngestUrl(e.target.value);
+              if (urlReason) setUrlReason("");
+            }}
             autoComplete="off"
             disabled={submitting}
             onKeyDown={(e) => {
@@ -210,6 +219,11 @@ export function UrlIngestionDialog({
               }
             }}
           />
+          {urlReason ? (
+            <p className="jobsPage__enqueueFieldReason" role="status">
+              {urlReason}
+            </p>
+          ) : null}
           <div className={actionsClass}>
             <button
               type="button"

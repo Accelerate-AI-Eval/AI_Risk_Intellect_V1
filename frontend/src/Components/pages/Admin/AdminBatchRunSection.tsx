@@ -20,6 +20,7 @@ import {
   type BatchRun,
   type BatchRunItem,
   type BatchRunItemProcessingStatus,
+  type BatchRunCounts,
 } from "../../../utils/batchRunsApi";
 import {
   fetchDiscoveryLogs,
@@ -187,6 +188,49 @@ function canDeleteBatch(status: string): boolean {
   return status === "pending" || status === "running";
 }
 
+function emptyBatchCounts(total = 0): BatchRunCounts {
+  return {
+    total,
+    pending: total,
+    running: 0,
+    done: 0,
+    failed: 0,
+  };
+}
+
+function countsFromItems(items: BatchRunItem[]): BatchRunCounts {
+  const counts = emptyBatchCounts(0);
+  counts.total = items.length;
+  for (const item of items) {
+    counts[resolveItemProcessingStatus(item)] += 1;
+  }
+  return counts;
+}
+
+function batchCounts(
+  batch: BatchRun,
+  liveItems?: BatchRunItem[],
+): BatchRunCounts {
+  const items =
+    liveItems && liveItems.length > 0
+      ? liveItems
+      : batch.items && batch.items.length > 0
+        ? batch.items
+        : null;
+  const fromItems = items ? countsFromItems(items) : null;
+  const fromApi =
+    batch.counts && batch.counts.total > 0 ? batch.counts : null;
+
+  if (fromItems && fromApi) {
+    const itemProgress = fromItems.running + fromItems.done + fromItems.failed;
+    const apiProgress = fromApi.running + fromApi.done + fromApi.failed;
+    return itemProgress >= apiProgress ? fromItems : fromApi;
+  }
+  if (fromItems) return fromItems;
+  if (fromApi) return fromApi;
+  return emptyBatchCounts(batch.rssItemCount + batch.etlItemCount);
+}
+
 function deleteBatchConfirmTitle(batch: BatchRun): string {
   if (batch.status === "running") {
     return `Delete processing Batch #${batch.id}?`;
@@ -282,7 +326,14 @@ export function AdminBatchRunSection({
         if (!silent) toast.error(result.message, { autoClose: 3000 });
         return;
       }
-      setBatches(result.batches);
+      setBatches((prev) => {
+        const prevById = new Map(prev.map((batch) => [batch.id, batch]));
+        return result.batches.map((next) => {
+          const current = prevById.get(next.id);
+          if (!current?.items?.length) return next;
+          return { ...next, items: current.items };
+        });
+      });
     } finally {
       if (!silent) setBatchesLoading(false);
     }
@@ -306,18 +357,19 @@ export function AdminBatchRunSection({
   }, [loadModelConfig, loadBatches]);
 
   useEffect(() => {
-    if (expandedBatchId == null) return;
-
-    const items = batchItemsById[expandedBatchId] ?? [];
-    const hasActiveItems = items.some((item) => {
-      const status = resolveItemProcessingStatus(item);
-      return status === "pending" || status === "running";
-    });
-
-    if (!hasActiveItems) return;
+    const activeIds = new Set<number>();
+    if (expandedBatchId != null) activeIds.add(expandedBatchId);
+    for (const [id, items] of Object.entries(batchItemsById)) {
+      const hasActive = items.some((item) => {
+        const status = resolveItemProcessingStatus(item);
+        return status === "pending" || status === "running";
+      });
+      if (hasActive) activeIds.add(Number(id));
+    }
+    if (activeIds.size === 0) return;
 
     const intervalId = window.setInterval(() => {
-      void reloadExpandedBatchItems(expandedBatchId);
+      for (const id of activeIds) void reloadExpandedBatchItems(id);
     }, 5000);
 
     return () => window.clearInterval(intervalId);
@@ -650,6 +702,7 @@ export function AdminBatchRunSection({
               const isLoadingItems = itemsLoadingId === batch.id;
               const isDeleting = deletingBatchId === batch.id;
               const showDelete = canDeleteBatch(batch.status);
+              const counts = batchCounts(batch, batchItemsById[batch.id]);
               return (
                 <li key={batch.id} className="adminPage__batchHistoryItem">
                   <div className="adminPage__batchHistoryRow">
@@ -659,30 +712,62 @@ export function AdminBatchRunSection({
                       aria-expanded={isOpen}
                       onClick={() => void toggleBatchExpand(batch.id)}
                     >
-                      <span className="adminPage__batchHistoryToggleMain">
-                        {isOpen ? (
-                          <ChevronDown size={16} strokeWidth={2} aria-hidden />
-                        ) : (
-                          <ChevronRight size={16} strokeWidth={2} aria-hidden />
-                        )}
-                        <span className="adminPage__batchHistoryId">
-                          Batch #{batch.id}
+                      <span className="adminPage__batchHistoryToggleTop">
+                        <span className="adminPage__batchHistoryToggleMain">
+                          {isOpen ? (
+                            <ChevronDown size={16} strokeWidth={2} aria-hidden />
+                          ) : (
+                            <ChevronRight size={16} strokeWidth={2} aria-hidden />
+                          )}
+                          <span className="adminPage__batchHistoryId">
+                            Batch #{batch.id}
+                          </span>
+                          <span
+                            className={`adminPage__statusPill adminPage__statusPill--batch ${batchStatusClass(batch.status)}`}
+                            title={batchStatusTitle(batch.status)}
+                          >
+                            {formatBatchStatusLabel(batch.status)}
+                          </span>
+                          <span
+                            className="adminPage__batchCounts"
+                            aria-label={`Batch #${batch.id} URL counts`}
+                          >
+                            <span className="adminPage__batchCount adminPage__batchCount--all">
+                              <strong>{counts.total}</strong>
+                              All
+                            </span>
+                            <span className="adminPage__batchCount adminPage__batchCount--pending">
+                              <strong>{counts.pending}</strong>
+                              Pending
+                            </span>
+                            <span className="adminPage__batchCount adminPage__batchCount--running">
+                              <strong>{counts.running}</strong>
+                              Running
+                            </span>
+                            <span className="adminPage__batchCount adminPage__batchCount--done">
+                              <strong>{counts.done}</strong>
+                              Done
+                            </span>
+                            <span className="adminPage__batchCount adminPage__batchCount--failed">
+                              <strong>{counts.failed}</strong>
+                              Failed
+                            </span>
+                          </span>
                         </span>
-                        <span
-                          className={`adminPage__statusPill ${batchStatusClass(batch.status)}`}
-                          title={batchStatusTitle(batch.status)}
-                        >
-                          {formatBatchStatusLabel(batch.status)}
+                        <span className="adminPage__batchHistoryMeta">
+                          <span>
+                            {batch.rssItemCount} RSS · {batch.etlItemCount} ETL
+                          </span>
+                          <span className="adminPage__batchHistoryWhen">
+                            <span>{formatJobExecutedAt(batch.createdAt)}</span>
+                            <span
+                              className="adminPage__batchHistoryModel"
+                              title={batch.modelName}
+                            >
+                              {batch.modelLabel || batch.modelName}
+                            </span>
+                          </span>
                         </span>
-                      </span>
-                      <span className="adminPage__batchHistoryMeta">
-                        <span title={batch.modelName}>
-                          {batch.modelLabel || batch.modelName}
-                        </span>
-                        <span>
-                          {batch.rssItemCount} RSS · {batch.etlItemCount} ETL
-                        </span>
-                        <span>{formatJobExecutedAt(batch.createdAt)}</span>
                       </span>
                     </button>
                     {showDelete ? (

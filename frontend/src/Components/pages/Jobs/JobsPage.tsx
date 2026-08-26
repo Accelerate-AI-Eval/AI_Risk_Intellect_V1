@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
+  Ban,
   CheckCircle2,
   Clock,
   FilterX,
@@ -13,7 +14,7 @@ import {
   RefreshCw,
   RotateCw,
   Search,
-  Trash2,
+  // Trash2,
   SkipForward,
   Timer,
   XCircle,
@@ -68,6 +69,10 @@ type JobRow = {
   updatedAt: string;
   riskFetchedAt: string;
   errorMessage: string;
+  doNotExecute: boolean;
+  batchName: string;
+  modelName: string;
+  modelLabel: string;
 };
 
 function resolveJobStartedAt(
@@ -130,13 +135,16 @@ function jobExecutionMs(
   return Math.max(0, completedMs - startedMs);
 }
 
-function formatJobExecutionTimeDisplay(
-  row: Pick<
-    JobRow,
-    "status" | "startedAt" | "createdAt" | "updatedAt" | "riskFetchedAt"
-  >,
-): string {
-  return formatDurationMs(jobExecutionMs(row));
+const JOB_TIMEOUT_SKIP_MS = 5 * 60 * 1000;
+const JOB_TIMEOUT_SKIP_REASON =
+  "Skipped because this URL took more than 5 minutes without finishing — it was taking too long.";
+const DO_NOT_EXECUTE_DISPLAY_REASON =
+  "This URL is marked do not execute. The LLM will not run for it.";
+
+function jobIsDoNotExecute(
+  row: Pick<JobRow, "doNotExecute" | "errorMessage">,
+): boolean {
+  return row.doNotExecute || /do not execute/i.test(row.errorMessage);
 }
 
 function buildSlowJobReasons(
@@ -148,13 +156,31 @@ function buildSlowJobReasons(
     | "executionMs"
     | "llmDurationMs"
     | "wordCount"
+    | "doNotExecute"
   >,
 ): string[] {
+  const status = row.status.toLowerCase();
+  const error = row.errorMessage.trim();
+
+  if (jobIsDoNotExecute(row)) {
+    return [DO_NOT_EXECUTE_DISPLAY_REASON];
+  }
+
+  if (status === "skipped" && /took more than 5 minutes/i.test(error)) {
+    return [error];
+  }
+
+  if (
+    status === "running" &&
+    row.executionMs != null &&
+    row.executionMs >= JOB_TIMEOUT_SKIP_MS
+  ) {
+    return [JOB_TIMEOUT_SKIP_REASON];
+  }
+
   if (row.executionMs == null || row.executionMs <= SLOW_JOB_MS) return [];
 
   const points: string[] = [];
-  const status = row.status.toLowerCase();
-  const error = row.errorMessage.trim();
   const tries = Number(row.tries);
   const total = formatDurationMs(row.executionMs);
 
@@ -319,7 +345,7 @@ const JOB_STATUS_HELP_BY_KEY: Record<string, StatusHelpItem> = {
   skipped: {
     status: "Skipped",
     description:
-      "Finished without storing content (duplicate URL, fetch failed, bot protection page, language not detected by bot, not AI-related, etc.).",
+      "Finished without storing content (took more than 5 minutes, duplicate URL, fetch failed, bot protection, not AI-related, or do not execute).",
   },
   error: {
     status: "Error",
@@ -428,6 +454,14 @@ function formatJobIssueMessage(message: string): string {
   const trimmed = message.trim();
   if (!trimmed) return trimmed;
 
+  if (trimmed === "Do not execute" || /do not execute/i.test(trimmed)) {
+    return DO_NOT_EXECUTE_DISPLAY_REASON;
+  }
+
+  if (/took more than 5 minutes/i.test(trimmed)) {
+    return trimmed;
+  }
+
   if (
     trimmed.includes("blocked automated access") ||
     trimmed.startsWith("Cannot resolve hostname") ||
@@ -529,6 +563,9 @@ function JobSlowReasonIcon({
   const panelId = useId();
   const { panelRef, pos } = useJobsTableTip(open, wrapRef, 352);
   const closeTimer = useRef(0);
+  const isSkipReason = reasons.some((reason) =>
+    /took more than 5 minutes|do not execute/i.test(reason),
+  );
 
   const cancelClose = useCallback(() => {
     window.clearTimeout(closeTimer.current);
@@ -618,7 +655,9 @@ function JobSlowReasonIcon({
               onMouseEnter={cancelClose}
               onMouseLeave={scheduleClose}
             >
-              <p className="jobsPage__errorInfoTitle">Why this run was slow</p>
+              <p className="jobsPage__errorInfoTitle">
+                {isSkipReason ? "Why this URL was skipped" : "Why this run was slow"}
+              </p>
               <p className="jobsPage__errorInfoMeta">
                 Job #{jobId} · {executionTime}
               </p>
@@ -719,6 +758,62 @@ function JobErrorInfoIcon({
   );
 }
 
+function JobModelInfoIcon({
+  jobId,
+  modelLabel,
+}: {
+  jobId: number;
+  modelLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const panelId = useId();
+  const { panelRef, pos } = useJobsTableTip(open, wrapRef, 280);
+
+  if (!modelLabel.trim()) return null;
+
+  return (
+    <div
+      ref={wrapRef}
+      className="jobsPage__statusHelp"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className="jobsPage__statusHelpBtn"
+        aria-label={`Model for job #${jobId}: ${modelLabel}`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      >
+        <Info size={14} strokeWidth={2} aria-hidden />
+      </button>
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              id={panelId}
+              role="tooltip"
+              className="jobsPage__errorInfoPanel jobsPage__errorInfoPanel--portal jobsPage__modelTipPanel"
+              style={{
+                top: pos.top,
+                left: pos.left,
+                maxWidth: pos.maxWidth,
+                maxHeight: pos.maxHeight,
+              }}
+            >
+              <p className="jobsPage__errorInfoTitle">Model</p>
+              <p className="jobsPage__errorInfoBody">{modelLabel}</p>
+            </div>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
 const EMPTY_METRICS: JobMetrics = {
   total: 0,
   successRate: 0,
@@ -746,6 +841,11 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       riskFetchedAt?: string | null;
       llmDurationMs?: number | null;
       wordCount?: number | null;
+      doNotExecute?: boolean;
+      batchRunId?: number | null;
+      batchName?: string | null;
+      modelName?: string | null;
+      modelLabel?: string | null;
     }>;
     metrics?: Partial<JobMetrics>;
   };
@@ -773,6 +873,12 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       riskFetchedAt: j.riskFetchedAt ?? "",
       executed: "—",
       errorMessage: (j.errorMessage ?? "").trim(),
+      doNotExecute: Boolean(j.doNotExecute),
+      batchName:
+        (j.batchName ?? "").trim() ||
+        (typeof j.batchRunId === "number" ? `Batch #${j.batchRunId}` : "-"),
+      modelName: (j.modelName ?? "").trim(),
+      modelLabel: (j.modelLabel ?? j.modelName ?? "").trim(),
     };
     row.executed = formatJobExecutedDisplay(row);
     row.executionMs = jobExecutionMs(row);
@@ -827,6 +933,9 @@ function jobMatchesFilters(
     row.jobType,
     row.source,
     row.tries,
+    row.batchName,
+    row.modelLabel,
+    row.modelName,
     row.executionTime,
     ...row.slowReasons,
     row.executed,
@@ -850,8 +959,14 @@ export function JobsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [enqueueOpen, setEnqueueOpen] = useState(false);
   const [rowMenuOpenId, setRowMenuOpenId] = useState<number | null>(null);
+  const [rowMenuAnchor, setRowMenuAnchor] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<JobRow | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [blockTarget, setBlockTarget] = useState<JobRow | null>(null);
+  const [blocking, setBlocking] = useState(false);
   const [rows, setRows] = useState<JobRow[]>([]);
   const [metrics, setMetrics] = useState<JobMetrics>(EMPTY_METRICS);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
@@ -913,23 +1028,31 @@ export function JobsPage() {
 
   usePolling(() => loadJobs({ silent: true }), pollIntervalMs, true);
 
+  const closeRowMenu = useCallback(() => {
+    setRowMenuOpenId(null);
+    setRowMenuAnchor(null);
+  }, []);
+
   useEffect(() => {
     if (rowMenuOpenId == null) return;
     const onPointer = (e: MouseEvent) => {
       const target = e.target as Element | null;
       if (target?.closest("[data-jobs-row-menu]")) return;
-      setRowMenuOpenId(null);
+      closeRowMenu();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRowMenuOpenId(null);
+      if (e.key === "Escape") closeRowMenu();
     };
+    const onScroll = () => closeRowMenu();
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("mousedown", onPointer);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
     };
-  }, [rowMenuOpenId]);
+  }, [rowMenuOpenId, closeRowMenu]);
 
   const displayMetrics = useMemo(() => buildMetrics(metrics), [metrics]);
 
@@ -946,6 +1069,22 @@ export function JobsPage() {
     pageSize: jobPageSize,
     resetKey: `${status}|${type}|${source}|${searchQuery}`,
   });
+
+  const rowMenuJob = useMemo(
+    () =>
+      rowMenuOpenId == null
+        ? null
+        : (rows.find((r) => r.id === rowMenuOpenId) ?? null),
+    [rowMenuOpenId, rows],
+  );
+
+  useEffect(() => {
+    closeRowMenu();
+  }, [jobPager.page, closeRowMenu]);
+
+  useEffect(() => {
+    if (rowMenuOpenId != null && rowMenuJob == null) closeRowMenu();
+  }, [rowMenuOpenId, rowMenuJob, closeRowMenu]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1004,6 +1143,42 @@ export function JobsPage() {
       setDeleting(false);
     }
   }, [deleteTarget, deleting, loadJobs]);
+
+  const handleMarkDoNotExecute = useCallback(
+    async (target: JobRow | null) => {
+      if (!target || blocking) return;
+      setBlocking(true);
+      try {
+        const res = await authFetch(`/jobs/${target.id}/do-not-execute`, {
+          method: "POST",
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string;
+          error?: { message?: string };
+        };
+        if (!res.ok) {
+          toast.error(
+            readApiErrorMessage(data, "Could not mark this URL as do not execute."),
+            { autoClose: 3500 },
+          );
+          return;
+        }
+        setBlockTarget(null);
+        setDeleteTarget(null);
+        toast.success(
+          data.message ??
+            "This URL is marked do not execute. The LLM will not run for it.",
+          { autoClose: 3000 },
+        );
+        await loadJobs();
+      } catch {
+        toast.error("Network error while marking this URL.", { autoClose: 3000 });
+      } finally {
+        setBlocking(false);
+      }
+    },
+    [blocking, loadJobs],
+  );
 
   const clearFilters = () => {
     setStatus("all");
@@ -1064,7 +1239,8 @@ export function JobsPage() {
           className="jobsPage__enqueueOverlay"
           role="presentation"
           onMouseDown={(ev) => {
-            if (ev.target === ev.currentTarget && !deleting) setDeleteTarget(null);
+            if (ev.target === ev.currentTarget && !deleting && !blocking)
+              setDeleteTarget(null);
           }}
         >
           <div
@@ -1082,26 +1258,87 @@ export function JobsPage() {
             <div className="jobsPage__enqueueDialogBody">
               <p id={`${baseId}-delete-desc`} className="jobsPage__deleteConfirmText">
                 This removes the job from the queue. The article and any extracted
-                risks are not deleted.
+                risks are not deleted. Use Do not execute to skip the LLM for this
+                URL from now on.
               </p>
             </div>
             <div className="jobsPage__enqueueDialogActions">
               <button
                 type="button"
                 className="jobsPage__enqueueBtn jobsPage__enqueueBtn--cancel"
-                disabled={deleting}
+                disabled={deleting || blocking}
                 onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+              {deleteTarget.doNotExecute ? null : (
+                <button
+                  type="button"
+                  className="jobsPage__enqueueBtn jobsPage__blockConfirmBtn"
+                  disabled={deleting || blocking}
+                  aria-busy={blocking}
+                  onClick={() => void handleMarkDoNotExecute(deleteTarget)}
+                >
+                  {blocking ? "Saving…" : "Do not execute"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="jobsPage__enqueueBtn jobsPage__deleteConfirmBtn"
+                disabled={deleting || blocking}
+                aria-busy={deleting}
+                onClick={() => void handleDeleteJob()}
+              >
+                {deleting ? "Deleting…" : "Delete job"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {blockTarget ? (
+        <div
+          className="jobsPage__enqueueOverlay"
+          role="presentation"
+          onMouseDown={(ev) => {
+            if (ev.target === ev.currentTarget && !blocking) setBlockTarget(null);
+          }}
+        >
+          <div
+            className="jobsPage__enqueueDialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={`${baseId}-block-title`}
+            aria-describedby={`${baseId}-block-desc`}
+          >
+            <div className="jobsPage__enqueueDialogHead">
+              <h2 id={`${baseId}-block-title`} className="jobsPage__enqueueDialogTitle">
+                Do not execute this URL?
+              </h2>
+            </div>
+            <div className="jobsPage__enqueueDialogBody">
+              <p id={`${baseId}-block-desc`} className="jobsPage__deleteConfirmText">
+                The LLM will not run for this URL. Pending and running jobs for it
+                will be skipped. The job row stays in the list.
+              </p>
+            </div>
+            <div className="jobsPage__enqueueDialogActions">
+              <button
+                type="button"
+                className="jobsPage__enqueueBtn jobsPage__enqueueBtn--cancel"
+                disabled={blocking}
+                onClick={() => setBlockTarget(null)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="jobsPage__enqueueBtn jobsPage__deleteConfirmBtn"
-                disabled={deleting}
-                aria-busy={deleting}
-                onClick={() => void handleDeleteJob()}
+                className="jobsPage__enqueueBtn jobsPage__blockConfirmBtn"
+                disabled={blocking}
+                aria-busy={blocking}
+                onClick={() => void handleMarkDoNotExecute(blockTarget)}
               >
-                {deleting ? "Deleting…" : "Delete job"}
+                {blocking ? "Saving…" : "Do not execute"}
               </button>
             </div>
           </div>
@@ -1277,6 +1514,9 @@ export function JobsPage() {
                   SOURCE
                 </th>
                 <th scope="col" className="jobsPage__th jobsPage__th--left">
+                  BATCH
+                </th>
+                <th scope="col" className="jobsPage__th jobsPage__th--left">
                   TRIES
                 </th>
                 <th
@@ -1304,13 +1544,13 @@ export function JobsPage() {
             <tbody>
               {loadState === "loading" ? (
                   <tr>
-                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={10}>
+                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={11}>
                       Loading jobs…
                     </td>
                   </tr>
                 ) : filteredJobRows.length === 0 ? (
                   <tr>
-                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={10}>
+                    <td className="jobsPage__td jobsPage__emptyCell" colSpan={11}>
                       {searchQuery.trim()
                         ? "No jobs match your filters or search."
                         : loadState === "error"
@@ -1325,14 +1565,22 @@ export function JobsPage() {
                         <span className="jobsPage__id">#{row.id}</span>
                       </td>
                       <td className="jobsPage__td jobsPage__td--url">
-                        <a
-                          href={row.url}
-                          className="jobsPage__url"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {row.url}
-                        </a>
+                        <div className="jobsPage__urlCell">
+                          <a
+                            href={row.url}
+                            className="jobsPage__url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {row.url}
+                          </a>
+                          {jobIsDoNotExecute(row) ? (
+                            <p className="jobsPage__urlBlockReason">
+                              {formatJobIssueMessage(row.errorMessage) ||
+                                DO_NOT_EXECUTE_DISPLAY_REASON}
+                            </p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="jobsPage__td jobsPage__td--center jobsPage__td--status">
                         <div className="jobsPage__statusCell">
@@ -1348,6 +1596,19 @@ export function JobsPage() {
                         </span>
                       </td>
                       <td className="jobsPage__td jobsPage__td--muted">{row.source}</td>
+                      <td className="jobsPage__td jobsPage__td--muted">
+                        {row.batchName.trim() && row.batchName !== "-" ? (
+                          <div className="jobsPage__batchCell">
+                            <span>{row.batchName}</span>
+                            <JobModelInfoIcon
+                              jobId={row.id}
+                              modelLabel={row.modelLabel || row.modelName}
+                            />
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
                       <td className="jobsPage__td jobsPage__td--muted">{row.tries}</td>
                       <td className="jobsPage__td jobsPage__td--center jobsPage__td--info">
                         <JobErrorInfoIcon
@@ -1378,6 +1639,7 @@ export function JobsPage() {
                         />
                       </td>
                       <td className="jobsPage__td">
+                        {row.doNotExecute ? null : (
                         <div
                           className="jobsPage__rowMenuWrap"
                           data-jobs-row-menu={row.id}
@@ -1388,43 +1650,24 @@ export function JobsPage() {
                             aria-haspopup="menu"
                             aria-expanded={rowMenuOpenId === row.id}
                             aria-label={`Actions for job #${row.id}`}
-                            onClick={() =>
-                              setRowMenuOpenId((prev) =>
-                                prev === row.id ? null : row.id,
-                              )
-                            }
+                            onClick={(e) => {
+                              const btn = e.currentTarget;
+                              if (rowMenuOpenId === row.id) {
+                                closeRowMenu();
+                                return;
+                              }
+                              const rect = btn.getBoundingClientRect();
+                              setRowMenuAnchor({
+                                top: rect.bottom,
+                                right: rect.right,
+                              });
+                              setRowMenuOpenId(row.id);
+                            }}
                           >
                             <MoreHorizontal size={18} strokeWidth={2} aria-hidden />
                           </button>
-                          {rowMenuOpenId === row.id ? (
-                            <div className="jobsPage__rowMenu" role="menu">
-                              <button
-                                type="button"
-                                className="jobsPage__rowMenuItem"
-                                role="menuitem"
-                                onClick={() => {
-                                  setRowMenuOpenId(null);
-                                  void handleRetryJob(row.id);
-                                }}
-                              >
-                                <RotateCw size={16} strokeWidth={2} aria-hidden />
-                                Retry
-                              </button>
-                              <button
-                                type="button"
-                                className="jobsPage__rowMenuItem jobsPage__rowMenuItem--danger"
-                                role="menuitem"
-                                onClick={() => {
-                                  setRowMenuOpenId(null);
-                                  setDeleteTarget(row);
-                                }}
-                              >
-                                <Trash2 size={16} strokeWidth={2} aria-hidden />
-                                Delete
-                              </button>
-                            </div>
-                          ) : null}
                         </div>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -1445,6 +1688,71 @@ export function JobsPage() {
           />
         </div>
       </section>
+
+      {rowMenuOpenId && rowMenuAnchor && rowMenuJob && !rowMenuJob.doNotExecute
+        ? createPortal(
+            <div
+              className="jobsPage__rowMenu jobsPage__rowMenu--portal"
+              role="menu"
+              aria-orientation="vertical"
+              data-jobs-row-menu={rowMenuOpenId}
+              style={{
+                top: Math.min(
+                  rowMenuAnchor.top + 4,
+                  Math.max(
+                    8,
+                    window.innerHeight - 100 - 8,
+                  ),
+                ),
+                left: rowMenuAnchor.right,
+              }}
+            >
+              {rowMenuJob.doNotExecute ? null : (
+                <>
+                  <button
+                    type="button"
+                    className="jobsPage__rowMenuItem"
+                    role="menuitem"
+                    onClick={() => {
+                      closeRowMenu();
+                      void handleRetryJob(rowMenuJob.id);
+                    }}
+                  >
+                    <RotateCw size={16} strokeWidth={2} aria-hidden />
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    className="jobsPage__rowMenuItem"
+                    role="menuitem"
+                    onClick={() => {
+                      closeRowMenu();
+                      setBlockTarget(rowMenuJob);
+                    }}
+                  >
+                    <Ban size={16} strokeWidth={2} aria-hidden />
+                    Do not execute
+                  </button>
+                </>
+              )}
+              {/*
+              <button
+                type="button"
+                className="jobsPage__rowMenuItem jobsPage__rowMenuItem--danger"
+                role="menuitem"
+                onClick={() => {
+                  closeRowMenu();
+                  setDeleteTarget(rowMenuJob);
+                }}
+              >
+                <Trash2 size={16} strokeWidth={2} aria-hidden />
+                Delete
+              </button>
+              */}
+            </div>,
+            document.body,
+          )
+        : null}
     </main>
   );
 }

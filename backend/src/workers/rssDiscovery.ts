@@ -288,24 +288,23 @@ async function runExtractedUrlDiscoveryCycle(
     byFeed.get(item.ingestLinkId)?.push(item);
   }
 
+  const batchRunId = parseBatchRunId();
   const toEnqueue: DiscoveryEnqueueItem[] = [];
 
   for (const link of links) {
     const items = byFeed.get(link.id) ?? [];
     let eligible = 0;
     for (const item of items) {
-      if (
-        item.url &&
-        !activeJobs.has(item.url) &&
-        !itemIdsWithJobs.has(item.id)
-      ) {
-        toEnqueue.push({
-          url: item.url,
-          ingestLinkId: item.ingestLinkId,
-          ingestLinkItemId: item.id,
-        });
-        eligible += 1;
-      }
+      if (!item.url) continue;
+      const alreadyQueued =
+        activeJobs.has(item.url) || itemIdsWithJobs.has(item.id);
+      if (alreadyQueued && batchRunId == null) continue;
+      toEnqueue.push({
+        url: item.url,
+        ingestLinkId: item.ingestLinkId,
+        ingestLinkItemId: item.id,
+      });
+      eligible += 1;
     }
     log.info(
       "[rss-discovery] feed #%d (%s): %d extracted, %d eligible to enqueue",
@@ -352,13 +351,13 @@ async function runSelectedExtractedItemsCycle(
     itemRefs.map((item) => item.id),
   );
 
+  const batchRunId = parseBatchRunId();
   const toEnqueue = itemRefs
-    .filter(
-      (item) =>
-        item.url &&
-        !activeJobs.has(item.url) &&
-        !itemIdsWithJobs.has(item.id),
-    )
+    .filter((item) => {
+      if (!item.url) return false;
+      if (batchRunId != null) return true;
+      return !activeJobs.has(item.url) && !itemIdsWithJobs.has(item.id);
+    })
     .map((item) => ({
       url: item.url,
       ingestLinkId: item.ingestLinkId,

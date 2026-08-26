@@ -1,6 +1,6 @@
 {
   "region": "us-east-1",
-  "updatedAt": "2026-08-25T07:21:19.552Z",
+  "updatedAt": "2026-08-26T07:31:51.822Z",
   "count": 8,
   "results": [
     {
@@ -28,36 +28,6 @@
         "value": "us.deepseek.r1-v1:0"
       },
       "workingReply": "Hello! How can I assist you today?",
-      "summary": {
-        "working": 1,
-        "notWorking": 0
-      }
-    },
-    {
-      "profileName": "GLOBAL Amazon Nova 2 Lite",
-      "profileType": "SYSTEM_DEFINED",
-      "inferenceProfileId": "global.amazon.nova-2-lite-v1:0",
-      "inferenceProfileArn": "arn:aws:bedrock:us-east-1:983911888509:inference-profile/global.amazon.nova-2-lite-v1:0",
-      "foundationModelId": "amazon.nova-2-lite-v1:0",
-      "prompt": "Hi",
-      "testedAt": "2026-07-16T05:39:08.505Z",
-      "tests": [
-        {
-          "status": "working",
-          "identifierType": "inferenceProfileId",
-          "value": "global.amazon.nova-2-lite-v1:0",
-          "prompt": "Hi",
-          "reply": "Hello! How can I help you today?",
-          "latencyMs": 1872,
-          "stopReason": "end_turn"
-        }
-      ],
-      "overallStatus": "working",
-      "workingTarget": {
-        "identifierType": "inferenceProfileId",
-        "value": "global.amazon.nova-2-lite-v1:0"
-      },
-      "workingReply": "Hello! How can I help you today?",
       "summary": {
         "working": 1,
         "notWorking": 0
@@ -220,7 +190,7 @@
       "inferenceProfileArn": "arn:aws:bedrock:us-east-1:983911888509:inference-profile/us.anthropic.claude-sonnet-4-6",
       "foundationModelId": "anthropic.claude-sonnet-4-6",
       "prompt": "Hi",
-      "testedAt": "2026-08-25T07:21:19.546Z",
+      "testedAt": "2026-08-26T07:31:19.069Z",
       "tests": [
         {
           "status": "working",
@@ -228,7 +198,7 @@
           "value": "us.anthropic.claude-sonnet-4-6",
           "prompt": "Hi",
           "reply": "Hi there! How are you doing? Is there something I can help you with today? 😊",
-          "latencyMs": 9737,
+          "latencyMs": 2652,
           "stopReason": "end_turn"
         }
       ],
@@ -238,6 +208,36 @@
         "value": "us.anthropic.claude-sonnet-4-6"
       },
       "workingReply": "Hi there! How are you doing? Is there something I can help you with today? 😊",
+      "summary": {
+        "working": 1,
+        "notWorking": 0
+      }
+    },
+    {
+      "profileName": "GLOBAL Amazon Nova 2 Lite",
+      "profileType": "SYSTEM_DEFINED",
+      "inferenceProfileId": "global.amazon.nova-2-lite-v1:0",
+      "inferenceProfileArn": "arn:aws:bedrock:us-east-1:983911888509:inference-profile/global.amazon.nova-2-lite-v1:0",
+      "foundationModelId": "amazon.nova-2-lite-v1:0",
+      "prompt": "Hi",
+      "testedAt": "2026-08-26T07:31:51.606Z",
+      "tests": [
+        {
+          "status": "working",
+          "identifierType": "inferenceProfileId",
+          "value": "global.amazon.nova-2-lite-v1:0",
+          "prompt": "Hi",
+          "reply": "Hello! How can I help you today?",
+          "latencyMs": 1587,
+          "stopReason": "end_turn"
+        }
+      ],
+      "overallStatus": "working",
+      "workingTarget": {
+        "identifierType": "inferenceProfileId",
+        "value": "global.amazon.nova-2-lite-v1:0"
+      },
+      "workingReply": "Hello! How can I help you today?",
       "summary": {
         "working": 1,
         "notWorking": 0

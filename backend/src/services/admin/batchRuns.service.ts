@@ -42,6 +42,14 @@ export type BatchRunItemProcessingStatus =
   | "done"
   | "failed";
 
+export type BatchRunCounts = {
+  total: number;
+  pending: number;
+  running: number;
+  done: number;
+  failed: number;
+};
+
 export type BatchRunItemDto = {
   id: number;
   sourceType: "rss" | "etl";
@@ -70,13 +78,35 @@ export type BatchRunDto = {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  counts: BatchRunCounts;
   items?: BatchRunItemDto[];
 };
+
+function emptyBatchCounts(total = 0): BatchRunCounts {
+  return {
+    total,
+    pending: total,
+    running: 0,
+    done: 0,
+    failed: 0,
+  };
+}
+
+function countsFromItemDtos(items: BatchRunItemDto[]): BatchRunCounts {
+  const counts = emptyBatchCounts(0);
+  counts.total = items.length;
+  for (const item of items) {
+    counts[item.processingStatus] += 1;
+  }
+  return counts;
+}
 
 function toBatchRunDto(
   row: typeof batchRuns.$inferSelect,
   items?: BatchRunItemDto[],
+  counts?: BatchRunCounts,
 ): BatchRunDto {
+  const fallbackTotal = row.rssItemCount + row.etlItemCount;
   return {
     id: row.id,
     modelName: row.modelName,
@@ -88,6 +118,9 @@ function toBatchRunDto(
     createdAt: row.createdAt.toISOString(),
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
+    counts:
+      counts ??
+      (items ? countsFromItemDtos(items) : emptyBatchCounts(fallbackTotal)),
     ...(items ? { items } : {}),
   };
 }
@@ -110,9 +143,8 @@ function resolveItemProcessingStatus(
   jobStatus: string | null,
 ): BatchRunItemProcessingStatus {
   if (item.status === "failed") return "failed";
-  if (item.status === "pending") return "pending";
-  if (!jobStatus) return "pending";
-  return normalizeJobToProcessingStatus(jobStatus);
+  if (jobStatus) return normalizeJobToProcessingStatus(jobStatus);
+  return "pending";
 }
 
 async function resolveLatestJobStatusesForItems(
@@ -120,6 +152,10 @@ async function resolveLatestJobStatusesForItems(
 ): Promise<Map<number, string | null>> {
   const statusByItemId = new Map<number, string | null>();
   if (items.length === 0) return statusByItemId;
+
+  const batchIds = [
+    ...new Set(items.map((item) => item.batchRunId).filter((id) => id > 0)),
+  ];
 
   const rssItemIds = [
     ...new Set(
@@ -143,6 +179,44 @@ async function resolveLatestJobStatusesForItems(
         .filter(Boolean),
     ),
   ];
+
+  const latestByBatchAndIngest = new Map<string, string>();
+  const latestByBatchAndUrl = new Map<string, string>();
+  if (batchIds.length > 0) {
+    const batchJobs = await db
+      .select({
+        batchRunId: jobs.batchRunId,
+        ingestLinkItemId: jobs.ingestLinkItemId,
+        url: jobs.url,
+        status: jobs.status,
+        id: jobs.id,
+      })
+      .from(jobs)
+      .where(inArray(jobs.batchRunId, batchIds))
+      .orderBy(desc(jobs.id));
+
+    for (const job of batchJobs) {
+      if (job.batchRunId == null) continue;
+      if (job.ingestLinkItemId != null) {
+        const ingestKey = `${job.batchRunId}:${job.ingestLinkItemId}`;
+        if (!latestByBatchAndIngest.has(ingestKey)) {
+          latestByBatchAndIngest.set(ingestKey, job.status);
+        }
+      }
+      const rawUrlKey = `${job.batchRunId}:${job.url}`;
+      if (!latestByBatchAndUrl.has(rawUrlKey)) {
+        latestByBatchAndUrl.set(rawUrlKey, job.status);
+      }
+      try {
+        const normalizedKey = `${job.batchRunId}:${normalizeUrl(job.url)}`;
+        if (!latestByBatchAndUrl.has(normalizedKey)) {
+          latestByBatchAndUrl.set(normalizedKey, job.status);
+        }
+      } catch {
+        // URL may already be stored in a form normalizeUrl rejects.
+      }
+    }
+  }
 
   const latestJobByIngestItemId = new Map<number, string>();
   if (rssItemIds.length > 0) {
@@ -185,13 +259,23 @@ async function resolveLatestJobStatusesForItems(
     let jobStatus: string | null = null;
 
     if (item.sourceType === "rss" && item.ingestLinkItemId != null) {
-      jobStatus = latestJobByIngestItemId.get(item.ingestLinkItemId) ?? null;
+      jobStatus =
+        latestByBatchAndIngest.get(`${item.batchRunId}:${item.ingestLinkItemId}`) ??
+        latestJobByIngestItemId.get(item.ingestLinkItemId) ??
+        null;
     } else if (item.sourceType === "etl") {
+      let normalized = item.url.trim();
       try {
-        jobStatus = latestJobByUrl.get(normalizeUrl(item.url)) ?? null;
+        normalized = normalizeUrl(item.url);
       } catch {
-        jobStatus = latestJobByUrl.get(item.url.trim()) ?? null;
+        normalized = item.url.trim();
       }
+      jobStatus =
+        latestByBatchAndUrl.get(`${item.batchRunId}:${item.url}`) ??
+        latestByBatchAndUrl.get(`${item.batchRunId}:${normalized}`) ??
+        latestJobByUrl.get(normalized) ??
+        latestJobByUrl.get(item.url.trim()) ??
+        null;
     }
 
     statusByItemId.set(item.id, jobStatus);
@@ -228,6 +312,31 @@ async function mapItemsToDto(
   return items.map((item) =>
     toItemDto(item, jobStatuses.get(item.id) ?? null),
   );
+}
+
+async function countsByBatchRunId(
+  batchIds: number[],
+): Promise<Map<number, BatchRunCounts>> {
+  const countsById = new Map<number, BatchRunCounts>();
+  for (const id of batchIds) {
+    countsById.set(id, emptyBatchCounts(0));
+  }
+  if (batchIds.length === 0) return countsById;
+
+  const items = await db
+    .select()
+    .from(batchRunItems)
+    .where(inArray(batchRunItems.batchRunId, batchIds));
+
+  const jobStatuses = await resolveLatestJobStatusesForItems(items);
+  for (const item of items) {
+    const counts = countsById.get(item.batchRunId);
+    if (!counts) continue;
+    counts.total += 1;
+    counts[resolveItemProcessingStatus(item, jobStatuses.get(item.id) ?? null)] += 1;
+  }
+
+  return countsById;
 }
 
 type BatchRunRow = typeof batchRuns.$inferSelect;
@@ -1167,7 +1276,18 @@ export async function listBatchRuns(limit = 25): Promise<BatchRunDto[]> {
     await ensureBatchWorkerRunning();
   }
 
-  return rows.map((row) => toBatchRunDto(row));
+  const countsById = await countsByBatchRunId(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const counted = countsById.get(row.id);
+    const fallbackTotal = row.rssItemCount + row.etlItemCount;
+    return toBatchRunDto(
+      row,
+      undefined,
+      counted && counted.total > 0
+        ? counted
+        : emptyBatchCounts(fallbackTotal),
+    );
+  });
 }
 
 export async function getBatchRunById(id: number): Promise<BatchRunDto> {

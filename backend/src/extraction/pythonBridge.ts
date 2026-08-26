@@ -7,7 +7,7 @@ const repoRoot = path.resolve(__dirname, "../../..");
 const pythonRoot = path.join(repoRoot, "python");
 
 const DEFAULT_PYTHON_URL = "http://localhost:5006";
-const EXTRACT_TIMEOUT_MS = 300_000;
+const EXTRACT_TIMEOUT_MS = 5 * 60 * 1000;
 
 export type RiskExtractionObject = {
   risk?: {

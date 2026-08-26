@@ -1,4 +1,7 @@
 import { Router } from "express";
+import { requireAuthOrApiKey } from "../middleware/requireAuthOrApiKey.middleware.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { markJobDoNotExecuteHandler } from "../controllers/jobs/jobs.controller.js";
 import { authRouter } from "./auth.routes.js";
 import { usersRouter } from "./users.routes.js";
 import { adminRouter } from "./admin.routes.js";
@@ -23,6 +26,11 @@ apiRouter.use("/auth", authRouter);
 apiRouter.use("/users", usersRouter);
 apiRouter.use("/admin", adminRouter);
 apiRouter.use("/articles", articlesRouter);
+apiRouter.post(
+  "/jobs/:id/do-not-execute",
+  requireAuthOrApiKey,
+  asyncHandler(markJobDoNotExecuteHandler),
+);
 apiRouter.use("/jobs", jobsRouter);
 apiRouter.use("/risks", risksRouter);
 apiRouter.use("/dashboard", dashboardRouter);

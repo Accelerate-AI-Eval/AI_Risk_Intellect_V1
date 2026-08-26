@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { HttpError } from "../../utils/httpError.js";
+import { isUrlDoNotExecute } from "./urlExecutionBlocks.service.js";
 
 /** Reset a terminal job to pending so the worker can process it again. */
 export async function retryJob(jobId: number): Promise<{
@@ -9,13 +10,19 @@ export async function retryJob(jobId: number): Promise<{
   status: string;
 }> {
   const [job] = await db
-    .select({ id: jobs.id, status: jobs.status })
+    .select({ id: jobs.id, status: jobs.status, url: jobs.url })
     .from(jobs)
     .where(eq(jobs.id, jobId))
     .limit(1);
 
   if (!job) {
     throw HttpError.notFound("Job not found.");
+  }
+
+  if (await isUrlDoNotExecute(job.url)) {
+    throw HttpError.conflict(
+      "This URL is marked do not execute. The LLM will not run for it.",
+    );
   }
 
   const terminal = new Set(["done", "skipped", "error", "failed", "completed"]);

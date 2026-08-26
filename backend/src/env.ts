@@ -59,7 +59,7 @@ const EnvSchema = z.object({
     .string()
     .min(32, "JWT_REFRESH_SECRET must be at least 32 characters"),
 
-  ACCESS_TOKEN_TTL: z.string().default("15m"),
+  ACCESS_TOKEN_TTL: z.string().default("45m"),
   REFRESH_TOKEN_TTL: z.string().default("7d"),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
 
