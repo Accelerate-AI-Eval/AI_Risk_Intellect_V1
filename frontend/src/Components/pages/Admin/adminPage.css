@@ -1711,8 +1711,10 @@ html.app-theme-dark .adminPage__cronFieldIconBtn {
 .adminPage__statusPill--batch {
   justify-content: center;
   box-sizing: border-box;
+  width: auto;
   min-width: 6.75rem;
   min-height: 1.625rem;
+  padding: 0.16rem 0.65rem;
   border-radius: 8px;
   font-weight: 400;
   white-space: nowrap;
@@ -1803,6 +1805,87 @@ html.app-theme-dark .adminPage__cronFieldIconBtn {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  scroll-margin-top: 1.25rem;
+}
+
+.adminPage__pendingExecute {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding: 0.8rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(28, 176, 212, 0.4);
+  background: rgba(28, 176, 212, 0.1);
+  min-width: 0;
+  scroll-margin-top: 1.25rem;
+}
+
+.adminPage__pendingExecuteText {
+  min-width: 0;
+}
+
+.adminPage__pendingExecuteTitle {
+  margin: 0 0 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--adm-text);
+}
+
+.adminPage__pendingExecuteUrl {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--adm-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.adminPage__pendingExecuteActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
+.adminPage__pendingExecuteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 7rem;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--adm-outline);
+  background: var(--adm-card);
+  color: var(--adm-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.adminPage__pendingExecuteBtn:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.adminPage__pendingExecuteBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adminPage__pendingExecuteBtn--primary {
+  border-color: rgba(28, 176, 212, 0.55);
+  background: var(--main-auth-button-color, #1cb0d4);
+  color: #fff;
+}
+
+.adminPage__pendingExecuteBtn--primary:hover:not(:disabled) {
+  background: #0e7490;
 }
 
 .adminPage__modelLabelRow {
@@ -2600,10 +2683,11 @@ html.app-theme-dark
   align-items: center;
   justify-content: center;
   gap: 0.28rem;
-  flex: 0 0 4.65rem;
-  width: 4.65rem;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 4.65rem;
   min-height: 1.625rem;
-  padding: 0.16rem 0.28rem;
+  padding: 0.16rem 0.5rem;
   border: 1px solid transparent;
   border-radius: 8px;
   box-sizing: border-box;
@@ -2701,6 +2785,32 @@ html:not(.app-theme-dark) .adminPage__batchDeleteBtn:hover:not(:disabled) {
   background: rgba(185, 28, 28, 0.08);
 }
 
+.adminPage__batchEnableBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  border: 0;
+  border-left: 1px solid var(--adm-border);
+  background: transparent;
+  color: var(--adm-primary, #1cb0d4);
+  cursor: pointer;
+}
+
+.adminPage__batchEnableBtn:hover:not(:disabled) {
+  background: rgba(28, 176, 212, 0.12);
+}
+
+.adminPage__batchEnableBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.adminPage__batchTabs {
+  margin: 0.65rem 0 0.35rem;
+}
+
 .adminPage__batchDeleteConfirmText {
   margin: 0;
   font-size: 0.9rem;
@@ -2776,13 +2886,29 @@ html:not(.app-theme-dark) .adminPage__batchDeleteConfirmText {
 
 .adminPage__batchUrlRow {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   gap: 0.55rem 0.75rem;
   align-items: start;
   padding: 0.45rem 0.5rem;
   border-radius: 6px;
   background: rgba(148, 163, 184, 0.14);
   border: 1px solid var(--adm-border);
+}
+
+.adminPage__batchUrlSerial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 2.4rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--entity-id-color, #22d3ee);
+  font-variant-numeric: tabular-nums;
 }
 
 .adminPage__batchUrlSource {
@@ -3185,6 +3311,10 @@ html:not(.app-theme-dark) .adminPage__ghostBtn {
 html:not(.app-theme-dark) .adminPage__batchUrlRow {
   background: #f1f5f9;
   border-color: #e2e8f0;
+}
+
+html:not(.app-theme-dark) .adminPage__batchUrlSerial {
+  color: #0e7490;
 }
 
 html:not(.app-theme-dark) .adminPage__batchModelNote {

@@ -52,6 +52,7 @@ export type BatchRunCounts = {
 
 export type BatchRunItemDto = {
   id: number;
+  serial: number;
   sourceType: "rss" | "etl";
   ingestLinkId: number | null;
   ingestLinkItemId: number | null;
@@ -72,6 +73,7 @@ export type BatchRunDto = {
   modelName: string;
   modelLabel: string | null;
   status: string;
+  disabled: boolean;
   rssItemCount: number;
   etlItemCount: number;
   errorMessage: string | null;
@@ -112,6 +114,7 @@ function toBatchRunDto(
     modelName: row.modelName,
     modelLabel: row.modelLabel,
     status: row.status,
+    disabled: Boolean(row.disabled),
     rssItemCount: row.rssItemCount,
     etlItemCount: row.etlItemCount,
     errorMessage: row.errorMessage,
@@ -287,9 +290,11 @@ async function resolveLatestJobStatusesForItems(
 function toItemDto(
   row: typeof batchRunItems.$inferSelect,
   jobStatus: string | null = null,
+  serial = 1,
 ): BatchRunItemDto {
   return {
     id: row.id,
+    serial,
     sourceType: row.sourceType,
     ingestLinkId: row.ingestLinkId,
     ingestLinkItemId: row.ingestLinkItemId,
@@ -309,8 +314,9 @@ async function mapItemsToDto(
   items: Array<typeof batchRunItems.$inferSelect>,
 ): Promise<BatchRunItemDto[]> {
   const jobStatuses = await resolveLatestJobStatusesForItems(items);
-  return items.map((item) =>
-    toItemDto(item, jobStatuses.get(item.id) ?? null),
+  const ordered = [...items].sort((a, b) => a.id - b.id);
+  return ordered.map((item, index) =>
+    toItemDto(item, jobStatuses.get(item.id) ?? null, index + 1),
   );
 }
 
@@ -368,7 +374,7 @@ async function syncBatchRunStatus(batchId: number): Promise<BatchRunRow | null> 
     .where(eq(batchRuns.id, batchId))
     .limit(1);
 
-  if (!batch || batch.status !== "running") {
+  if (!batch || batch.disabled || batch.status !== "running") {
     return batch ?? null;
   }
 
@@ -424,14 +430,14 @@ async function findRunningBatchRow(): Promise<BatchRunRow | null> {
   const [row] = await db
     .select()
     .from(batchRuns)
-    .where(eq(batchRuns.status, "running"))
+    .where(and(eq(batchRuns.status, "running"), eq(batchRuns.disabled, false)))
     .orderBy(asc(batchRuns.createdAt))
     .limit(1);
 
   if (!row) return null;
 
   const synced = await syncBatchRunStatus(row.id);
-  if (synced && synced.status === "running") {
+  if (synced && synced.status === "running" && !synced.disabled) {
     return synced;
   }
 
@@ -441,7 +447,7 @@ async function findRunningBatchRow(): Promise<BatchRunRow | null> {
   const [nextRunning] = await db
     .select()
     .from(batchRuns)
-    .where(eq(batchRuns.status, "running"))
+    .where(and(eq(batchRuns.status, "running"), eq(batchRuns.disabled, false)))
     .orderBy(asc(batchRuns.createdAt))
     .limit(1);
 
@@ -857,7 +863,7 @@ async function tryActivateNextPendingBatch(): Promise<BatchRunRow | null> {
       const [running] = await db
         .select()
         .from(batchRuns)
-        .where(eq(batchRuns.status, "running"))
+        .where(and(eq(batchRuns.status, "running"), eq(batchRuns.disabled, false)))
         .orderBy(asc(batchRuns.createdAt))
         .limit(1);
       if (running) return activated ?? running;
@@ -865,7 +871,7 @@ async function tryActivateNextPendingBatch(): Promise<BatchRunRow | null> {
       const [pending] = await db
         .select()
         .from(batchRuns)
-        .where(eq(batchRuns.status, "pending"))
+        .where(and(eq(batchRuns.status, "pending"), eq(batchRuns.disabled, false)))
         .orderBy(asc(batchRuns.createdAt))
         .limit(1);
       if (!pending) return activated;
@@ -879,7 +885,11 @@ async function tryActivateNextPendingBatch(): Promise<BatchRunRow | null> {
           updatedAt: claimedAt,
         })
         .where(
-          and(eq(batchRuns.id, pending.id), eq(batchRuns.status, "pending")),
+          and(
+            eq(batchRuns.id, pending.id),
+            eq(batchRuns.status, "pending"),
+            eq(batchRuns.disabled, false),
+          ),
         )
         .returning();
 
@@ -1246,7 +1256,7 @@ export async function listBatchRuns(limit = 25): Promise<BatchRunDto[]> {
     .limit(capped);
 
   const runningIds = rows
-    .filter((row) => row.status === "running")
+    .filter((row) => row.status === "running" && !row.disabled)
     .map((row) => row.id);
 
   let finishedAny = false;
@@ -1259,7 +1269,9 @@ export async function listBatchRuns(limit = 25): Promise<BatchRunDto[]> {
     }
   }
 
-  const hasPending = rows.some((row) => row.status === "pending");
+  const hasPending = rows.some(
+    (row) => row.status === "pending" && !row.disabled,
+  );
   if (finishedAny || (hasPending && runningIds.length === 0)) {
     await tryActivateNextPendingBatch();
   }
@@ -1272,7 +1284,7 @@ export async function listBatchRuns(limit = 25): Promise<BatchRunDto[]> {
       .limit(capped);
   }
 
-  if (rows.some((row) => row.status === "running")) {
+  if (rows.some((row) => row.status === "running" && !row.disabled)) {
     await ensureBatchWorkerRunning();
   }
 
@@ -1321,13 +1333,20 @@ export async function getBatchRunById(id: number): Promise<BatchRunDto> {
   return toBatchRunDto(row, await mapItemsToDto(items));
 }
 
-/** Remove a queued or processing batch and its in-flight ingest jobs. */
-export async function deleteBatchRun(id: number): Promise<{
+const BATCH_DISABLED_JOB_REASON = "Batch disabled";
+
+/** Pause a queued or processing batch so it can be enabled later. */
+export async function disableBatchRun(id: number): Promise<{
   id: number;
   status: string;
+  disabled: boolean;
 }> {
   const [batch] = await db
-    .select({ id: batchRuns.id, status: batchRuns.status })
+    .select({
+      id: batchRuns.id,
+      status: batchRuns.status,
+      disabled: batchRuns.disabled,
+    })
     .from(batchRuns)
     .where(eq(batchRuns.id, id))
     .limit(1);
@@ -1336,16 +1355,26 @@ export async function deleteBatchRun(id: number): Promise<{
     throw HttpError.notFound(`Batch run #${id} was not found.`);
   }
 
+  if (batch.disabled) {
+    throw HttpError.conflict("This batch is already disabled.");
+  }
+
   if (batch.status !== "pending" && batch.status !== "running") {
     throw HttpError.conflict(
-      "Only queued or processing batches can be deleted.",
+      "Only queued or processing batches can be disabled.",
     );
   }
 
   const wasRunning = batch.status === "running";
+  const now = new Date();
 
   await db
-    .delete(jobs)
+    .update(jobs)
+    .set({
+      status: "skipped",
+      errorMessage: BATCH_DISABLED_JOB_REASON,
+      updatedAt: now,
+    })
     .where(
       and(
         eq(jobs.batchRunId, id),
@@ -1353,7 +1382,19 @@ export async function deleteBatchRun(id: number): Promise<{
       ),
     );
 
-  await db.delete(batchRuns).where(eq(batchRuns.id, id));
+  const [updated] = await db
+    .update(batchRuns)
+    .set({
+      disabled: true,
+      status: "pending",
+      updatedAt: now,
+    })
+    .where(eq(batchRuns.id, id))
+    .returning({
+      id: batchRuns.id,
+      status: batchRuns.status,
+      disabled: batchRuns.disabled,
+    });
 
   if (wasRunning) {
     const activated = await tryActivateNextPendingBatch();
@@ -1362,5 +1403,77 @@ export async function deleteBatchRun(id: number): Promise<{
     }
   }
 
-  return batch;
+  return updated ?? { ...batch, disabled: true, status: "pending" };
+}
+
+/** Re-enable a disabled batch so it can queue and run again. */
+export async function enableBatchRun(id: number): Promise<{
+  id: number;
+  status: string;
+  disabled: boolean;
+}> {
+  const [batch] = await db
+    .select({
+      id: batchRuns.id,
+      status: batchRuns.status,
+      disabled: batchRuns.disabled,
+    })
+    .from(batchRuns)
+    .where(eq(batchRuns.id, id))
+    .limit(1);
+
+  if (!batch) {
+    throw HttpError.notFound(`Batch run #${id} was not found.`);
+  }
+
+  if (!batch.disabled) {
+    throw HttpError.conflict("This batch is not disabled.");
+  }
+
+  const now = new Date();
+
+  await db
+    .update(jobs)
+    .set({
+      status: "pending",
+      errorMessage: null,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(jobs.batchRunId, id),
+        eq(jobs.status, "skipped"),
+        eq(jobs.errorMessage, BATCH_DISABLED_JOB_REASON),
+      ),
+    );
+
+  const [updated] = await db
+    .update(batchRuns)
+    .set({
+      disabled: false,
+      status: "pending",
+      completedAt: null,
+      updatedAt: now,
+    })
+    .where(eq(batchRuns.id, id))
+    .returning({
+      id: batchRuns.id,
+      status: batchRuns.status,
+      disabled: batchRuns.disabled,
+    });
+
+  const activated = await tryActivateNextPendingBatch();
+  if (activated?.status === "running") {
+    await ensureBatchWorkerRunning();
+  }
+
+  return updated ?? { ...batch, disabled: false, status: "pending" };
+}
+
+/** @deprecated Use disableBatchRun. Kept so existing DELETE clients pause instead of removing. */
+export async function deleteBatchRun(id: number): Promise<{
+  id: number;
+  status: string;
+}> {
+  return disableBatchRun(id);
 }

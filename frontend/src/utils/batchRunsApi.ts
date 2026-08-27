@@ -16,6 +16,7 @@ export type BatchRunCounts = {
 
 export type BatchRunItem = {
   id: number;
+  serial?: number;
   sourceType: "rss" | "etl";
   ingestLinkId: number | null;
   ingestLinkItemId: number | null;
@@ -41,6 +42,7 @@ export type BatchRun = {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  disabled?: boolean;
   counts?: BatchRunCounts;
   items?: BatchRunItem[];
 };
@@ -138,12 +140,12 @@ export async function fetchBatchRun(
   }
 }
 
-export async function deleteBatchRun(
+export async function disableBatchRun(
   id: number,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
   try {
-    const res = await authFetch(`/admin/batch-runs/${id}`, {
-      method: "DELETE",
+    const res = await authFetch(`/admin/batch-runs/${id}/disable`, {
+      method: "POST",
     });
     const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
       message?: string;
@@ -151,14 +153,39 @@ export async function deleteBatchRun(
     if (!res.ok) {
       return {
         ok: false,
-        message: errorMessage(data, "Could not delete batch run."),
+        message: errorMessage(data, "Could not disable batch run."),
       };
     }
     return {
       ok: true,
-      message: data.message ?? "Batch deleted.",
+      message: data.message ?? "Batch disabled.",
     };
   } catch {
-    return { ok: false, message: "Network error while deleting batch run." };
+    return { ok: false, message: "Network error while disabling batch run." };
+  }
+}
+
+export async function enableBatchRun(
+  id: number,
+): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  try {
+    const res = await authFetch(`/admin/batch-runs/${id}/enable`, {
+      method: "POST",
+    });
+    const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
+      message?: string;
+    };
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: errorMessage(data, "Could not enable batch run."),
+      };
+    }
+    return {
+      ok: true,
+      message: data.message ?? "Batch enabled.",
+    };
+  } catch {
+    return { ok: false, message: "Network error while enabling batch run." };
   }
 }

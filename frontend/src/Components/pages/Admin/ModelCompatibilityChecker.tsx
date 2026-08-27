@@ -1,11 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
 import {
   applyLlmModel,
   fetchLlmModelConfig,
   testLlmModel,
   type LlmModelOption,
 } from "../../../utils/llmModelApi";
+import { executeJob } from "../../../utils/jobsEnqueueApi";
+import {
+  clearPendingUrlExecute,
+  readPendingUrlExecuteFromNav,
+  type PendingUrlExecute,
+} from "../../../utils/pendingUrlExecute";
 import { LlmModelPicker } from "./LlmModelPicker";
 import {
   ModelTestResultDialog,
@@ -35,6 +43,9 @@ function modelLabelFor(options: LlmModelOption[], modelId: string): string {
 export function ModelCompatibilityChecker({
   idPrefix,
 }: ModelCompatibilityCheckerProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [options, setOptions] = useState<LlmModelOption[]>([]);
   const [inferenceProfiles, setInferenceProfiles] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
@@ -44,6 +55,10 @@ export function ModelCompatibilityChecker({
   const [validatedModel, setValidatedModel] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isExecutingPending, setIsExecutingPending] = useState(false);
+  const [pendingExecute, setPendingExecute] = useState<PendingUrlExecute | null>(
+    null,
+  );
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [testResult, setTestResult] = useState<TestResult>(null);
   const [testStatusMessage, setTestStatusMessage] = useState("");
@@ -52,6 +67,7 @@ export function ModelCompatibilityChecker({
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testDialogResult, setTestDialogResult] =
     useState<ModelTestDialogState | null>(null);
+  const applyLockRef = useRef(false);
 
   const loadConfig = useCallback(async () => {
     const token = sessionStorage.getItem("accessToken");
@@ -96,6 +112,25 @@ export function ModelCompatibilityChecker({
     };
   }, [loadConfig]);
 
+  useEffect(() => {
+    setPendingExecute(
+      readPendingUrlExecuteFromNav({
+        searchParams,
+        state: location.state,
+      }),
+    );
+  }, [location.state, searchParams]);
+
+  useEffect(() => {
+    if (window.location.hash !== "#llm-model") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("llm-model")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, []);
+
   const handleModelChange = (modelId: string) => {
     setSelectedModel(modelId);
     setSelectedModelLabel(modelLabelFor(options, modelId));
@@ -113,7 +148,7 @@ export function ModelCompatibilityChecker({
   };
 
   const handleTest = async () => {
-    if (!selectedModel || isTesting || isApplying) return;
+    if (!selectedModel || isTesting || isApplying || isExecutingPending) return;
 
     setIsTesting(true);
     setTestResult(null);
@@ -181,23 +216,29 @@ export function ModelCompatibilityChecker({
 
   const handleApply = async () => {
     if (
+      applyLockRef.current ||
       !selectedModel ||
       isApplying ||
       isTesting ||
+      isExecutingPending ||
       optionsLoading
     ) {
       return;
     }
 
+    applyLockRef.current = true;
     setIsApplying(true);
     setApplyResult(null);
     setApplyStatusMessage("");
+    setTestDialogOpen(false);
+    toast.dismiss();
 
     try {
       const result = await applyLlmModel(selectedModel);
       if (!result.ok) {
         setApplyResult("failure");
         setApplyStatusMessage(result.message);
+        toast.error(result.message, { autoClose: 4000 });
         return;
       }
 
@@ -210,13 +251,49 @@ export function ModelCompatibilityChecker({
       setApplyStatusMessage(`Active model set to ${result.config.modelLabel}.`);
 
       if (result.config.pythonSynced === false) {
-        setApplyStatusMessage("Warning: Python service sync failed.");
-        setApplyResult("failure");
+        setApplyStatusMessage(
+          "Model saved. Python sync failed — the worker will use the live model.",
+        );
       } else if (result.config.requiresPythonRestart) {
         setApplyStatusMessage("Restart the Python service to apply the change.");
       }
+
+      const pending =
+        pendingExecute ??
+        readPendingUrlExecuteFromNav({
+          searchParams,
+          state: location.state,
+        });
+      if (!pending) {
+        toast.success(`Active model set to ${result.config.modelLabel}.`, {
+          autoClose: 3000,
+        });
+        return;
+      }
+
+      setIsExecutingPending(true);
+      const executed = await executeJob({
+        jobId: pending.jobId,
+        modelName: result.config.modelId,
+        modelLabel: result.config.modelLabel,
+      });
+      if (!executed.ok) {
+        setApplyResult("failure");
+        setApplyStatusMessage(executed.message);
+        toast.error(executed.message, { autoClose: 4000 });
+        return;
+      }
+
+      clearPendingUrlExecute();
+      setPendingExecute(null);
+      const runningMessage = `This URL is running with ${result.config.modelLabel}.`;
+      setApplyStatusMessage(runningMessage);
+      toast.success(runningMessage, { autoClose: 4000 });
+      navigate(`/jobs?job=${pending.jobId}`);
     } finally {
+      applyLockRef.current = false;
       setIsApplying(false);
+      setIsExecutingPending(false);
     }
   };
 
@@ -224,6 +301,7 @@ export function ModelCompatibilityChecker({
     Boolean(selectedModel) &&
     !isTesting &&
     !isApplying &&
+    !isExecutingPending &&
     !optionsLoading &&
     options.length > 0;
 
@@ -232,8 +310,15 @@ export function ModelCompatibilityChecker({
     validatedModel === selectedModel &&
     !isTesting &&
     !isApplying &&
+    !isExecutingPending &&
     !optionsLoading &&
     options.length > 0;
+
+  const handleCancelPending = () => {
+    clearPendingUrlExecute();
+    setPendingExecute(null);
+    navigate("/controls", { replace: true });
+  };
 
   const testStatusClassName =
     testResult === "failure"
@@ -251,7 +336,45 @@ export function ModelCompatibilityChecker({
 
   return (
     <>
-      <div className="adminPage__modelField">
+      {pendingExecute ? (
+        <div
+          className="adminPage__pendingExecute"
+          id="llm-model"
+          role="status"
+        >
+          <div className="adminPage__pendingExecuteText">
+            <p className="adminPage__pendingExecuteTitle">
+              Run this URL after you apply a model
+            </p>
+            <p className="adminPage__pendingExecuteUrl" title={pendingExecute.url}>
+              {pendingExecute.url}
+            </p>
+          </div>
+          <div className="adminPage__pendingExecuteActions">
+            <button
+              type="button"
+              className="adminPage__pendingExecuteBtn adminPage__pendingExecuteBtn--primary"
+              onClick={() => navigate(`/jobs?job=${pendingExecute.jobId}`)}
+              disabled={isApplying || isExecutingPending}
+            >
+              View job
+            </button>
+            <button
+              type="button"
+              className="adminPage__pendingExecuteBtn"
+              onClick={handleCancelPending}
+              disabled={isApplying || isExecutingPending}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className="adminPage__modelField"
+        id={pendingExecute ? undefined : "llm-model"}
+      >
         <div className="adminPage__modelLabelRow">
           <label
             className="adminPage__modelLabel"
@@ -280,7 +403,7 @@ export function ModelCompatibilityChecker({
               selectedLabel={selectedModelLabel}
               inferenceProfiles={inferenceProfiles}
               onChange={handleModelChange}
-              disabled={isApplying || isTesting || !options.length}
+              disabled={isApplying || isTesting || isExecutingPending || !options.length}
               loading={optionsLoading}
             />
           </div>
@@ -311,22 +434,26 @@ export function ModelCompatibilityChecker({
               className="usersPage__btn usersPage__btn--primary usersPage__btn--inviteSend adminPage__modelApplyBtn"
               onClick={() => void handleApply()}
               disabled={!canApply}
-              aria-busy={isApplying}
+              aria-busy={isApplying || isExecutingPending}
               title={
                 canApply
-                  ? undefined
+                  ? pendingExecute
+                    ? "Apply this model and run the URL"
+                    : undefined
                   : "Run Test successfully before applying this model"
               }
             >
-              {isApplying ? (
+              {isApplying || isExecutingPending ? (
                 <>
                   <Loader2
                     className="usersPage__spinner"
                     size={16}
                     aria-hidden
                   />
-                  Applying…
+                  {isExecutingPending ? "Starting URL…" : "Applying…"}
                 </>
+              ) : pendingExecute ? (
+                "Apply & run URL"
               ) : (
                 "Apply"
               )}

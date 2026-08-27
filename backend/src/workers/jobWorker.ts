@@ -6,7 +6,12 @@
  */
 import "../bootstrap.js";
 import { createLogger } from "../logger/index.js";
-import { runOneJob, hasActiveIngestJobs } from "../services/worker/jobWorker.service.js";
+import {
+  runOneJob,
+  hasActiveIngestJobs,
+  skipStaleRunningJobs,
+} from "../services/worker/jobWorker.service.js";
+import { abortActiveJobRun } from "../services/jobs/jobTimeout.service.js";
 import { hasRunningBatchRun } from "../services/admin/batchRuns.service.js";
 import {
   assertPythonServiceReady,
@@ -73,8 +78,14 @@ async function workerLoop(): Promise<void> {
     );
   }
 
+  let watchdog: ReturnType<typeof setInterval> | null = null;
   try {
     let idlePolls = 0;
+    watchdog = setInterval(() => {
+      void skipStaleRunningJobs().then((skipped) => {
+        if (skipped > 0) abortActiveJobRun();
+      });
+    }, 10_000);
 
     while (!stopRequested && !stopController.signal.aborted) {
       const ran = await runOneJob();
@@ -111,6 +122,7 @@ async function workerLoop(): Promise<void> {
       log.error("crash: %s", String(err));
     }
   } finally {
+    if (watchdog) clearInterval(watchdog);
     workerState.jobWorkerEnabled = false;
     workerState.jobWorkerStop = null;
   }

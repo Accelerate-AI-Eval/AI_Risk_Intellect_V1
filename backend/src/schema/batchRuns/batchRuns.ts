@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgEnum,
@@ -27,6 +28,7 @@ export const batchRuns = pgTable(
     rssItemCount: integer("rss_item_count").notNull().default(0),
     etlItemCount: integer("etl_item_count").notNull().default(0),
     errorMessage: text("error_message"),
+    disabled: boolean("disabled").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

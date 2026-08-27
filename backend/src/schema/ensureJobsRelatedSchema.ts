@@ -57,9 +57,14 @@ END $$`,
   `CREATE TABLE IF NOT EXISTS "url_execution_blocks" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"url" varchar(2048) NOT NULL,
+	"model_name" varchar(128),
+	"model_label" varchar(256),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "url_execution_blocks_url_unique" UNIQUE("url")
 )`,
+  `ALTER TABLE "url_execution_blocks" ADD COLUMN IF NOT EXISTS "model_name" varchar(128)`,
+  `ALTER TABLE "url_execution_blocks" ADD COLUMN IF NOT EXISTS "model_label" varchar(256)`,
+  `ALTER TABLE "batch_runs" ADD COLUMN IF NOT EXISTS "disabled" boolean DEFAULT false NOT NULL`,
   `DO $$ BEGIN
   ALTER TABLE "jobs"
     ADD CONSTRAINT "jobs_batch_run_id_batch_runs_id_fk"

@@ -8,12 +8,13 @@ import {
   Play,
   RefreshCw,
   Rss,
-  Trash2,
+  Ban,
   Workflow,
   X,
 } from "lucide-react";
 import {
-  deleteBatchRun,
+  disableBatchRun,
+  enableBatchRun,
   fetchBatchRun,
   fetchBatchRuns,
   startBatchRun,
@@ -64,6 +65,10 @@ type AdminBatchRunSectionProps = {
   onServicesChanged?: () => void;
 };
 
+function formatBatchUrlSerial(serial: number): string {
+  return `B#${serial}`;
+}
+
 function displayUrl(url: string): string {
   try {
     const u = new URL(url);
@@ -76,7 +81,8 @@ function displayUrl(url: string): string {
   }
 }
 
-function batchStatusClass(status: string): string {
+function batchStatusClass(status: string, disabled = false): string {
+  if (disabled) return "adminPage__statusPill--not-processed";
   switch (status) {
     case "completed":
       return "adminPage__statusPill--done";
@@ -93,7 +99,8 @@ function batchStatusClass(status: string): string {
   }
 }
 
-function formatBatchStatusLabel(status: string): string {
+function formatBatchStatusLabel(status: string, disabled = false): string {
+  if (disabled) return "Disabled";
   switch (status) {
     case "completed":
       return "Completed";
@@ -110,7 +117,10 @@ function formatBatchStatusLabel(status: string): string {
   }
 }
 
-function batchStatusTitle(status: string): string {
+function batchStatusTitle(status: string, disabled = false): string {
+  if (disabled) {
+    return "This batch is disabled. Enable it to queue and run again.";
+  }
   switch (status) {
     case "completed":
       return "All URLs in this batch finished processing under the assigned model.";
@@ -184,8 +194,27 @@ function batchUrlStatusTitle(item: BatchRunItem): string {
   }
 }
 
-function canDeleteBatch(status: string): boolean {
-  return status === "pending" || status === "running";
+function isBatchDisabled(batch: Pick<BatchRun, "disabled">): boolean {
+  return Boolean(batch.disabled);
+}
+
+function canDisableBatch(batch: BatchRun): boolean {
+  if (isBatchDisabled(batch)) return false;
+  return batch.status === "pending" || batch.status === "running";
+}
+
+function disableBatchConfirmTitle(batch: BatchRun): string {
+  if (batch.status === "running") {
+    return `Disable processing Batch #${batch.id}?`;
+  }
+  return `Disable queued Batch #${batch.id}?`;
+}
+
+function disableBatchConfirmBody(batch: BatchRun): string {
+  if (batch.status === "running") {
+    return "Remaining jobs for this batch will pause. The next queued batch will start if one exists. You can enable this batch later.";
+  }
+  return "This batch will not start until you enable it again.";
 }
 
 function emptyBatchCounts(total = 0): BatchRunCounts {
@@ -231,20 +260,6 @@ function batchCounts(
   return emptyBatchCounts(batch.rssItemCount + batch.etlItemCount);
 }
 
-function deleteBatchConfirmTitle(batch: BatchRun): string {
-  if (batch.status === "running") {
-    return `Delete processing Batch #${batch.id}?`;
-  }
-  return `Delete queued Batch #${batch.id}?`;
-}
-
-function deleteBatchConfirmBody(batch: BatchRun): string {
-  if (batch.status === "running") {
-    return "Remaining queued jobs for this batch will be removed. The next queued batch will start if one exists.";
-  }
-  return "This batch will not start.";
-}
-
 export function AdminBatchRunSection({
   idPrefix,
   busy = false,
@@ -280,8 +295,11 @@ export function AdminBatchRunSection({
     Record<number, BatchRunItem[]>
   >({});
   const [itemsLoadingId, setItemsLoadingId] = useState<number | null>(null);
-  const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BatchRun | null>(null);
+  const [batchListTab, setBatchListTab] = useState<"running" | "disabled">(
+    "running",
+  );
+  const [mutatingBatchId, setMutatingBatchId] = useState<number | null>(null);
+  const [disableTarget, setDisableTarget] = useState<BatchRun | null>(null);
 
   const loadModelConfig = useCallback(async () => {
     setOptionsLoading(true);
@@ -376,14 +394,33 @@ export function AdminBatchRunSection({
   }, [batchItemsById, expandedBatchId, reloadExpandedBatchItems]);
 
   const activeBatch = useMemo(
-    () => batches.find((batch) => batch.status === "running") ?? null,
+    () =>
+      batches.find(
+        (batch) => batch.status === "running" && !isBatchDisabled(batch),
+      ) ?? null,
     [batches],
   );
 
   const queuedBatches = useMemo(
-    () => batches.filter((batch) => batch.status === "pending"),
+    () =>
+      batches.filter(
+        (batch) => batch.status === "pending" && !isBatchDisabled(batch),
+      ),
     [batches],
   );
+
+  const runningBatches = useMemo(
+    () => batches.filter((batch) => !isBatchDisabled(batch)),
+    [batches],
+  );
+
+  const disabledBatches = useMemo(
+    () => batches.filter((batch) => isBatchDisabled(batch)),
+    [batches],
+  );
+
+  const displayedBatches =
+    batchListTab === "disabled" ? disabledBatches : runningBatches;
 
   useEffect(() => {
     if (!activeBatch && queuedBatches.length === 0) return;
@@ -436,29 +473,44 @@ export function AdminBatchRunSection({
     }
   };
 
-  const handleDeleteBatch = async () => {
-    if (!deleteTarget) return;
-    if (!canDeleteBatch(deleteTarget.status) || deletingBatchId != null) return;
+  const handleDisableBatch = async () => {
+    if (!disableTarget) return;
+    if (!canDisableBatch(disableTarget) || mutatingBatchId != null) return;
 
-    setDeletingBatchId(deleteTarget.id);
+    setMutatingBatchId(disableTarget.id);
     try {
-      const result = await deleteBatchRun(deleteTarget.id);
+      const result = await disableBatchRun(disableTarget.id);
       if (!result.ok) {
         toast.error(result.message, { autoClose: 3500 });
         return;
       }
       toast.success(result.message, { autoClose: 3000 });
-      if (expandedBatchId === deleteTarget.id) setExpandedBatchId(null);
-      setBatchItemsById((prev) => {
-        const next = { ...prev };
-        delete next[deleteTarget.id];
-        return next;
-      });
-      setDeleteTarget(null);
+      if (expandedBatchId === disableTarget.id) setExpandedBatchId(null);
+      setDisableTarget(null);
+      setBatchListTab("disabled");
       await loadBatches(true);
       onServicesChanged?.();
     } finally {
-      setDeletingBatchId(null);
+      setMutatingBatchId(null);
+    }
+  };
+
+  const handleEnableBatch = async (batch: BatchRun) => {
+    if (!isBatchDisabled(batch) || mutatingBatchId != null) return;
+
+    setMutatingBatchId(batch.id);
+    try {
+      const result = await enableBatchRun(batch.id);
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 3500 });
+        return;
+      }
+      toast.success(result.message, { autoClose: 3000 });
+      setBatchListTab("running");
+      await loadBatches(true);
+      onServicesChanged?.();
+    } finally {
+      setMutatingBatchId(null);
     }
   };
 
@@ -678,30 +730,67 @@ export function AdminBatchRunSection({
           </button>
         </div>
 
+        <div
+          className="usersPage__tabs adminPage__batchTabs"
+          role="tablist"
+          aria-label="Batch lists"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={batchListTab === "running"}
+            className={`usersPage__tab${batchListTab === "running" ? " usersPage__tab--selected" : ""}`}
+            onClick={() => setBatchListTab("running")}
+          >
+            Running
+            <span className="usersPage__tabCount" aria-hidden>
+              {runningBatches.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={batchListTab === "disabled"}
+            className={`usersPage__tab${batchListTab === "disabled" ? " usersPage__tab--selected" : ""}`}
+            onClick={() => setBatchListTab("disabled")}
+          >
+            Disabled
+            <span className="usersPage__tabCount" aria-hidden>
+              {disabledBatches.length}
+            </span>
+          </button>
+        </div>
+
         <p className="adminPage__batchDetailsHint">
           Expand a batch to see its assigned model and every RSS / ETL URL.
           Status: <strong>Queued</strong> waits, <strong>Processing</strong>{" "}
-          runs under its model, then Completed / Partial / Failed. Delete a
-          queued or processing batch to remove it from the queue.
+          runs under its model, then Completed / Partial / Failed. Disable a
+          queued or processing batch to pause it; enable it again from the
+          Disabled tab.
         </p>
 
         {batchesLoading ? (
           <p className="adminPage__batchHistoryEmpty" role="status">
             Loading batches…
           </p>
-        ) : batches.length === 0 ? (
+        ) : displayedBatches.length === 0 ? (
           <p className="adminPage__batchHistoryEmpty" role="status">
-            No batch runs yet. Start one above to track feeds, reports, and the
-            model used.
+            {batchListTab === "disabled"
+              ? "No disabled batches."
+              : batches.length === 0
+                ? "No batch runs yet. Start one above to track feeds, reports, and the model used."
+                : "No running batches."}
           </p>
         ) : (
           <ul className="adminPage__batchHistoryList" role="list">
-            {batches.map((batch) => {
+            {displayedBatches.map((batch) => {
               const isOpen = expandedBatchId === batch.id;
               const items = batchItemsById[batch.id] ?? [];
               const isLoadingItems = itemsLoadingId === batch.id;
-              const isDeleting = deletingBatchId === batch.id;
-              const showDelete = canDeleteBatch(batch.status);
+              const isMutating = mutatingBatchId === batch.id;
+              const disabled = isBatchDisabled(batch);
+              const showDisable = canDisableBatch(batch);
+              const showEnable = disabled;
               const counts = batchCounts(batch, batchItemsById[batch.id]);
               return (
                 <li key={batch.id} className="adminPage__batchHistoryItem">
@@ -723,10 +812,10 @@ export function AdminBatchRunSection({
                             Batch #{batch.id}
                           </span>
                           <span
-                            className={`adminPage__statusPill adminPage__statusPill--batch ${batchStatusClass(batch.status)}`}
-                            title={batchStatusTitle(batch.status)}
+                            className={`adminPage__statusPill adminPage__statusPill--batch ${batchStatusClass(batch.status, disabled)}`}
+                            title={batchStatusTitle(batch.status, disabled)}
                           >
-                            {formatBatchStatusLabel(batch.status)}
+                            {formatBatchStatusLabel(batch.status, disabled)}
                           </span>
                           <span
                             className="adminPage__batchCounts"
@@ -770,28 +859,49 @@ export function AdminBatchRunSection({
                         </span>
                       </span>
                     </button>
-                    {showDelete ? (
+                    {showDisable ? (
                       <button
                         type="button"
                         className="adminPage__batchDeleteBtn"
-                        disabled={deletingBatchId != null}
-                        aria-busy={isDeleting}
-                        aria-label={`Delete batch #${batch.id}`}
+                        disabled={mutatingBatchId != null}
+                        aria-busy={isMutating}
+                        aria-label={`Disable batch #${batch.id}`}
                         title={
                           batch.status === "running"
-                            ? "Delete this processing batch"
-                            : "Delete this queued batch"
+                            ? "Disable this processing batch"
+                            : "Disable this queued batch"
                         }
-                        onClick={() => setDeleteTarget(batch)}
+                        onClick={() => setDisableTarget(batch)}
                       >
-                        {isDeleting ? (
+                        {isMutating ? (
                           <Loader2
                             className="usersPage__spinner"
                             size={15}
                             aria-hidden
                           />
                         ) : (
-                          <Trash2 size={15} strokeWidth={2} aria-hidden />
+                          <Ban size={15} strokeWidth={2} aria-hidden />
+                        )}
+                      </button>
+                    ) : null}
+                    {showEnable ? (
+                      <button
+                        type="button"
+                        className="adminPage__batchEnableBtn"
+                        disabled={mutatingBatchId != null}
+                        aria-busy={isMutating}
+                        aria-label={`Enable batch #${batch.id}`}
+                        title="Enable this batch so it can run again"
+                        onClick={() => void handleEnableBatch(batch)}
+                      >
+                        {isMutating ? (
+                          <Loader2
+                            className="usersPage__spinner"
+                            size={15}
+                            aria-hidden
+                          />
+                        ) : (
+                          <Play size={15} strokeWidth={2} aria-hidden />
                         )}
                       </button>
                     ) : null}
@@ -821,14 +931,24 @@ export function AdminBatchRunSection({
                         </p>
                       ) : (
                         <ul className="adminPage__batchUrlList" role="list">
-                          {items.map((item) => {
+                          {items.map((item, index) => {
                             const processingStatus =
                               resolveItemProcessingStatus(item);
+                            const serial =
+                              typeof item.serial === "number" && item.serial > 0
+                                ? item.serial
+                                : index + 1;
                             return (
                             <li
                               key={item.id}
                               className="adminPage__batchUrlRow"
                             >
+                              <span
+                                className="adminPage__batchUrlSerial"
+                                title={`URL ${serial} in Batch #${batch.id}`}
+                              >
+                                {formatBatchUrlSerial(serial)}
+                              </span>
                               <span
                                 className={`adminPage__batchUrlSource adminPage__batchUrlSource--${item.sourceType}`}
                               >
@@ -917,13 +1037,13 @@ export function AdminBatchRunSection({
         }}
       />
 
-      {deleteTarget ? (
+      {disableTarget ? (
         <div
           className="usersPage__overlay"
           role="presentation"
           onMouseDown={(ev) => {
-            if (ev.target === ev.currentTarget && deletingBatchId == null) {
-              setDeleteTarget(null);
+            if (ev.target === ev.currentTarget && mutatingBatchId == null) {
+              setDisableTarget(null);
             }
           }}
         >
@@ -931,44 +1051,44 @@ export function AdminBatchRunSection({
             className="usersPage__dialog"
             role="alertdialog"
             aria-modal="true"
-            aria-labelledby={`${baseId}-delete-title`}
-            aria-describedby={`${baseId}-delete-desc`}
+            aria-labelledby={`${baseId}-disable-title`}
+            aria-describedby={`${baseId}-disable-desc`}
           >
             <div className="usersPage__dialogHead">
-              <h2 id={`${baseId}-delete-title`} className="usersPage__dialogTitle">
-                {deleteBatchConfirmTitle(deleteTarget)}
+              <h2 id={`${baseId}-disable-title`} className="usersPage__dialogTitle">
+                {disableBatchConfirmTitle(disableTarget)}
               </h2>
               <button
                 type="button"
                 className="usersPage__dialogClose"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deletingBatchId != null}
+                onClick={() => setDisableTarget(null)}
+                disabled={mutatingBatchId != null}
                 aria-label="Close"
               >
                 <X size={18} strokeWidth={2} aria-hidden />
               </button>
             </div>
             <div className="usersPage__dialogBody">
-              <p id={`${baseId}-delete-desc`} className="adminPage__batchDeleteConfirmText">
-                {deleteBatchConfirmBody(deleteTarget)}
+              <p id={`${baseId}-disable-desc`} className="adminPage__batchDeleteConfirmText">
+                {disableBatchConfirmBody(disableTarget)}
               </p>
               <div className="usersPage__dialogActions">
                 <button
                   type="button"
                   className="usersPage__btn usersPage__btn--logoutTone"
-                  disabled={deletingBatchId != null}
-                  onClick={() => setDeleteTarget(null)}
+                  disabled={mutatingBatchId != null}
+                  onClick={() => setDisableTarget(null)}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   className="usersPage__btn usersPage__btn--primary usersPage__btn--inviteSend"
-                  disabled={deletingBatchId != null}
-                  aria-busy={deletingBatchId != null}
-                  onClick={() => void handleDeleteBatch()}
+                  disabled={mutatingBatchId != null}
+                  aria-busy={mutatingBatchId != null}
+                  onClick={() => void handleDisableBatch()}
                 >
-                  {deletingBatchId != null ? "Deleting…" : "Confirm"}
+                  {mutatingBatchId != null ? "Disabling…" : "Disable"}
                 </button>
               </div>
             </div>

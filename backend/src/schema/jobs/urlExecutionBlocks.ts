@@ -4,6 +4,9 @@ import { pgTable, serial, timestamp, varchar } from "drizzle-orm/pg-core";
 export const urlExecutionBlocks = pgTable("url_execution_blocks", {
   id: serial("id").primaryKey(),
   url: varchar("url", { length: 2048 }).notNull().unique(),
+  /** Model snapshotted when the URL was marked do not execute. */
+  modelName: varchar("model_name", { length: 128 }),
+  modelLabel: varchar("model_label", { length: 256 }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

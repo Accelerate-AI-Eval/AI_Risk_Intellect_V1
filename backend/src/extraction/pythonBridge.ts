@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { signalWithJobTimeout } from "../services/jobs/jobTimeout.service.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../../..");
@@ -144,7 +145,7 @@ async function runExtractHttp(payload: {
           ? { modelId: payload.modelId.trim() }
           : {}),
       }),
-      signal: AbortSignal.timeout(EXTRACT_TIMEOUT_MS),
+      signal: signalWithJobTimeout(EXTRACT_TIMEOUT_MS),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -203,11 +204,24 @@ function runExtractCli(payload: {
     );
     child.stdin.end();
 
+    const jobSignal = signalWithJobTimeout(EXTRACT_TIMEOUT_MS);
+    const onAbort = () => {
+      child.kill("SIGTERM");
+      reject(new Error("Skipped because this URL took more than 5 minutes without finishing — it was taking too long."));
+    };
+    if (jobSignal.aborted) {
+      onAbort();
+      return;
+    }
+    jobSignal.addEventListener("abort", onAbort, { once: true });
+
     child.on("error", (err) => {
+      jobSignal.removeEventListener("abort", onAbort);
       reject(new Error(`Failed to start Python (${py}): ${err.message}`));
     });
 
     child.on("close", (code) => {
+      jobSignal.removeEventListener("abort", onAbort);
       const trimmed = stdout.trim();
       if (!trimmed) {
         reject(

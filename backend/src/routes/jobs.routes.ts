@@ -6,6 +6,7 @@ import {
   listJobsHandler,
   deleteJobHandler,
   markJobDoNotExecuteHandler,
+  executeJobHandler,
 } from "../controllers/jobs/jobs.controller.js";
 import { retryJobHandler } from "../controllers/jobs/retryJob.controller.js";
 
@@ -15,6 +16,11 @@ jobsRouter.post(
   "/:id/do-not-execute",
   requireAuthOrApiKey,
   asyncHandler(markJobDoNotExecuteHandler),
+);
+jobsRouter.post(
+  "/:id/execute",
+  requireAuth,
+  asyncHandler(executeJobHandler),
 );
 jobsRouter.get("/", requireAuthOrApiKey, asyncHandler(listJobsHandler));
 jobsRouter.post("/:id/retry", requireAuth, asyncHandler(retryJobHandler));

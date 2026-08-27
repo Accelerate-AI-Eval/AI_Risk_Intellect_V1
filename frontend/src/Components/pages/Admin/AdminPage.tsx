@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -45,6 +46,7 @@ import {
   type ServiceKey,
 } from "./adminServices";
 import { ModelCompatibilityChecker } from "./ModelCompatibilityChecker";
+import { EXECUTE_JOB_SEARCH_PARAM } from "../../../utils/pendingUrlExecute";
 import "./adminPage.css";
 
 type AdminTab = "controls" | "rss" | "etl" | "batches";
@@ -59,6 +61,8 @@ const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [
 
 export function AdminPage() {
   const baseId = useId();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<AdminTab>("controls");
   const [rssTab, setRssTab] = useState<RssSubTab>("links");
   const [apiStatus, setApiStatus] =
@@ -76,6 +80,17 @@ export function AdminPage() {
     const activeTab = ADMIN_TABS.find((item) => item.key === tab);
     setDocumentPageTitle(activeTab?.label ?? "Controls");
   }, [tab]);
+
+  useEffect(() => {
+    const fromExecutePopup =
+      searchParams.has(EXECUTE_JOB_SEARCH_PARAM) ||
+      Boolean(
+        location.state &&
+          typeof location.state === "object" &&
+          "pendingUrlExecute" in location.state,
+      );
+    if (fromExecutePopup) setTab("controls");
+  }, [location.state, searchParams]);
 
   const loadServiceStatus = useCallback(async () => {
     const token = sessionStorage.getItem("accessToken");

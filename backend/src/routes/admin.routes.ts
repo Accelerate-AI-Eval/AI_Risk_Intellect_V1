@@ -54,7 +54,8 @@ import {
 } from "../controllers/admin/etlReportUploads.controller.js";
 import { startReportsRunHandler } from "../controllers/admin/etlReportsRun.controller.js";
 import {
-  deleteBatchRunHandler,
+  disableBatchRunHandler,
+  enableBatchRunHandler,
   getBatchRunHandler,
   listBatchRunsHandler,
   startBatchRunHandler,
@@ -313,11 +314,25 @@ adminRouter.get(
   asyncHandler(getBatchRunHandler),
 );
 
+adminRouter.post(
+  "/batch-runs/:id/disable",
+  requireAuth,
+  validate(batchRunIdSchema, "params"),
+  asyncHandler(disableBatchRunHandler),
+);
+
+adminRouter.post(
+  "/batch-runs/:id/enable",
+  requireAuth,
+  validate(batchRunIdSchema, "params"),
+  asyncHandler(enableBatchRunHandler),
+);
+
 adminRouter.delete(
   "/batch-runs/:id",
   requireAuth,
   validate(batchRunIdSchema, "params"),
-  asyncHandler(deleteBatchRunHandler),
+  asyncHandler(disableBatchRunHandler),
 );
 
 adminRouter.post(

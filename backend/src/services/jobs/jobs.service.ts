@@ -1,13 +1,16 @@
-import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { batchRunItems } from "../../schema/batchRuns/batchRunItems.js";
 import { batchRuns } from "../../schema/batchRuns/batchRuns.js";
 import { risks } from "../../schema/risks/risks.js";
 import { llmObservability } from "../../schema/observability/llmObservability.js";
+import { urlExecutionBlocks } from "../../schema/jobs/urlExecutionBlocks.js";
 import { HttpError } from "../../utils/httpError.js";
 import { normalizeUrl } from "../../utils/fetchUtils.js";
-import { getDoNotExecuteUrlSet } from "./urlExecutionBlocks.service.js";
+import type { ListJobsQuery } from "../../validators/jobs.validators.js";
+import { getDoNotExecuteBlocks } from "./urlExecutionBlocks.service.js";
+import { skipStaleRunningJobs } from "./jobTimeout.service.js";
 
 export type JobListItem = {
   id: number;
@@ -25,10 +28,19 @@ export type JobListItem = {
   llmDurationMs: number | null;
   wordCount: number | null;
   doNotExecute: boolean;
+  assignedModelName: string | null;
+  assignedModelLabel: string | null;
   batchRunId: number | null;
   batchName: string | null;
   modelName: string | null;
   modelLabel: string | null;
+};
+
+export type JobListPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  pageCount: number;
 };
 
 export type JobListMetrics = {
@@ -161,6 +173,76 @@ function isMissingJobsListSchemaError(err: unknown): boolean {
   );
 }
 
+function escapeIlikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
+
+function buildJobFilters(
+  query: ListJobsQuery,
+  options?: { includeExtendedSearch?: boolean },
+): SQL | undefined {
+  const includeExtended = options?.includeExtendedSearch !== false;
+  const parts: SQL[] = [];
+
+  if (query.status !== "all") {
+    if (query.status === "done") {
+      parts.push(inArray(jobs.status, ["done", "completed"]));
+    } else if (query.status === "error") {
+      parts.push(inArray(jobs.status, ["error", "failed"]));
+    } else {
+      parts.push(eq(jobs.status, query.status));
+    }
+  }
+
+  if (query.type !== "all") {
+    parts.push(eq(jobs.jobType, query.type));
+  }
+
+  if (query.source !== "all") {
+    if (query.source === "etl_reports") {
+      parts.push(inArray(jobs.source, ["etl_reports", "api"]));
+    } else {
+      parts.push(eq(jobs.source, query.source));
+    }
+  }
+
+  if (includeExtended && query.execution === "do_not_execute") {
+    parts.push(
+      exists(
+        db
+          .select({ id: urlExecutionBlocks.id })
+          .from(urlExecutionBlocks)
+          .where(eq(urlExecutionBlocks.url, jobs.url)),
+      ),
+    );
+  }
+
+  const search = query.search.trim();
+  if (search) {
+    const pattern = `%${escapeIlikePattern(search)}%`;
+    const searchParts: SQL[] = [
+      ilike(jobs.url, pattern),
+      sql`(${jobs.id})::text ilike ${pattern}`,
+      sql`(${jobs.status})::text ilike ${pattern}`,
+      sql`(${jobs.jobType})::text ilike ${pattern}`,
+      sql`(${jobs.source})::text ilike ${pattern}`,
+      ilike(jobs.errorMessage, pattern),
+    ];
+    if (includeExtended) {
+      searchParts.push(
+        ilike(jobs.modelName, pattern),
+        ilike(jobs.modelLabel, pattern),
+        sql`('Batch #' || COALESCE(${jobs.batchRunId}::text, '')) ilike ${pattern}`,
+      );
+    }
+    const textMatch = or(...searchParts);
+    if (textMatch) parts.push(textMatch);
+  }
+
+  if (parts.length === 0) return undefined;
+  return parts.length === 1 ? parts[0] : and(...parts);
+}
+
 type JobListQueryRow = {
   id: number;
   articleId: number;
@@ -181,98 +263,118 @@ type JobListQueryRow = {
   batchModelLabel: string | null;
 };
 
-async function loadJobListRows(): Promise<JobListQueryRow[]> {
+async function loadJobListRows(query: ListJobsQuery): Promise<{
+  rows: JobListQueryRow[];
+  filteredTotal: number;
+}> {
+  const filters = buildJobFilters(query);
+  const offset = query.page * query.pageSize;
+
   try {
-    return await db
-      .select({
-        id: jobs.id,
-        articleId: jobs.articleId,
-        url: jobs.url,
-        status: jobs.status,
-        jobType: jobs.jobType,
-        source: jobs.source,
-        tries: jobs.tries,
-        errorMessage: jobs.errorMessage,
-        startedAt: jobs.startedAt,
-        createdAt: jobs.createdAt,
-        updatedAt: jobs.updatedAt,
-        ingestLinkItemId: jobs.ingestLinkItemId,
-        batchRunId: jobs.batchRunId,
-        jobModelName: jobs.modelName,
-        jobModelLabel: jobs.modelLabel,
-        batchModelName: batchRuns.modelName,
-        batchModelLabel: batchRuns.modelLabel,
-      })
-      .from(jobs)
-      .leftJoin(batchRuns, eq(jobs.batchRunId, batchRuns.id))
-      .orderBy(desc(jobs.createdAt));
+    const [rows, [filtered]] = await Promise.all([
+      db
+        .select({
+          id: jobs.id,
+          articleId: jobs.articleId,
+          url: jobs.url,
+          status: jobs.status,
+          jobType: jobs.jobType,
+          source: jobs.source,
+          tries: jobs.tries,
+          errorMessage: jobs.errorMessage,
+          startedAt: jobs.startedAt,
+          createdAt: jobs.createdAt,
+          updatedAt: jobs.updatedAt,
+          ingestLinkItemId: jobs.ingestLinkItemId,
+          batchRunId: jobs.batchRunId,
+          jobModelName: jobs.modelName,
+          jobModelLabel: jobs.modelLabel,
+          batchModelName: batchRuns.modelName,
+          batchModelLabel: batchRuns.modelLabel,
+        })
+        .from(jobs)
+        .leftJoin(batchRuns, eq(jobs.batchRunId, batchRuns.id))
+        .where(filters)
+        .orderBy(desc(jobs.createdAt))
+        .limit(query.pageSize)
+        .offset(offset),
+      db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(jobs)
+        .where(filters),
+    ]);
+
+    return { rows, filteredTotal: filtered?.total ?? 0 };
   } catch (err) {
     if (!isMissingJobsListSchemaError(err)) throw err;
 
-    const rows = await db
-      .select({
-        id: jobs.id,
-        articleId: jobs.articleId,
-        url: jobs.url,
-        status: jobs.status,
-        jobType: jobs.jobType,
-        source: jobs.source,
-        tries: jobs.tries,
-        errorMessage: jobs.errorMessage,
-        startedAt: jobs.startedAt,
-        createdAt: jobs.createdAt,
-        updatedAt: jobs.updatedAt,
-        ingestLinkItemId: jobs.ingestLinkItemId,
-      })
-      .from(jobs)
-      .orderBy(desc(jobs.createdAt));
+    const fallbackFilters = buildJobFilters(query, {
+      includeExtendedSearch: false,
+    });
+    const [rows, [filtered]] = await Promise.all([
+      db
+        .select({
+          id: jobs.id,
+          articleId: jobs.articleId,
+          url: jobs.url,
+          status: jobs.status,
+          jobType: jobs.jobType,
+          source: jobs.source,
+          tries: jobs.tries,
+          errorMessage: jobs.errorMessage,
+          startedAt: jobs.startedAt,
+          createdAt: jobs.createdAt,
+          updatedAt: jobs.updatedAt,
+          ingestLinkItemId: jobs.ingestLinkItemId,
+        })
+        .from(jobs)
+        .where(fallbackFilters)
+        .orderBy(desc(jobs.createdAt))
+        .limit(query.pageSize)
+        .offset(offset),
+      db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(jobs)
+        .where(fallbackFilters),
+    ]);
 
-    return rows.map((row) => ({
-      ...row,
-      batchRunId: null,
-      jobModelName: null,
-      jobModelLabel: null,
-      batchModelName: null,
-      batchModelLabel: null,
-    }));
+    return {
+      rows: rows.map((row) => ({
+        ...row,
+        batchRunId: null,
+        jobModelName: null,
+        jobModelLabel: null,
+        batchModelName: null,
+        batchModelLabel: null,
+      })),
+      filteredTotal: filtered?.total ?? 0,
+    };
   }
 }
 
-const JOB_LIST_TIMEOUT_MS = 5 * 60 * 1000;
-const JOB_LIST_TIMEOUT_REASON =
-  "Skipped because this URL took more than 5 minutes without finishing — it was taking too long.";
 
-async function skipStaleRunningJobsForList(): Promise<void> {
-  const cutoff = new Date(Date.now() - JOB_LIST_TIMEOUT_MS);
-  await db
-    .update(jobs)
-    .set({
-      status: "skipped",
-      errorMessage: JOB_LIST_TIMEOUT_REASON,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(jobs.status, "running"),
-        or(
-          lt(jobs.startedAt, cutoff),
-          and(isNull(jobs.startedAt), lt(jobs.updatedAt, cutoff)),
-        ),
-      ),
-    );
-}
+const DEFAULT_LIST_JOBS_QUERY: ListJobsQuery = {
+  page: 0,
+  pageSize: 100,
+  search: "",
+  status: "all",
+  type: "all",
+  source: "all",
+  execution: "all",
+};
 
-export async function listJobs(): Promise<{
+export async function listJobs(query: ListJobsQuery = DEFAULT_LIST_JOBS_QUERY): Promise<{
   jobs: JobListItem[];
   metrics: JobListMetrics;
+  pagination: JobListPagination;
 }> {
   try {
-    await skipStaleRunningJobsForList();
+    await skipStaleRunningJobs();
   } catch {
     // Listing jobs should still succeed if the timeout skip cannot run.
   }
 
-  const rows = await loadJobListRows();
+  const { rows, filteredTotal } = await loadJobListRows(query);
 
   const articleIds = [...new Set(rows.map((row) => row.articleId).filter((id) => id > 0))];
   let riskFetchedAtByArticleId = new Map<number, Date>();
@@ -294,11 +396,14 @@ export async function listJobs(): Promise<{
   }
 
   const urls = [...new Set(rows.map((row) => row.url).filter(Boolean))];
-  let blockedUrls = new Set<string>();
+  let blockedByUrl = new Map<
+    string,
+    { modelName: string | null; modelLabel: string | null }
+  >();
   try {
-    blockedUrls = await getDoNotExecuteUrlSet(urls);
+    blockedByUrl = await getDoNotExecuteBlocks(urls);
   } catch {
-    blockedUrls = new Set();
+    blockedByUrl = new Map();
   }
   const llmByUrl = new Map<string, { durationMs: number; wordCount: number }>();
   if (urls.length > 0) {
@@ -339,6 +444,9 @@ export async function listJobs(): Promise<{
     const batchRunId = row.batchRunId ?? resolvedBatch?.batchRunId ?? null;
     const modelName = row.jobModelName?.trim() || row.batchModelName?.trim() || null;
     const modelLabel = row.jobModelLabel?.trim() || row.batchModelLabel?.trim() || modelName;
+    const blocked = blockedByUrl.get(row.url);
+    const assignedModelName = blocked?.modelName || modelName;
+    const assignedModelLabel = blocked?.modelLabel || modelLabel || assignedModelName;
     return {
       id: row.id,
       articleId: row.articleId,
@@ -354,7 +462,9 @@ export async function listJobs(): Promise<{
       riskFetchedAt: riskFetchedAtByArticleId.get(row.articleId) ?? null,
       llmDurationMs: llm?.durationMs ?? null,
       wordCount: llm?.wordCount ?? null,
-      doNotExecute: blockedUrls.has(row.url),
+      doNotExecute: blocked != null,
+      assignedModelName,
+      assignedModelLabel,
       batchRunId,
       batchName: resolvedBatch?.batchName ?? (batchRunId != null ? batchDisplayName(batchRunId) : null),
       modelName,
@@ -390,6 +500,12 @@ export async function listJobs(): Promise<{
       completed24h: counts?.done24h ?? 0,
       avgProcessingSeconds: 0,
       skipped: counts?.skipped ?? 0,
+    },
+    pagination: {
+      page: query.page,
+      pageSize: query.pageSize,
+      total: filteredTotal,
+      pageCount: Math.max(1, Math.ceil(filteredTotal / query.pageSize)),
     },
   };
 }

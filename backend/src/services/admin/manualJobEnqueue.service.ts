@@ -35,7 +35,7 @@ export async function enqueueManualJobUrl(
 
   if (await isUrlDoNotExecute(normalized)) {
     throw HttpError.conflict(
-      "This URL is marked do not execute. The LLM will not run for it.",
+      "This URL is marked do not execute. Use Execute on the job row to run it again.",
     );
   }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -21,13 +22,20 @@ import {
   Zap,
   CircleAlert,
   MoreHorizontal,
+  Play,
+  Settings2,
+  X,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
 import { readApiErrorMessage } from "../../../utils/readApiErrorMessage";
 import { formatDurationMs, formatJobExecutedAt } from "../../../utils/formatDate";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
-import { usePagination } from "../../../utils/usePagination";
 import { usePolling } from "../../../utils/usePolling";
+import { executeJob } from "../../../utils/jobsEnqueueApi";
+import {
+  EXECUTE_JOB_SEARCH_PARAM,
+  setPendingUrlExecute,
+} from "../../../utils/pendingUrlExecute";
 import { positionTableTip } from "../../../utils/positionTableTip";
 import { PageHeader } from "../../Layout/PageHeader";
 import { DataTablePagination } from "../../common/DataTablePagination";
@@ -70,15 +78,17 @@ type JobRow = {
   riskFetchedAt: string;
   errorMessage: string;
   doNotExecute: boolean;
+  assignedModelName: string;
+  assignedModelLabel: string;
   batchName: string;
   modelName: string;
   modelLabel: string;
 };
 
 function resolveJobStartedAt(
-  row: Pick<JobRow, "startedAt" | "updatedAt" | "createdAt">,
+  row: Pick<JobRow, "startedAt" | "createdAt">,
 ): string {
-  return row.startedAt || row.updatedAt || row.createdAt;
+  return row.startedAt.trim() || row.createdAt.trim();
 }
 
 function resolveJobCompletedAt(
@@ -117,22 +127,42 @@ function formatJobExecutedDisplay(
 function jobExecutionMs(
   row: Pick<
     JobRow,
-    "status" | "startedAt" | "createdAt" | "updatedAt" | "riskFetchedAt"
+    | "status"
+    | "startedAt"
+    | "createdAt"
+    | "updatedAt"
+    | "riskFetchedAt"
+    | "llmDurationMs"
   >,
 ): number | null {
   const status = row.status.toLowerCase();
-  const startedAt = resolveJobStartedAt(row);
-  const startedMs = new Date(startedAt).getTime();
-  if (Number.isNaN(startedMs)) return null;
+  const startedAt = row.startedAt.trim();
 
-  if (status === "running") return Math.max(0, Date.now() - startedMs);
+  if (status === "running") {
+    const start = startedAt || row.createdAt.trim();
+    const startedMs = new Date(start).getTime();
+    if (Number.isNaN(startedMs)) return null;
+    return Math.max(0, Date.now() - startedMs);
+  }
 
-  if (!TERMINAL_JOB_STATUSES.has(status)) return null;
+  if (!TERMINAL_JOB_STATUSES.has(status) && status !== "failed") return null;
 
-  const completedAt = resolveJobCompletedAt(row);
-  const completedMs = new Date(completedAt).getTime();
-  if (Number.isNaN(completedMs)) return null;
-  return Math.max(0, completedMs - startedMs);
+  if (startedAt) {
+    const startedMs = new Date(startedAt).getTime();
+    const completedAt = resolveJobCompletedAt(row);
+    const completedMs = new Date(completedAt).getTime();
+    if (!Number.isNaN(startedMs) && !Number.isNaN(completedMs)) {
+      const elapsed = Math.max(0, completedMs - startedMs);
+      if (elapsed > 0) return elapsed;
+    }
+  }
+
+  if (row.llmDurationMs != null && row.llmDurationMs > 0) {
+    return row.llmDurationMs;
+  }
+
+  if (!startedAt) return null;
+  return 0;
 }
 
 const JOB_TIMEOUT_SKIP_MS = 5 * 60 * 1000;
@@ -161,10 +191,6 @@ function buildSlowJobReasons(
 ): string[] {
   const status = row.status.toLowerCase();
   const error = row.errorMessage.trim();
-
-  if (jobIsDoNotExecute(row)) {
-    return [DO_NOT_EXECUTE_DISPLAY_REASON];
-  }
 
   if (status === "skipped" && /took more than 5 minutes/i.test(error)) {
     return [error];
@@ -825,7 +851,25 @@ const EMPTY_METRICS: JobMetrics = {
   skipped: 0,
 };
 
-function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetrics } {
+type JobPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  pageCount: number;
+};
+
+const EMPTY_PAGINATION: JobPagination = {
+  page: 0,
+  pageSize: 100,
+  total: 0,
+  pageCount: 1,
+};
+
+function normalizeJobsFromApi(raw: unknown): {
+  jobs: JobRow[];
+  metrics: JobMetrics;
+  pagination: JobPagination;
+} {
   const data = raw as {
     jobs?: Array<{
       id?: number;
@@ -842,12 +886,20 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       llmDurationMs?: number | null;
       wordCount?: number | null;
       doNotExecute?: boolean;
+      assignedModelName?: string | null;
+      assignedModelLabel?: string | null;
       batchRunId?: number | null;
       batchName?: string | null;
       modelName?: string | null;
       modelLabel?: string | null;
     }>;
     metrics?: Partial<JobMetrics>;
+    pagination?: {
+      page?: number;
+      pageSize?: number;
+      total?: number;
+      pageCount?: number;
+    };
   };
 
   const jobs: JobRow[] = (data.jobs ?? []).map((j) => {
@@ -874,6 +926,14 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       executed: "—",
       errorMessage: (j.errorMessage ?? "").trim(),
       doNotExecute: Boolean(j.doNotExecute),
+      assignedModelName: (j.assignedModelName ?? j.modelName ?? "").trim(),
+      assignedModelLabel: (
+        j.assignedModelLabel ??
+        j.assignedModelName ??
+        j.modelLabel ??
+        j.modelName ??
+        ""
+      ).trim(),
       batchName:
         (j.batchName ?? "").trim() ||
         (typeof j.batchRunId === "number" ? `Batch #${j.batchRunId}` : "-"),
@@ -887,6 +947,9 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
     return row;
   });
 
+  const page = data.pagination?.page ?? 0;
+  const pageSize = data.pagination?.pageSize ?? 100;
+  const filteredTotal = data.pagination?.total ?? jobs.length;
   return {
     jobs,
     metrics: {
@@ -899,63 +962,32 @@ function normalizeJobsFromApi(raw: unknown): { jobs: JobRow[]; metrics: JobMetri
       avgProcessingSeconds: data.metrics?.avgProcessingSeconds ?? 0,
       skipped: data.metrics?.skipped ?? 0,
     },
+    pagination: {
+      page,
+      pageSize,
+      total: filteredTotal,
+      pageCount:
+        data.pagination?.pageCount ??
+        Math.max(1, Math.ceil(filteredTotal / pageSize)),
+    },
   };
-}
-
-function jobMatchesFilters(
-  row: JobRow,
-  status: string,
-  type: string,
-  source: string,
-  search: string,
-): boolean {
-  if (status !== "all" && row.status.toLowerCase() !== status) {
-    return false;
-  }
-  if (source !== "all") {
-    if (source === "etl_reports") {
-      if (row.sourceKey !== "etl_reports" && row.sourceKey !== "api") {
-        return false;
-      }
-    } else if (row.sourceKey !== source) {
-      return false;
-    }
-  }
-  if (type !== "all" && row.jobType.toLowerCase() !== type) {
-    return false;
-  }
-  const q = search.trim().toLowerCase();
-  if (!q) return true;
-  const hay = [
-    String(row.id),
-    row.url,
-    row.status,
-    row.jobType,
-    row.source,
-    row.tries,
-    row.batchName,
-    row.modelLabel,
-    row.modelName,
-    row.executionTime,
-    ...row.slowReasons,
-    row.executed,
-    row.updatedAt,
-    row.errorMessage,
-  ]
-    .join(" ")
-    .toLowerCase();
-  return hay.includes(q);
 }
 
 export function JobsPage() {
   const baseId = useId();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   // const [tab, setTab] = useState<JobTab>("regular");
   const [status, setStatus] = useState("all");
   const [type, setType] = useState("all");
   const [source, setSource] = useState("all");
+  const [execution, setExecution] = useState("all");
   // const [importType, setImportType] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [jobPageSize, setJobPageSize] = useState(10);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [jobPage, setJobPage] = useState(0);
+  const [jobPageSize, setJobPageSize] = useState(100);
+  const [jobPagination, setJobPagination] = useState<JobPagination>(EMPTY_PAGINATION);
   const [refreshing, setRefreshing] = useState(false);
   const [enqueueOpen, setEnqueueOpen] = useState(false);
   const [rowMenuOpenId, setRowMenuOpenId] = useState<number | null>(null);
@@ -967,11 +999,36 @@ export function JobsPage() {
   const [deleting, setDeleting] = useState(false);
   const [blockTarget, setBlockTarget] = useState<JobRow | null>(null);
   const [blocking, setBlocking] = useState(false);
+  const [executeTarget, setExecuteTarget] = useState<JobRow | null>(null);
+  const [executing, setExecuting] = useState(false);
+  const [executeMode, setExecuteMode] = useState<"assigned" | "other">("assigned");
   const [rows, setRows] = useState<JobRow[]>([]);
   const [metrics, setMetrics] = useState<JobMetrics>(EMPTY_METRICS);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
+
+  const focusJobId = Number.parseInt(searchParams.get("job") ?? "", 10);
+  const highlightedJobId =
+    Number.isFinite(focusJobId) && focusJobId >= 1 ? focusJobId : null;
+
+  useEffect(() => {
+    const jobParam = searchParams.get("job")?.trim() ?? "";
+    const searchParam = searchParams.get("search")?.trim() ?? "";
+    const nextSearch = jobParam || searchParam;
+    if (!nextSearch) return;
+    setSearchQuery(nextSearch);
+    setDebouncedSearch(nextSearch);
+    setJobPage(0);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setJobPage(0);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   const loadJobs = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -986,7 +1043,18 @@ export function JobsPage() {
       setLoadState("loading");
     }
     try {
-      const res = await authFetch("/jobs");
+      const params = new URLSearchParams({
+        page: String(jobPage),
+        pageSize: String(jobPageSize),
+        status,
+        type,
+        source,
+        execution,
+      });
+      const q = debouncedSearch.trim();
+      if (q) params.set("search", q);
+
+      const res = await authFetch(`/jobs?${params.toString()}`);
       const data = (await res.json().catch(() => ({}))) as {
         error?: { message?: string };
       };
@@ -1006,6 +1074,10 @@ export function JobsPage() {
       const parsed = normalizeJobsFromApi(data);
       setRows(parsed.jobs);
       setMetrics(parsed.metrics);
+      setJobPagination(parsed.pagination);
+      if (jobPage > parsed.pagination.pageCount - 1) {
+        setJobPage(Math.max(0, parsed.pagination.pageCount - 1));
+      }
       setLoadState("idle");
     } catch {
       if (!silent) {
@@ -1013,7 +1085,7 @@ export function JobsPage() {
         toast.error("Network error while loading jobs.", { autoClose: 3000 });
       }
     }
-  }, []);
+  }, [jobPage, jobPageSize, status, type, source, execution, debouncedSearch]);
 
   useEffect(() => {
     setDocumentPageTitle("Jobs");
@@ -1056,19 +1128,9 @@ export function JobsPage() {
 
   const displayMetrics = useMemo(() => buildMetrics(metrics), [metrics]);
 
-  const filteredJobRows = useMemo(
-    () =>
-      rows.filter((row) =>
-        jobMatchesFilters(row, status, type, source, searchQuery),
-      ),
-    [rows, status, type, source, searchQuery],
-  );
-
-  const jobPager = usePagination({
-    items: filteredJobRows,
-    pageSize: jobPageSize,
-    resetKey: `${status}|${type}|${source}|${searchQuery}`,
-  });
+  const pagerFrom =
+    jobPagination.total === 0 ? 0 : jobPage * jobPageSize + 1;
+  const pagerTo = Math.min((jobPage + 1) * jobPageSize, jobPagination.total);
 
   const rowMenuJob = useMemo(
     () =>
@@ -1080,11 +1142,16 @@ export function JobsPage() {
 
   useEffect(() => {
     closeRowMenu();
-  }, [jobPager.page, closeRowMenu]);
+  }, [jobPage, closeRowMenu]);
 
   useEffect(() => {
     if (rowMenuOpenId != null && rowMenuJob == null) closeRowMenu();
   }, [rowMenuOpenId, rowMenuJob, closeRowMenu]);
+
+  useEffect(() => {
+    if (!executeTarget) return;
+    setExecuteMode("assigned");
+  }, [executeTarget]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1180,11 +1247,62 @@ export function JobsPage() {
     [blocking, loadJobs],
   );
 
+  const handleExecuteJob = useCallback(async () => {
+    if (!executeTarget || executing) return;
+
+    if (executeMode === "other") {
+      const pending = {
+        jobId: executeTarget.id,
+        url: executeTarget.url,
+      };
+      setPendingUrlExecute(pending);
+      setExecuteTarget(null);
+      toast.info("Test and apply a model to run this URL.", {
+        autoClose: 3500,
+      });
+      navigate(
+        {
+          pathname: "/controls",
+          search: `?${EXECUTE_JOB_SEARCH_PARAM}=${pending.jobId}`,
+          hash: "llm-model",
+        },
+        { state: { pendingUrlExecute: pending } },
+      );
+      return;
+    }
+
+    setExecuting(true);
+    try {
+      const result = await executeJob({ jobId: executeTarget.id });
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 3500 });
+        return;
+      }
+      setExecuteTarget(null);
+      toast.success(
+        result.message ?? "This URL is running.",
+        { autoClose: 3000 },
+      );
+      await loadJobs();
+    } finally {
+      setExecuting(false);
+    }
+  }, [executeTarget, executing, executeMode, loadJobs, navigate]);
+
   const clearFilters = () => {
     setStatus("all");
     setType("all");
     setSource("all");
+    setExecution("all");
     setSearchQuery("");
+    setDebouncedSearch("");
+    setJobPage(0);
+    if (searchParams.has("job") || searchParams.has("search")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("job");
+      next.delete("search");
+      setSearchParams(next, { replace: true });
+    }
   };
 
   // const resetAiidImport = () => {
@@ -1345,6 +1463,125 @@ export function JobsPage() {
         </div>
       ) : null}
 
+      {executeTarget ? (
+        <div
+          className="jobsPage__enqueueOverlay"
+          role="presentation"
+          onMouseDown={(ev) => {
+            if (ev.target === ev.currentTarget && !executing)
+              setExecuteTarget(null);
+          }}
+        >
+          <div
+            className="jobsPage__enqueueDialog jobsPage__enqueueDialog--execute"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`${baseId}-execute-title`}
+            aria-describedby={`${baseId}-execute-desc`}
+          >
+            <div className="jobsPage__enqueueDialogHead">
+              <h2
+                id={`${baseId}-execute-title`}
+                className="jobsPage__enqueueDialogTitle"
+              >
+                Execute this URL?
+              </h2>
+              <button
+                type="button"
+                className="jobsPage__enqueueDialogClose"
+                disabled={executing}
+                onClick={() => setExecuteTarget(null)}
+                aria-label="Close"
+              >
+                <X size={18} strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <div className="jobsPage__enqueueDialogBody">
+              <p id={`${baseId}-execute-desc`} className="jobsPage__deleteConfirmText">
+                This URL is marked do not execute. Running it removes the block
+                and queues the job again.
+              </p>
+              <p className="jobsPage__executeUrl" title={executeTarget.url}>
+                {executeTarget.url}
+              </p>
+              <fieldset className="jobsPage__executeChoices" disabled={executing}>
+                <legend className="jobsPage__enqueueLabel">How should it run?</legend>
+                <label
+                  className={`jobsPage__executeCard${
+                    executeMode === "assigned" ? " jobsPage__executeCard--selected" : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    className="jobsPage__executeCardInput"
+                    name={`${baseId}-execute-model`}
+                    checked={executeMode === "assigned"}
+                    onChange={() => setExecuteMode("assigned")}
+                  />
+                  <span className="jobsPage__executeCardIcon" aria-hidden>
+                    <Play size={16} strokeWidth={2} />
+                  </span>
+                  <span className="jobsPage__executeCardCopy">
+                    <span className="jobsPage__executeCardTitle">
+                      Assigned model
+                    </span>
+                    <span className="jobsPage__executeCardHint">
+                      {executeTarget.assignedModelLabel ||
+                        executeTarget.assignedModelName ||
+                        executeTarget.modelLabel ||
+                        "the model assigned when this URL was blocked"}
+                    </span>
+                  </span>
+                </label>
+                <label
+                  className={`jobsPage__executeCard${
+                    executeMode === "other" ? " jobsPage__executeCard--selected" : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    className="jobsPage__executeCardInput"
+                    name={`${baseId}-execute-model`}
+                    checked={executeMode === "other"}
+                    onChange={() => setExecuteMode("other")}
+                  />
+                  <span className="jobsPage__executeCardIcon" aria-hidden>
+                    <Settings2 size={16} strokeWidth={2} />
+                  </span>
+                  <span className="jobsPage__executeCardCopy">
+                    <span className="jobsPage__executeCardTitle">
+                      Different model
+                    </span>
+                    <span className="jobsPage__executeCardHint">
+                      Test and apply a model, then this URL starts running.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+            </div>
+            <div className="jobsPage__enqueueDialogActions">
+              <button
+                type="button"
+                className="jobsPage__enqueueBtn jobsPage__enqueueBtn--cancel"
+                disabled={executing}
+                onClick={() => setExecuteTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="jobsPage__enqueueBtn jobsPage__blockConfirmBtn"
+                disabled={executing}
+                aria-busy={executing}
+                onClick={() => void handleExecuteJob()}
+              >
+                {executing ? "Starting…" : "Execute"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* <div className="usersPage__tabs" role="tablist" aria-label="Job type">
         <button
           type="button"
@@ -1430,7 +1667,10 @@ export function JobsPage() {
           <select
             id={filterId("status")}
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setJobPage(0);
+            }}
           >
             <option value="all">All</option>
             <option value="pending">Pending</option>
@@ -1442,7 +1682,10 @@ export function JobsPage() {
         </div>
         <div className="jobsPage__filter">
           <label htmlFor={filterId("type")}>TYPE</label>
-          <select id={filterId("type")} value={type} onChange={(e) => setType(e.target.value)}>
+          <select id={filterId("type")} value={type} onChange={(e) => {
+            setType(e.target.value);
+            setJobPage(0);
+          }}>
             <option value="all">All</option>
             <option value="crawler">Crawler</option>
             <option value="indexer">Indexer</option>
@@ -1454,12 +1697,29 @@ export function JobsPage() {
           <select
             id={filterId("source")}
             value={source}
-            onChange={(e) => setSource(e.target.value)}
+            onChange={(e) => {
+              setSource(e.target.value);
+              setJobPage(0);
+            }}
           >
             <option value="all">All</option>
             <option value="rss">RSS</option>
             <option value="etl_reports">ETL Reports</option>
             <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div className="jobsPage__filter jobsPage__filter--execution">
+          <label htmlFor={filterId("execution")}>EXECUTION</label>
+          <select
+            id={filterId("execution")}
+            value={execution}
+            onChange={(e) => {
+              setExecution(e.target.value);
+              setJobPage(0);
+            }}
+          >
+            <option value="all">All</option>
+            <option value="do_not_execute">Do not execute</option>
           </select>
         </div>
         <button
@@ -1493,7 +1753,10 @@ export function JobsPage() {
       </section>
 
       <section className="jobsPage__tableSection" aria-label="Job list">
-        <div className="jobsPage__tableWrap">
+        <div className="jobsPage__tableWrap" aria-busy={loadState === "loading"}>
+          {loadState === "loading" && rows.length > 0 ? (
+            <p className="jobsPage__loadingHint">Loading jobs…</p>
+          ) : null}
           <div className="jobsPage__tableScroll">
             <table className="jobsPage__table">
             <thead>
@@ -1542,16 +1805,20 @@ export function JobsPage() {
               </tr>
             </thead>
             <tbody>
-              {loadState === "loading" ? (
+              {loadState === "loading" && rows.length === 0 ? (
                   <tr>
                     <td className="jobsPage__td jobsPage__emptyCell" colSpan={11}>
                       Loading jobs…
                     </td>
                   </tr>
-                ) : filteredJobRows.length === 0 ? (
+                ) : rows.length === 0 ? (
                   <tr>
                     <td className="jobsPage__td jobsPage__emptyCell" colSpan={11}>
-                      {searchQuery.trim()
+                      {searchQuery.trim() ||
+                      status !== "all" ||
+                      type !== "all" ||
+                      source !== "all" ||
+                      execution !== "all"
                         ? "No jobs match your filters or search."
                         : loadState === "error"
                           ? "Could not load jobs."
@@ -1559,8 +1826,16 @@ export function JobsPage() {
                     </td>
                   </tr>
                 ) : (
-                  jobPager.pageItems.map((row) => (
-                    <tr key={row.id}>
+                  rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={[
+                        jobIsDoNotExecute(row) ? "jobsPage__row--blocked" : "",
+                        highlightedJobId === row.id ? "jobsPage__row--focus" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ") || undefined}
+                    >
                       <td className="jobsPage__td">
                         <span className="jobsPage__id">#{row.id}</span>
                       </td>
@@ -1574,12 +1849,6 @@ export function JobsPage() {
                           >
                             {row.url}
                           </a>
-                          {jobIsDoNotExecute(row) ? (
-                            <p className="jobsPage__urlBlockReason">
-                              {formatJobIssueMessage(row.errorMessage) ||
-                                DO_NOT_EXECUTE_DISPLAY_REASON}
-                            </p>
-                          ) : null}
                         </div>
                       </td>
                       <td className="jobsPage__td jobsPage__td--center jobsPage__td--status">
@@ -1639,7 +1908,6 @@ export function JobsPage() {
                         />
                       </td>
                       <td className="jobsPage__td">
-                        {row.doNotExecute ? null : (
                         <div
                           className="jobsPage__rowMenuWrap"
                           data-jobs-row-menu={row.id}
@@ -1667,7 +1935,6 @@ export function JobsPage() {
                             <MoreHorizontal size={18} strokeWidth={2} aria-hidden />
                           </button>
                         </div>
-                        )}
                       </td>
                     </tr>
                   ))
@@ -1677,19 +1944,22 @@ export function JobsPage() {
           </div>
           <DataTablePagination
             className="jobsPage__pager"
-            page={jobPager.page}
-            pageCount={jobPager.pageCount}
-            total={jobPager.total}
-            pageSize={jobPager.pageSize}
-            from={jobPager.from}
-            to={jobPager.to}
-            onPageChange={jobPager.setPage}
-            onPageSizeChange={setJobPageSize}
+            page={jobPage}
+            pageCount={jobPagination.pageCount}
+            total={jobPagination.total}
+            pageSize={jobPageSize}
+            from={pagerFrom}
+            to={pagerTo}
+            onPageChange={setJobPage}
+            onPageSizeChange={(size) => {
+              setJobPageSize(size);
+              setJobPage(0);
+            }}
           />
         </div>
       </section>
 
-      {rowMenuOpenId && rowMenuAnchor && rowMenuJob && !rowMenuJob.doNotExecute
+      {rowMenuOpenId && rowMenuAnchor && rowMenuJob
         ? createPortal(
             <div
               className="jobsPage__rowMenu jobsPage__rowMenu--portal"
@@ -1707,7 +1977,20 @@ export function JobsPage() {
                 left: rowMenuAnchor.right,
               }}
             >
-              {rowMenuJob.doNotExecute ? null : (
+              {rowMenuJob.doNotExecute ? (
+                <button
+                  type="button"
+                  className="jobsPage__rowMenuItem"
+                  role="menuitem"
+                  onClick={() => {
+                    closeRowMenu();
+                    setExecuteTarget(rowMenuJob);
+                  }}
+                >
+                  <Play size={16} strokeWidth={2} aria-hidden />
+                  Execute
+                </button>
+              ) : (
                 <>
                   <button
                     type="button"
@@ -1723,7 +2006,7 @@ export function JobsPage() {
                   </button>
                   <button
                     type="button"
-                    className="jobsPage__rowMenuItem"
+                    className="jobsPage__rowMenuItem jobsPage__rowMenuItem--danger"
                     role="menuitem"
                     onClick={() => {
                       closeRowMenu();

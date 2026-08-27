@@ -3,7 +3,8 @@ import {
   getBatchRunById,
   listBatchRuns,
   startBatchRun,
-  deleteBatchRun,
+  disableBatchRun,
+  enableBatchRun,
 } from "../../services/admin/batchRuns.service.js";
 import type { StartBatchRunInput } from "../../validators/admin.validators.js";
 
@@ -40,18 +41,28 @@ export async function getBatchRunHandler(
   res.status(200).json({ batch });
 }
 
-export async function deleteBatchRunHandler(
+export async function disableBatchRunHandler(
   req: Request,
   res: Response,
 ): Promise<void> {
   const id = Number(req.params.id);
-  const batch = await deleteBatchRun(id);
+  const batch = await disableBatchRun(id);
   res.status(200).json({
     ok: true,
-    message:
-      batch.status === "running"
-        ? "Processing batch deleted. Remaining jobs for this batch were removed from the queue."
-        : "Queued batch deleted.",
+    message: "Batch disabled. Enable it later from the Disabled tab to run it.",
+    batch,
+  });
+}
+
+export async function enableBatchRunHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const id = Number(req.params.id);
+  const batch = await enableBatchRun(id);
+  res.status(200).json({
+    ok: true,
+    message: "Batch enabled. It will run when no other batch is processing.",
     batch,
   });
 }

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { createLogger } from "../../logger/index.js";
 
@@ -17,9 +17,20 @@ import {
   isUrlDoNotExecute,
 } from "../jobs/urlExecutionBlocks.service.js";
 import {
+  JOB_MAX_RUNTIME_MS,
+  JOB_TIMEOUT_SKIP_REASON,
+  abortActiveJobRun,
+  endJobRunTimer,
+  skipJobIfStillRunning,
+  skipStaleRunningJobs,
+  startJobRunTimer,
+} from "../jobs/jobTimeout.service.js";
+import {
   getLlmModelConfig,
   syncPythonLlmModel,
 } from "../admin/llmModelConfig.service.js";
+
+export { JOB_MAX_RUNTIME_MS, JOB_TIMEOUT_SKIP_REASON, skipStaleRunningJobs };
 
 export type ClaimedJob = {
   id: number;
@@ -32,12 +43,6 @@ export type ClaimedJob = {
   modelName: string | null;
   modelLabel: string | null;
 };
-
-/** Skip a URL if ingest + LLM have not finished within this time. */
-export const JOB_MAX_RUNTIME_MS = 5 * 60 * 1000;
-
-export const JOB_TIMEOUT_SKIP_REASON =
-  "Skipped because this URL took more than 5 minutes without finishing — it was taking too long.";
 
 class JobTimeoutError extends Error {
   constructor() {
@@ -146,47 +151,13 @@ async function finishJob(
   }
 }
 
-async function jobStillExists(jobId: number): Promise<boolean> {
+async function jobStillRunning(jobId: number): Promise<boolean> {
   const [row] = await db
-    .select({ id: jobs.id })
+    .select({ status: jobs.status })
     .from(jobs)
     .where(eq(jobs.id, jobId))
     .limit(1);
-  return row != null;
-}
-
-/** Skip running jobs that have been in flight longer than 5 minutes. */
-export async function skipStaleRunningJobs(): Promise<number> {
-  const cutoff = new Date(Date.now() - JOB_MAX_RUNTIME_MS);
-  const stale = await db
-    .select({
-      id: jobs.id,
-      url: jobs.url,
-      ingestLinkItemId: jobs.ingestLinkItemId,
-    })
-    .from(jobs)
-    .where(
-      and(
-        eq(jobs.status, "running"),
-        or(
-          lt(jobs.startedAt, cutoff),
-          and(isNull(jobs.startedAt), lt(jobs.updatedAt, cutoff)),
-        ),
-      ),
-    );
-
-  for (const job of stale) {
-    jobLog.info("skipping URL after 5 minutes without progress", {
-      jobId: job.id,
-      url: job.url,
-    });
-    await finishJob(job.id, "skipped", JOB_TIMEOUT_SKIP_REASON, {
-      ingestLinkItemId: job.ingestLinkItemId,
-      url: job.url,
-    });
-  }
-
-  return stale.length;
+  return row?.status === "running";
 }
 
 /**
@@ -265,8 +236,8 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       title: articleRow?.title ?? undefined,
     });
 
-    if (!(await jobStillExists(job.id))) {
-      log("deleted during ingest, aborting");
+    if (!(await jobStillRunning(job.id))) {
+      log("stopped during ingest, aborting");
       return;
     }
 
@@ -307,8 +278,8 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
       modelId: assigned.modelId !== "unknown" ? assigned.modelId : null,
     });
 
-    if (!(await jobStillExists(job.id))) {
-      log("deleted during risk extract, aborting");
+    if (!(await jobStillRunning(job.id))) {
+      log("stopped during risk extract, aborting");
       return;
     }
 
@@ -333,30 +304,39 @@ export async function processClaimedJob(job: ClaimedJob): Promise<void> {
         url: job.url,
       },
     );
+    if (!(await jobStillRunning(job.id))) {
+      log("timed out before finish, not marking done", { url: job.url });
+      return;
+    }
     await finishJob(job.id, "done", null, batchRefresh);
   };
 
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  const signal = startJobRunTimer();
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => reject(new JobTimeoutError()), JOB_MAX_RUNTIME_MS);
+    if (signal.aborted) {
+      reject(new JobTimeoutError());
+      return;
+    }
+    signal.addEventListener("abort", () => reject(new JobTimeoutError()), {
+      once: true,
+    });
   });
 
   try {
     await Promise.race([runWork(), timeoutPromise]);
   } catch (err) {
     if (isTimeoutSkipError(err)) {
+      abortActiveJobRun();
       log("skipped URL after 5 minutes without progress", { url: job.url });
-      if (await jobStillExists(job.id)) {
-        await finishJob(job.id, "skipped", JOB_TIMEOUT_SKIP_REASON, batchRefresh);
-      }
+      await skipJobIfStillRunning(job.id);
       return;
     }
     const message = err instanceof Error ? err.message : String(err);
     jobLog.error("Job failed", { jobId: job.id, message, err });
-    if (!(await jobStillExists(job.id))) return;
+    if (!(await jobStillRunning(job.id))) return;
     await finishJob(job.id, "error", message, batchRefresh);
   } finally {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
+    endJobRunTimer();
   }
 }
 
