@@ -12,6 +12,7 @@ const webhookLimiter = rateLimit({
   max: env.WEBHOOK_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     success: false,
     message: "Too many webhook requests",

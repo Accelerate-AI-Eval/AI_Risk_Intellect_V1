@@ -70,7 +70,7 @@ const EnvSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
 
-  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(8).max(15).default(12),
+  BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(8).max(15).default(10),
 
   EMAIL_SERVICE_TYPE: z.enum(["gmail", "office365", "none"]).default("none"),
   SENDER_EMAIL_ID: z.string().optional(),

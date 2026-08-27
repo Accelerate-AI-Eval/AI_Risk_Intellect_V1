@@ -17,7 +17,6 @@ export function httpLoggerMiddleware(
   next: NextFunction,
 ): void {
   const start = Date.now();
-  const client = getRequestClientInfo(req);
 
   res.on("finish", () => {
     if (shouldSkipHttpLog(req, res.statusCode)) return;
@@ -25,6 +24,7 @@ export function httpLoggerMiddleware(
     const durationMs = Date.now() - start;
     const level =
       res.statusCode >= 500 ? "error" : res.statusCode >= 400 ? "warn" : "info";
+    const client = getRequestClientInfo(req);
 
     httpLog.log(level, `${req.method} ${req.originalUrl}`, {
       status: res.statusCode,

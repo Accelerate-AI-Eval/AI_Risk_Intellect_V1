@@ -1,4 +1,4 @@
-import { desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { jobs } from "../../schema/jobs/jobs.js";
 import { batchRunItems } from "../../schema/batchRuns/batchRunItems.js";
@@ -151,40 +151,128 @@ async function resolveBatchNamesForJobs(
   return names;
 }
 
+function isMissingJobsListSchemaError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    /does not exist/i.test(message) &&
+    /batch_runs|batch_run_items|batch_run_id|model_name|model_label|url_execution_blocks|llm_observability/i.test(
+      message,
+    )
+  );
+}
+
+type JobListQueryRow = {
+  id: number;
+  articleId: number;
+  url: string;
+  status: string;
+  jobType: string;
+  source: string;
+  tries: number;
+  errorMessage: string | null;
+  startedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  ingestLinkItemId: number | null;
+  batchRunId: number | null;
+  jobModelName: string | null;
+  jobModelLabel: string | null;
+  batchModelName: string | null;
+  batchModelLabel: string | null;
+};
+
+async function loadJobListRows(): Promise<JobListQueryRow[]> {
+  try {
+    return await db
+      .select({
+        id: jobs.id,
+        articleId: jobs.articleId,
+        url: jobs.url,
+        status: jobs.status,
+        jobType: jobs.jobType,
+        source: jobs.source,
+        tries: jobs.tries,
+        errorMessage: jobs.errorMessage,
+        startedAt: jobs.startedAt,
+        createdAt: jobs.createdAt,
+        updatedAt: jobs.updatedAt,
+        ingestLinkItemId: jobs.ingestLinkItemId,
+        batchRunId: jobs.batchRunId,
+        jobModelName: jobs.modelName,
+        jobModelLabel: jobs.modelLabel,
+        batchModelName: batchRuns.modelName,
+        batchModelLabel: batchRuns.modelLabel,
+      })
+      .from(jobs)
+      .leftJoin(batchRuns, eq(jobs.batchRunId, batchRuns.id))
+      .orderBy(desc(jobs.createdAt));
+  } catch (err) {
+    if (!isMissingJobsListSchemaError(err)) throw err;
+
+    const rows = await db
+      .select({
+        id: jobs.id,
+        articleId: jobs.articleId,
+        url: jobs.url,
+        status: jobs.status,
+        jobType: jobs.jobType,
+        source: jobs.source,
+        tries: jobs.tries,
+        errorMessage: jobs.errorMessage,
+        startedAt: jobs.startedAt,
+        createdAt: jobs.createdAt,
+        updatedAt: jobs.updatedAt,
+        ingestLinkItemId: jobs.ingestLinkItemId,
+      })
+      .from(jobs)
+      .orderBy(desc(jobs.createdAt));
+
+    return rows.map((row) => ({
+      ...row,
+      batchRunId: null,
+      jobModelName: null,
+      jobModelLabel: null,
+      batchModelName: null,
+      batchModelLabel: null,
+    }));
+  }
+}
+
+const JOB_LIST_TIMEOUT_MS = 5 * 60 * 1000;
+const JOB_LIST_TIMEOUT_REASON =
+  "Skipped because this URL took more than 5 minutes without finishing — it was taking too long.";
+
+async function skipStaleRunningJobsForList(): Promise<void> {
+  const cutoff = new Date(Date.now() - JOB_LIST_TIMEOUT_MS);
+  await db
+    .update(jobs)
+    .set({
+      status: "skipped",
+      errorMessage: JOB_LIST_TIMEOUT_REASON,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(jobs.status, "running"),
+        or(
+          lt(jobs.startedAt, cutoff),
+          and(isNull(jobs.startedAt), lt(jobs.updatedAt, cutoff)),
+        ),
+      ),
+    );
+}
+
 export async function listJobs(): Promise<{
   jobs: JobListItem[];
   metrics: JobListMetrics;
 }> {
   try {
-    const { skipStaleRunningJobs } = await import("../worker/jobWorker.service.js");
-    await skipStaleRunningJobs();
+    await skipStaleRunningJobsForList();
   } catch {
-    // Listing jobs should still succeed if the timeout skip helper cannot load.
+    // Listing jobs should still succeed if the timeout skip cannot run.
   }
 
-  const rows = await db
-    .select({
-      id: jobs.id,
-      articleId: jobs.articleId,
-      url: jobs.url,
-      status: jobs.status,
-      jobType: jobs.jobType,
-      source: jobs.source,
-      tries: jobs.tries,
-      errorMessage: jobs.errorMessage,
-      startedAt: jobs.startedAt,
-      createdAt: jobs.createdAt,
-      updatedAt: jobs.updatedAt,
-      ingestLinkItemId: jobs.ingestLinkItemId,
-      batchRunId: jobs.batchRunId,
-      jobModelName: jobs.modelName,
-      jobModelLabel: jobs.modelLabel,
-      batchModelName: batchRuns.modelName,
-      batchModelLabel: batchRuns.modelLabel,
-    })
-    .from(jobs)
-    .leftJoin(batchRuns, eq(jobs.batchRunId, batchRuns.id))
-    .orderBy(desc(jobs.createdAt));
+  const rows = await loadJobListRows();
 
   const articleIds = [...new Set(rows.map((row) => row.articleId).filter((id) => id > 0))];
   let riskFetchedAtByArticleId = new Map<number, Date>();
@@ -206,30 +294,44 @@ export async function listJobs(): Promise<{
   }
 
   const urls = [...new Set(rows.map((row) => row.url).filter(Boolean))];
-  const blockedUrls = await getDoNotExecuteUrlSet(urls);
+  let blockedUrls = new Set<string>();
+  try {
+    blockedUrls = await getDoNotExecuteUrlSet(urls);
+  } catch {
+    blockedUrls = new Set();
+  }
   const llmByUrl = new Map<string, { durationMs: number; wordCount: number }>();
   if (urls.length > 0) {
-    const obsRows = await db
-      .select({
-        url: llmObservability.url,
-        durationMs: llmObservability.durationMs,
-        wordCount: llmObservability.wordCount,
-        createdAt: llmObservability.createdAt,
-      })
-      .from(llmObservability)
-      .where(inArray(llmObservability.url, urls))
-      .orderBy(desc(llmObservability.createdAt));
+    try {
+      const obsRows = await db
+        .select({
+          url: llmObservability.url,
+          durationMs: llmObservability.durationMs,
+          wordCount: llmObservability.wordCount,
+          createdAt: llmObservability.createdAt,
+        })
+        .from(llmObservability)
+        .where(inArray(llmObservability.url, urls))
+        .orderBy(desc(llmObservability.createdAt));
 
-    for (const row of obsRows) {
-      if (llmByUrl.has(row.url)) continue;
-      llmByUrl.set(row.url, {
-        durationMs: row.durationMs,
-        wordCount: row.wordCount,
-      });
+      for (const row of obsRows) {
+        if (llmByUrl.has(row.url)) continue;
+        llmByUrl.set(row.url, {
+          durationMs: row.durationMs,
+          wordCount: row.wordCount,
+        });
+      }
+    } catch {
+      // Observability is optional for the Jobs list.
     }
   }
 
-  const batchNames = await resolveBatchNamesForJobs(rows);
+  let batchNames = new Map<number, { batchRunId: number; batchName: string }>();
+  try {
+    batchNames = await resolveBatchNamesForJobs(rows);
+  } catch {
+    batchNames = new Map();
+  }
 
   const rowsWithRiskFetchedAt: JobListItem[] = rows.map((row) => {
     const llm = llmByUrl.get(row.url);

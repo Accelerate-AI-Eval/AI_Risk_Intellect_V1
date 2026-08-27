@@ -9,7 +9,8 @@ from app.env_bootstrap import bootstrap_env
 
 bootstrap_env()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.extraction.extract_utils import (
@@ -30,6 +31,11 @@ from app.ingestion.pipeline import (
 )
 
 app = FastAPI(title="AI Risk Intelligence Python", version="1.0.0")
+
+
+@app.exception_handler(Exception)
+async def unhandled_error(_request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=500, content=_error_payload(type(exc).__name__, str(exc)))
 
 
 class RawIngestBody(BaseModel):
@@ -78,6 +84,22 @@ class EtlImportBody(BaseModel):
 
 def _error_payload(error: str, message: str) -> dict[str, object]:
     return {"ok": False, "error": error, "message": message}
+
+
+def _json_safe(value: object) -> object:
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    item = getattr(value, "item", None)
+    if callable(item):
+        try:
+            return _json_safe(item())
+        except Exception:
+            return str(value)
+    return str(value)
 
 
 @app.get("/health")
@@ -212,22 +234,26 @@ def extract_risk(body: ExtractRiskBody) -> dict[str, object]:
             source_url=body.url,
         )
         if _is_stub_object(obj) or source_flag == "stub":
-            return {
-                "ok": False,
-                "error": "StubExtraction",
-                "message": "LLM returned stub/fallback extraction",
-                "source_flag": "stub",
+            return _json_safe(
+                {
+                    "ok": False,
+                    "error": "StubExtraction",
+                    "message": "LLM returned stub/fallback extraction",
+                    "source_flag": "stub",
+                    "object": obj,
+                    "metrics": metrics,
+                }
+            )
+
+        return _json_safe(
+            {
+                "ok": True,
                 "object": obj,
+                "source_flag": source_flag,
+                "model": get_current_model_name(),
                 "metrics": metrics,
             }
-
-        return {
-            "ok": True,
-            "object": obj,
-            "source_flag": source_flag,
-            "model": get_current_model_name(),
-            "metrics": metrics,
-        }
+        )
     except Exception as exc:
         return _error_payload(type(exc).__name__, str(exc))
 

@@ -21,6 +21,7 @@ const createApiKeyLimiter = rateLimit({
   max: env.API_KEY_CREATE_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   message: {
     success: false,
     message: "Too many API key creation requests",

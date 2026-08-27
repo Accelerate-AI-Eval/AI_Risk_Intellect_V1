@@ -11,7 +11,12 @@ import { errorHandler, notFoundHandler } from "./middleware/error.middleware.js"
 
 const app = express();
 
-app.set("trust proxy", true);
+/** Trust the reverse proxy hop (nginx). Boolean `true` trips express-rate-limit. */
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY ?? "1", 10);
+app.set(
+  "trust proxy",
+  Number.isInteger(trustProxyHops) && trustProxyHops >= 1 ? trustProxyHops : 1,
+);
 
 const allowedOrigins = new Set(
   env.CORS_ORIGIN.split(",")

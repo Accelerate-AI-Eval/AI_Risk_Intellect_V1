@@ -8,7 +8,7 @@ import {
   decodeInviteSetPasswordTokenUnsafe,
   verifyInviteSetPasswordToken,
 } from "../../utils/jwt.js";
-import { hashPassword, verifyPassword } from "../../utils/password.js";
+import { hashPassword, passwordNeedsRehash, verifyPassword } from "../../utils/password.js";
 import { HttpError } from "../../utils/httpError.js";
 import type { LoginInput, RegisterInput } from "../../validators/auth.validators.js";
 
@@ -111,6 +111,19 @@ export async function authenticateUser(input: LoginInput): Promise<SafeUser> {
   const ok = await verifyPassword(input.password, user.passwordHash);
   if (!ok) {
     throw HttpError.unauthorized("Invalid credentials");
+  }
+
+  if (passwordNeedsRehash(user.passwordHash)) {
+    void hashPassword(input.password)
+      .then((passwordHash) =>
+        db
+          .update(users)
+          .set({ passwordHash, updatedAt: new Date() })
+          .where(eq(users.id, user.id)),
+      )
+      .catch(() => {
+        // Rehash is best-effort; login still succeeds.
+      });
   }
 
   return toSafeUser(user);
