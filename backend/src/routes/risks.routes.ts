@@ -1,6 +1,9 @@
 import { Router } from "express";
+import { requireAuth } from "../middleware/auth.middleware.js";
+import { requireServiceKey } from "../middleware/requireServiceKey.middleware.js";
 import { requireAuthOrApiKey } from "../middleware/requireAuthOrApiKey.middleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { exportRisksForServiceHandler } from "../controllers/risks/risksServiceExport.controller.js";
 import {
   approveReviewRiskHandler,
   classifyReviewRiskHandler,
@@ -14,9 +17,20 @@ import {
   rejectReviewRiskHandler,
   updateReviewFeedbackHandler,
 } from "../controllers/risks/risks.controller.js";
-import { requireAuth } from "../middleware/auth.middleware.js";
+import {
+  editRiskFieldsHandler,
+  bulkAssignReviewsHandler,
+} from "../controllers/risks/reviewOps.controller.js";
 
 export const risksRouter: Router = Router();
+
+// Service-to-service JSON export for AI-Q. Must precede the "/:id" route so
+// "export" is not captured as an id. Auth is the service key, not user JWT.
+risksRouter.get(
+  "/export",
+  requireServiceKey,
+  asyncHandler(exportRisksForServiceHandler),
+);
 
 /** Read endpoints: JWT (UI) or API key (external AI-Q). */
 risksRouter.get("/", requireAuthOrApiKey, asyncHandler(listRisksHandler));
@@ -67,4 +81,16 @@ risksRouter.patch(
   "/:id/review/feedback",
   requireAuth,
   asyncHandler(updateReviewFeedbackHandler),
+);
+
+/** Human Review operations (Asad's requirement): editable fields + bulk assignment. JWT-only. */
+risksRouter.post(
+  "/bulk/assign",
+  requireAuth,
+  asyncHandler(bulkAssignReviewsHandler),
+);
+risksRouter.patch(
+  "/:id/fields",
+  requireAuth,
+  asyncHandler(editRiskFieldsHandler),
 );

@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRightToLine, ExternalLink } from "lucide-react";
+import { capitalizeDisplayName } from "../../../utils/reviewOpsApi";
+import { formatDisplayValue, formatRiskDomain } from "../Risk/riskData";
 import {
   canPromoteFeedbackToRisks,
   isFeedbackOnRisks,
@@ -92,7 +94,7 @@ function FeedbackActionTooltip({ label, children }: FeedbackActionTooltipProps) 
   );
 }
 
-export function ReviewFeedbackTable({
+export const ReviewFeedbackTable = memo(function ReviewFeedbackTable({
   items,
   loadState,
   emptyMessage,
@@ -176,17 +178,17 @@ export function ReviewFeedbackTable({
                         <span className="riskPage__rowKey">{item.displayId}</span>
                       </td>
                       <td className="riskPage__td riskPage__td--title riskPage__td--sticky riskPage__td--stickyTitle">
-                        {item.title}
+                        {formatDisplayValue(item.title)}
                       </td>
                       <td className="riskPage__td riskPage__td--muted riskPage__td--domain">
-                        <span className="riskPage__domain">{item.domain}</span>
+                        <span className="riskPage__domain">{formatRiskDomain(item.domain)}</span>
                       </td>
-                      <td className="riskPage__td">{item.primaryRisk}</td>
+                      <td className="riskPage__td">{formatDisplayValue(item.primaryRisk)}</td>
                       <td className="riskPage__td reviewPage__feedbackCol reviewPage__feedbackCell">
                         {item.feedback ?? "—"}
                       </td>
                       <td className="riskPage__td riskPage__td--muted">
-                        {item.reviewedBy ?? "—"}
+                        {item.reviewedBy ? capitalizeDisplayName(item.reviewedBy) : "—"}
                       </td>
                       <td className="riskPage__td riskPage__td--muted">
                         {item.reviewedAtDisplay}
@@ -269,4 +271,4 @@ export function ReviewFeedbackTable({
       </div>
     </section>
   );
-}
+});

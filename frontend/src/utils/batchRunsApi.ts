@@ -62,6 +62,7 @@ export async function startBatchRun(selection: {
   ingestLinkItemIds?: number[];
   uploadIds?: number[];
   reportIds?: number[];
+  excludeReportIds?: number[];
 }): Promise<
   | { ok: true; message: string; batch: BatchRun }
   | { ok: false; message: string }
@@ -70,7 +71,24 @@ export async function startBatchRun(selection: {
     const res = await authFetch("/admin/batch-runs/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selection),
+      body: JSON.stringify({
+        ...(selection.modelId ? { modelId: selection.modelId } : {}),
+        ...(selection.ingestLinkIds && selection.ingestLinkIds.length > 0
+          ? { ingestLinkIds: selection.ingestLinkIds }
+          : {}),
+        ...(selection.ingestLinkItemIds && selection.ingestLinkItemIds.length > 0
+          ? { ingestLinkItemIds: selection.ingestLinkItemIds }
+          : {}),
+        ...(selection.uploadIds && selection.uploadIds.length > 0
+          ? { uploadIds: selection.uploadIds }
+          : {}),
+        ...(selection.reportIds && selection.reportIds.length > 0
+          ? { reportIds: selection.reportIds }
+          : {}),
+        ...(selection.excludeReportIds && selection.excludeReportIds.length > 0
+          ? { excludeReportIds: selection.excludeReportIds }
+          : {}),
+      }),
     });
     const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
       message?: string;

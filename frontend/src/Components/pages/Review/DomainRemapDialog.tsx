@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { X } from "lucide-react";
-import { formatRiskDomain } from "../Risk/riskData";
+import { CircleX, Save, X } from "lucide-react";
+import { formatDisplayValue, formatRiskDomain } from "../Risk/riskData";
 import "../Users/usersPage.css";
 
 interface DomainRemapDialogProps {
@@ -53,8 +53,8 @@ export function DomainRemapDialog({
             <h2 id={`${baseId}-title`} className="usersPage__dialogTitle">
               Edit domain
             </h2>
-            <p className="reviewFeedbackDialog__subtitle" title={riskTitle}>
-              {riskTitle}
+            <p className="reviewFeedbackDialog__subtitle" title={formatDisplayValue(riskTitle)}>
+              {formatDisplayValue(riskTitle)}
             </p>
           </div>
           <button
@@ -100,6 +100,7 @@ export function DomainRemapDialog({
             onClick={onClose}
             disabled={submitting}
           >
+            <CircleX size={16} strokeWidth={1.75} aria-hidden />
             Cancel
           </button>
           <button
@@ -109,6 +110,7 @@ export function DomainRemapDialog({
             aria-busy={submitting}
             onClick={() => onSave(selectedDomain)}
           >
+            <Save size={16} strokeWidth={2} aria-hidden />
             {submitting ? "Saving…" : "Save domain"}
           </button>
         </div>

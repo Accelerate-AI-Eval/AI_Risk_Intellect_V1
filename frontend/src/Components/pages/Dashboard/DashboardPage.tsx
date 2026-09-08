@@ -31,6 +31,7 @@ import { PageHeader } from "../../Layout/PageHeader";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { usePolling } from "../../../utils/usePolling";
 import { fetchDashboardStats, type DashboardApiStats } from "./dashboardData";
+import { formatDisplayValue } from "../Risk/riskData";
 import "../Users/usersPage.css";
 import "../Jobs/jobsPage.css";
 import "./dashboardPage.css";
@@ -360,7 +361,7 @@ function SectorIndustryPanel({
                   <ul className="dashSectorList__items">
                     {items.map((item) => (
                       <li key={item.name} className="dashSectorList__item">
-                        <span>{item.name}</span>
+                        <span>{formatDisplayValue(item.name)}</span>
                         <span className="dashSectorList__itemCount">
                           {item.count}
                         </span>

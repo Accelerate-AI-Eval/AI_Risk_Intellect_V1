@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
 import { risks } from "../../schema/risks/risks.js";
+import { riskReviewLogs } from "../../schema/risks/riskReviewLogs.js";
 import { users } from "../../schema/users/users.js";
 import { HttpError } from "../../utils/httpError.js";
 import {
@@ -127,6 +128,16 @@ function reviewerPayload(reviewer: ReviewerInfo): Record<string, string> {
   };
 }
 
+const MIN_FEEDBACK_LEN = 3;
+
+function requireFeedback(value: string, message: string): string {
+  const feedback = value.trim();
+  if (feedback.length < MIN_FEEDBACK_LEN) {
+    throw HttpError.unprocessable(message);
+  }
+  return feedback;
+}
+
 /**
  * Approve a review-queue risk: mark human-reviewed and visible on the Risks page.
  */
@@ -178,26 +189,39 @@ export async function approveReviewRisk(
     ? applyMappedDomain(ext, mappedDomain, previousDomain)
     : ext;
 
-  const feedback = options.feedback?.trim();
+  const feedback = requireFeedback(
+    options.feedback?.trim() || str(ext.review_feedback),
+    "Feedback is required before moving this item to Risks.",
+  );
+  const classification = options.classification ?? "structured";
   const reviewedAt = new Date().toISOString();
   const updatedExtraction: Record<string, unknown> = {
     ...mappedExt,
     review_status: "approved",
-    review_classification: options.classification ?? "structured",
+    review_classification: classification,
     approved_at: reviewedAt,
     reviewed_at: reviewedAt,
     reviewed_by: reviewerPayload(options.reviewer),
-    review_feedback: feedback || str(ext.review_feedback),
+    review_feedback: feedback,
   };
 
-  await db
-    .update(risks)
-    .set({
-      ...(domain ? { domains: truncate(domain, 255) } : {}),
-      extractionJson: updatedExtraction,
-      updatedAt: new Date(),
-    })
-    .where(eq(risks.id, uuid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(risks)
+      .set({
+        ...(domain ? { domains: truncate(domain, 255) } : {}),
+        extractionJson: updatedExtraction,
+        updatedAt: new Date(),
+      })
+      .where(eq(risks.id, uuid));
+    await tx.insert(riskReviewLogs).values({
+      riskId: uuid,
+      submittedByUserId: options.reviewer.userId,
+      action: "approve",
+      classification,
+      feedback,
+    });
+  });
 
   return { riskId: uuid };
 }
@@ -269,10 +293,10 @@ export async function rejectReviewRisk(
   riskIdOrDisplayId: string,
   options: RejectReviewOptions,
 ): Promise<void> {
-  const feedback = options.feedback.trim();
-  if (!feedback) {
-    throw HttpError.unprocessable("Feedback is required when rejecting a risk.");
-  }
+  const feedback = requireFeedback(
+    options.feedback,
+    "Feedback is required when marking a risk as Raw.",
+  );
 
   const uuid = await resolveRiskUuid(riskIdOrDisplayId);
   if (!uuid) {
@@ -307,13 +331,22 @@ export async function rejectReviewRisk(
     reviewed_by: reviewerPayload(options.reviewer),
   };
 
-  await db
-    .update(risks)
-    .set({
-      extractionJson: updatedExtraction,
-      updatedAt: new Date(),
-    })
-    .where(eq(risks.id, uuid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(risks)
+      .set({
+        extractionJson: updatedExtraction,
+        updatedAt: new Date(),
+      })
+      .where(eq(risks.id, uuid));
+    await tx.insert(riskReviewLogs).values({
+      riskId: uuid,
+      submittedByUserId: options.reviewer.userId,
+      action: "reject",
+      classification: options.classification ?? "raw",
+      feedback,
+    });
+  });
 }
 
 export type ClassifyReviewOptions = {
@@ -328,12 +361,10 @@ export async function classifyReviewRisk(
   riskIdOrDisplayId: string,
   options: ClassifyReviewOptions,
 ): Promise<void> {
-  const feedback = options.feedback.trim();
-  if (!feedback) {
-    throw HttpError.unprocessable(
-      "Feedback is required when saving a structured review.",
-    );
-  }
+  const feedback = requireFeedback(
+    options.feedback,
+    "Feedback is required when saving a structured review.",
+  );
 
   const uuid = await resolveRiskUuid(riskIdOrDisplayId);
   if (!uuid) {
@@ -368,13 +399,22 @@ export async function classifyReviewRisk(
     reviewed_by: reviewerPayload(options.reviewer),
   };
 
-  await db
-    .update(risks)
-    .set({
-      extractionJson: updatedExtraction,
-      updatedAt: new Date(),
-    })
-    .where(eq(risks.id, uuid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(risks)
+      .set({
+        extractionJson: updatedExtraction,
+        updatedAt: new Date(),
+      })
+      .where(eq(risks.id, uuid));
+    await tx.insert(riskReviewLogs).values({
+      riskId: uuid,
+      submittedByUserId: options.reviewer.userId,
+      action: "classify",
+      classification: "structured",
+      feedback,
+    });
+  });
 }
 
 export type UpdateReviewFeedbackOptions = {
@@ -389,10 +429,7 @@ export async function updateReviewFeedback(
   riskIdOrDisplayId: string,
   options: UpdateReviewFeedbackOptions,
 ): Promise<void> {
-  const feedback = options.feedback.trim();
-  if (!feedback) {
-    throw HttpError.unprocessable("Feedback is required.");
-  }
+  const feedback = requireFeedback(options.feedback, "Feedback is required.");
 
   const uuid = await resolveRiskUuid(riskIdOrDisplayId);
   if (!uuid) {
@@ -433,11 +470,25 @@ export async function updateReviewFeedback(
     reviewed_by: reviewerPayload(options.reviewer),
   };
 
-  await db
-    .update(risks)
-    .set({
-      extractionJson: updatedExtraction,
-      updatedAt: new Date(),
-    })
-    .where(eq(risks.id, uuid));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(risks)
+      .set({
+        extractionJson: updatedExtraction,
+        updatedAt: new Date(),
+      })
+      .where(eq(risks.id, uuid));
+    await tx.insert(riskReviewLogs).values({
+      riskId: uuid,
+      submittedByUserId: options.reviewer.userId,
+      action: "update",
+      classification:
+        reviewStatus === "rejected"
+          ? "raw"
+          : reviewStatus === "classified"
+            ? "structured"
+            : null,
+      feedback,
+    });
+  });
 }

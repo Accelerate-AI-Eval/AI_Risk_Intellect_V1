@@ -29,6 +29,7 @@ import {
   enqueueJobUrlSchema,
   enqueueUrlSchema,
   ingestLinkIdSchema,
+  listReportUploadItemsQuerySchema,
   setLlmModelSchema,
   invokeLlmModelSchema,
   startDiscoverySchema,
@@ -255,6 +256,7 @@ adminRouter.get(
   "/etl/reports/uploads/:id/items",
   requireAuth,
   validate(ingestLinkIdSchema, "params"),
+  validate(listReportUploadItemsQuerySchema, "query"),
   asyncHandler(listReportUploadItemsHandler),
 );
 

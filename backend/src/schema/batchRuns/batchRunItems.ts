@@ -40,7 +40,7 @@ export const batchRunItems = pgTable(
       () => ingestLinkItems.id,
       { onDelete: "set null" },
     ),
-    feedName: varchar("feed_name", { length: 512 }),
+    feedName: text("feed_name"),
     uploadId: integer("upload_id").references(() => etlReportUploads.id, {
       onDelete: "set null",
     }),

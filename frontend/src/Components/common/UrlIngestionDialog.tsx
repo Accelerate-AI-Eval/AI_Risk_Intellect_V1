@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import { CircleX, Link2, Play, Tag, X } from "lucide-react";
+import { CircleX, Link2, Play, Save, Tag, X } from "lucide-react";
 import { enqueueIngestUrl } from "../../utils/ingestLinksApi";
 import { enqueueJobUrl } from "../../utils/jobsEnqueueApi";
 import "../pages/Users/usersPage.css";
@@ -182,7 +182,7 @@ export function UrlIngestionDialog({
                 value={suggestedName}
                 onChange={(e) => setSuggestedName(e.target.value)}
                 autoComplete="off"
-                maxLength={256}
+                maxLength={2000}
                 disabled={submitting}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -240,7 +240,11 @@ export function UrlIngestionDialog({
               onClick={() => void handleSubmit()}
               disabled={submitting}
             >
-              <Play size={16} strokeWidth={2} aria-hidden />
+              {isJobs ? (
+                <Play size={16} strokeWidth={2} aria-hidden />
+              ) : (
+                <Save size={16} strokeWidth={2} aria-hidden />
+              )}
               {submitting
                 ? isJobs
                   ? "Enqueueing…"

@@ -11,6 +11,8 @@ export * from "./riskMappings/riskMappings.js";
 export * from "./riskMappings/riskMappingEmbeddings.js";
 export * from "./risks/risks.js";
 export * from "./risks/riskEmbeddings.js";
+export * from "./risks/riskEditLogs.js";
+export * from "./risks/riskReviewLogs.js";
 export * from "./observability/llmObservability.js";
 export * from "./observability/applicationLogs.js";
 export * from "./aiid/reports.js";

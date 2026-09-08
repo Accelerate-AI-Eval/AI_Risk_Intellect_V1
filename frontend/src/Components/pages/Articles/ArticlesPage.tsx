@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { memo, useCallback, useEffect, useId, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   ExternalLink,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
 import { decodeDisplayTitle } from "../../../utils/decodeHtmlEntities";
+import { formatDisplayValue } from "../Risk/riskData";
 import { formatDisplayDate } from "../../../utils/formatDate";
 import { setDocumentPageTitle } from "../../../utils/pageTitle";
 import { PageHeader } from "../../Layout/PageHeader";
@@ -87,6 +88,52 @@ function normalizeArticlesFromApi(raw: unknown): {
   };
 }
 
+function articleListCacheKey(input: {
+  page: number;
+  pageSize: number;
+  risksFilter: string;
+  order: string;
+  search: string;
+}): string {
+  return `${input.page}|${input.pageSize}|${input.risksFilter}|${input.order}|${input.search}`;
+}
+
+const ArticleTableRow = memo(function ArticleTableRow({ row }: { row: ArticleRow }) {
+  return (
+    <tr>
+      <td className="articlesPage__td">
+        <span className="articlesPage__id">#{row.id}</span>
+      </td>
+      <td className="articlesPage__td articlesPage__td--title">
+        {formatDisplayValue(row.title)}
+      </td>
+      <td className="articlesPage__td articlesPage__td--url">
+        <a
+          href={row.url}
+          className="articlesPage__url"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {row.url}
+        </a>
+      </td>
+      <td className="articlesPage__td articlesPage__td--center">{row.risks}</td>
+      <td className="articlesPage__td articlesPage__td--muted">{row.created}</td>
+      <td className="articlesPage__td articlesPage__td--actions">
+        <a
+          href={row.url}
+          className="articlesPage__actionLink"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <ExternalLink size={14} strokeWidth={2} aria-hidden />
+          Open
+        </a>
+      </td>
+    </tr>
+  );
+});
+
 export function ArticlesPage() {
   const baseId = useId();
   const [searchQuery, setSearchQuery] = useState("");
@@ -102,105 +149,160 @@ export function ArticlesPage() {
   const [loadState, setLoadState] = useState<"idle" | "loading" | "error">(
     "idle",
   );
+  const [tableBusy, setTableBusy] = useState(false);
   const [articlePageSize, setArticlePageSize] = useState(10);
   const [page, setPage] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filteredTotal, setFilteredTotal] = useState(0);
+  const loadGen = useRef(0);
+  const hasRowsRef = useRef(false);
+  const pageCacheRef = useRef<
+    Map<string, { rows: ArticleRow[]; total: number; metrics: ArticleMetrics }>
+  >(new Map());
+  hasRowsRef.current = rows.length > 0;
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
     setDebouncedSearch("");
     setRisksFilter("all");
     setOrder("newest");
+    setFilteredTotal(0);
     setPage(0);
   }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedSearch(searchQuery);
-      setPage(0);
     }, 300);
     return () => window.clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadArticles = useCallback(async () => {
-    const token = sessionStorage.getItem("accessToken");
-    if (!token) {
-      setRows([]);
-      setLoadState("idle");
-      return;
-    }
+  const prevSearchRef = useRef(debouncedSearch);
+  useEffect(() => {
+    if (prevSearchRef.current === debouncedSearch) return;
+    prevSearchRef.current = debouncedSearch;
+    setFilteredTotal(0);
+    setPage(0);
+  }, [debouncedSearch]);
 
-    setLoadState("loading");
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(articlePageSize),
-        risks: risksFilter,
+  const loadArticles = useCallback(
+    async (targetPage: number, background = false) => {
+      const token = sessionStorage.getItem("accessToken");
+      if (!token) {
+        if (!background) {
+          setRows([]);
+          setLoadState("idle");
+          setTableBusy(false);
+        }
+        return;
+      }
+
+      const key = articleListCacheKey({
+        page: targetPage,
+        pageSize: articlePageSize,
+        risksFilter,
         order,
+        search: debouncedSearch.trim(),
       });
-      const q = debouncedSearch.trim();
-      if (q) params.set("search", q);
+      const cached = pageCacheRef.current.get(key);
+      if (cached) {
+        if (!background) {
+          setRows(cached.rows);
+          if (targetPage === 0) {
+            if (cached.total > 0) setFilteredTotal(cached.total);
+            setMetrics(cached.metrics);
+          }
+          setLoadState("idle");
+          setTableBusy(false);
+        }
+        return;
+      }
 
-      const path = `/articles?${params.toString()}`;
-      console.info("[Articles] request", path);
-      const startedAt = performance.now();
-      const res = await authFetch(path);
-      const elapsedMs = Math.round(performance.now() - startedAt);
-      const data = (await res.json().catch(() => ({}))) as {
-        error?: { message?: string };
-        articles?: unknown[];
-        metrics?: unknown;
-        pagination?: unknown;
-      };
-      console.info("[Articles] response", {
-        status: res.status,
-        ok: res.ok,
-        elapsedMs,
-        contentType: res.headers.get("content-type"),
-        url: res.url,
-        error: data.error ?? null,
-        articleCount: Array.isArray(data.articles) ? data.articles.length : 0,
-        metrics: data.metrics ?? null,
-        pagination: data.pagination ?? null,
-      });
-      if (res.status === 401) {
-        console.warn("[Articles] 401 unauthorized", data.error);
-        setLoadState("idle");
-        return;
+      let gen = loadGen.current;
+      if (!background) {
+        gen = ++loadGen.current;
+        setTableBusy(hasRowsRef.current);
+        if (!hasRowsRef.current) setLoadState("loading");
       }
-      if (!res.ok) {
-        console.error("[Articles] load failed", {
-          status: res.status,
-          elapsedMs,
-          error: data.error ?? "Could not load articles.",
+
+      try {
+        const params = new URLSearchParams({
+          page: String(targetPage),
+          pageSize: String(articlePageSize),
+          risks: risksFilter,
+          order,
         });
-        setLoadState("error");
-        toast.error(
-          data.error?.message ?? "Could not load articles.",
-          { autoClose: 3000 },
-        );
-        return;
+        const q = debouncedSearch.trim();
+        if (q) params.set("search", q);
+
+        const res = await authFetch(`/articles?${params.toString()}`);
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: { message?: string };
+          articles?: unknown[];
+          metrics?: unknown;
+          pagination?: unknown;
+        };
+        if (res.status === 401) {
+          if (!background && gen === loadGen.current) {
+            setLoadState("idle");
+            setTableBusy(false);
+          }
+          return;
+        }
+        if (!res.ok) {
+          if (!background && gen === loadGen.current) {
+            setLoadState("error");
+            setTableBusy(false);
+            toast.error(data.error?.message ?? "Could not load articles.", {
+              autoClose: 3000,
+            });
+          }
+          return;
+        }
+        const parsed = normalizeArticlesFromApi(data);
+        pageCacheRef.current.set(key, {
+          rows: parsed.articles,
+          total: parsed.pagination.total,
+          metrics: parsed.metrics,
+        });
+        while (pageCacheRef.current.size > 24) {
+          const first = pageCacheRef.current.keys().next().value;
+          if (first === undefined) break;
+          pageCacheRef.current.delete(first);
+        }
+        if (background || gen !== loadGen.current) return;
+        setRows(parsed.articles);
+        if (targetPage === 0) {
+          setFilteredTotal(parsed.pagination.total);
+          setMetrics(parsed.metrics);
+        }
+        setLoadState("idle");
+        setTableBusy(false);
+      } catch {
+        if (!background && gen === loadGen.current) {
+          setLoadState("error");
+          setTableBusy(false);
+          toast.error("Network error while loading articles.", { autoClose: 3000 });
+        }
       }
-      const parsed = normalizeArticlesFromApi(data);
-      setRows(parsed.articles);
-      setMetrics(parsed.metrics);
-      setFilteredTotal(parsed.pagination.total);
-      setLoadState("idle");
-    } catch (err) {
-      console.error("[Articles] network/parse error", err);
-      setLoadState("error");
-      toast.error("Network error while loading articles.", { autoClose: 3000 });
-    }
-  }, [page, articlePageSize, risksFilter, order, debouncedSearch]);
+    },
+    [articlePageSize, debouncedSearch, order, risksFilter],
+  );
 
   useEffect(() => {
     setDocumentPageTitle("Articles");
   }, []);
 
   useEffect(() => {
-    void loadArticles();
-  }, [loadArticles]);
+    void loadArticles(page, false);
+  }, [loadArticles, page]);
+
+  useEffect(() => {
+    const nextCount = Math.max(1, Math.ceil(filteredTotal / articlePageSize));
+    if (page + 1 < nextCount) {
+      void loadArticles(page + 1, true);
+    }
+  }, [articlePageSize, filteredTotal, loadArticles, page]);
 
   const pageCount = Math.max(1, Math.ceil(filteredTotal / articlePageSize));
   const safePage = Math.min(page, pageCount - 1);
@@ -208,11 +310,12 @@ export function ArticlesPage() {
   const to = Math.min((safePage + 1) * articlePageSize, filteredTotal);
 
   const handleRefresh = useCallback(async () => {
+    pageCacheRef.current.clear();
     setRefreshing(true);
-    await loadArticles();
+    await loadArticles(page, false);
     setRefreshing(false);
     toast.success("Articles list refreshed.", { autoClose: 2000 });
-  }, [loadArticles]);
+  }, [loadArticles, page]);
 
   const filterId = (name: string) => `${baseId}-${name}`;
 
@@ -226,16 +329,14 @@ export function ArticlesPage() {
             type="button"
             className="usersPage__inviteBtn"
             onClick={() => void handleRefresh()}
-            disabled={refreshing || loadState === "loading"}
-            aria-busy={refreshing || loadState === "loading"}
+            disabled={refreshing}
+            aria-busy={refreshing}
           >
             <RefreshCw
               size={18}
               strokeWidth={2}
               className={
-                refreshing || loadState === "loading"
-                  ? "pageHeader__refreshIcon--spin"
-                  : undefined
+                refreshing ? "pageHeader__refreshIcon--spin" : undefined
               }
               aria-hidden
             />
@@ -293,6 +394,7 @@ export function ArticlesPage() {
               setRisksFilter(
                 value === "with" || value === "none" ? value : "all",
               );
+              setFilteredTotal(0);
               setPage(0);
             }}
           >
@@ -349,7 +451,7 @@ export function ArticlesPage() {
         className="articlesPage__tableSection"
         aria-label="Articles table"
       >
-        <div className="articlesPage__tableWrap">
+        <div className="articlesPage__tableWrap" aria-busy={tableBusy || loadState === "loading"}>
           <div className="articlesPage__tableScroll">
             <table className="articlesPage__table">
               <thead>
@@ -375,7 +477,7 @@ export function ArticlesPage() {
                 </tr>
               </thead>
               <tbody>
-                {loadState === "loading" ? (
+                {loadState === "loading" && rows.length === 0 ? (
                   <tr>
                     <td className="articlesPage__td articlesPage__td--empty" colSpan={6}>
                       Loading articles…
@@ -392,43 +494,7 @@ export function ArticlesPage() {
                     </td>
                   </tr>
                 ) : (
-                  rows.map((row) => (
-                    <tr key={row.id}>
-                      <td className="articlesPage__td">
-                        <span className="articlesPage__id">#{row.id}</span>
-                      </td>
-                      <td className="articlesPage__td articlesPage__td--title">
-                        {row.title}
-                      </td>
-                      <td className="articlesPage__td articlesPage__td--url">
-                        <a
-                          href={row.url}
-                          className="articlesPage__url"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {row.url}
-                        </a>
-                      </td>
-                      <td className="articlesPage__td articlesPage__td--center">
-                        {row.risks}
-                      </td>
-                      <td className="articlesPage__td articlesPage__td--muted">
-                        {row.created}
-                      </td>
-                      <td className="articlesPage__td articlesPage__td--actions">
-                        <a
-                          href={row.url}
-                          className="articlesPage__actionLink"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink size={14} strokeWidth={2} aria-hidden />
-                          Open
-                        </a>
-                      </td>
-                    </tr>
-                  ))
+                  rows.map((row) => <ArticleTableRow key={row.id} row={row} />)
                 )}
               </tbody>
             </table>

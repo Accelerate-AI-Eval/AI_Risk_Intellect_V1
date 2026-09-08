@@ -20,7 +20,7 @@ export const enqueueUrlSchema = z.object({
   suggestedName: z
     .string()
     .trim()
-    .max(256, "Suggested name is too long.")
+    .max(2000, "Suggested name is too long.")
     .optional(),
 });
 
@@ -53,6 +53,16 @@ export type InvokeLlmModelInput = z.infer<typeof invokeLlmModelSchema>;
 export const ingestLinkIdSchema = z.object({
   id: z.coerce.number().int().positive(),
 });
+
+export const listReportUploadItemsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+  offset: z.coerce.number().int().min(0).optional().default(0),
+  afterId: z.coerce.number().int().positive().optional(),
+});
+
+export type ListReportUploadItemsQuery = z.infer<
+  typeof listReportUploadItemsQuerySchema
+>;
 
 export type IngestLinkIdParams = z.infer<typeof ingestLinkIdSchema>;
 
@@ -90,6 +100,9 @@ export const startReportsRunSchema = z
       .array(z.coerce.number().int().positive())
       .min(1, "Select at least one report URL to run.")
       .optional(),
+    excludeReportIds: z
+      .array(z.coerce.number().int().positive())
+      .optional(),
   })
   .refine(
     (value) =>
@@ -114,6 +127,9 @@ export const startBatchRunSchema = z
       .array(z.coerce.number().int().positive())
       .optional(),
     reportIds: z
+      .array(z.coerce.number().int().positive())
+      .optional(),
+    excludeReportIds: z
       .array(z.coerce.number().int().positive())
       .optional(),
   })

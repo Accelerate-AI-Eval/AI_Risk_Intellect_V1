@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type RefObject } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -25,12 +25,16 @@ import {
   SearchCheck,
   ShieldCheck,
   Sparkles,
+  CircleX,
+  Pencil,
+  Save,
   Tags,
   Target,
 } from "lucide-react";
 import {
   EVIDENCE_BREAKDOWN_HEADING_LABELS,
   formatArticleId,
+  formatDisplayValue,
   formatEvidenceFactValue,
   formatEvidenceStrength,
   formatProductCell,
@@ -40,6 +44,7 @@ import {
   type CatalogRiskMatch,
   type RiskDetail,
 } from "./riskData";
+import type { RiskEditDraft } from "./riskEditDraft";
 import "./riskDetailDialog.css";
 
 export type RiskDetailTab = "overview" | "analysis" | "scores" | "evidence";
@@ -73,7 +78,7 @@ type RiskDetailTabBarProps = {
   className?: string;
 };
 
-export function RiskDetailTabBar({
+export const RiskDetailTabBar = memo(function RiskDetailTabBar({
   idPrefix,
   tab,
   onTabChange,
@@ -102,7 +107,7 @@ export function RiskDetailTabBar({
       </div>
     </div>
   );
-}
+});
 
 export function parseRiskDetailTab(value: string | null): RiskDetailTab | undefined {
   if (
@@ -126,7 +131,104 @@ type RiskDetailViewProps = {
   hideTabBar?: boolean;
   idPrefix?: string;
   tabContentRef?: RefObject<HTMLDivElement | null>;
+  editMode?: boolean;
+  draft?: RiskEditDraft;
+  taxonomyDomains?: string[];
+  onDraftChange?: (patch: Partial<RiskEditDraft>) => void;
+  onEdit?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  saveDisabled?: boolean;
+  saving?: boolean;
 };
+
+function DetailActionBar({
+  editMode,
+  onEdit,
+  onSave,
+  onCancel,
+  saveDisabled,
+  saving,
+}: {
+  editMode: boolean;
+  onEdit?: () => void;
+  onSave?: () => void;
+  onCancel?: () => void;
+  saveDisabled: boolean;
+  saving: boolean;
+}) {
+  if (editMode && onSave) {
+    return (
+      <div className="riskDetail__saveBar">
+        <button
+          type="button"
+          className="riskDetailPage__saveBtn"
+          disabled={saveDisabled || saving}
+          onClick={onSave}
+        >
+          <Save size={16} strokeWidth={2} aria-hidden />
+          {saving ? "Saving…" : "Save"}
+        </button>
+        {onCancel ? (
+          <button
+            type="button"
+            className="riskDetailPage__cancelBtn"
+            disabled={saving}
+            onClick={onCancel}
+          >
+            <CircleX size={16} strokeWidth={2} aria-hidden />
+            Cancel
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+  if (!editMode && onEdit) {
+    return (
+      <div className="riskDetail__saveBar">
+        <button type="button" className="riskDetailPage__saveBtn" onClick={onEdit}>
+          <Pencil size={16} strokeWidth={2} aria-hidden />
+          Edit
+        </button>
+      </div>
+    );
+  }
+  return null;
+}
+
+function EditableText({
+  value,
+  onChange,
+  autoSize = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  autoSize?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    if (!autoSize) return;
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [autoSize, value]);
+
+  return (
+    <textarea
+      ref={ref}
+      className={
+        autoSize
+          ? "riskDetail__editInput riskDetail__editInput--auto"
+          : "riskDetail__editInput riskDetail__editInput--area"
+      }
+      rows={autoSize ? 1 : 4}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
 
 function confidenceLabel(level: RiskDetail["confidence"]): string {
   switch (level) {
@@ -149,7 +251,7 @@ function ScoreMetricIcon({ label }: { label: string }) {
   return <Icon size={16} strokeWidth={2} aria-hidden />;
 }
 
-function ScoreBar({ value, max }: { value: number; max: number }) {
+const ScoreBar = memo(function ScoreBar({ value, max }: { value: number; max: number }) {
   const pct = scorePercent(value, max);
   return (
     <div
@@ -163,7 +265,7 @@ function ScoreBar({ value, max }: { value: number; max: number }) {
       <div className="riskDetail__scoreBarFill" style={{ width: `${pct}%` }} />
     </div>
   );
-}
+});
 
 function DetailText({ children }: { children: string }) {
   const text = children.trim();
@@ -173,7 +275,7 @@ function DetailText({ children }: { children: string }) {
   return <p className="riskDetail__description">{text}</p>;
 }
 
-function AnalysisBlock({
+const AnalysisBlock = memo(function AnalysisBlock({
   label,
   text,
   icon,
@@ -200,9 +302,9 @@ function AnalysisBlock({
       <DetailText>{text}</DetailText>
     </div>
   );
-}
+});
 
-function DetailInfoCard({
+const DetailInfoCard = memo(function DetailInfoCard({
   title,
   value,
   children,
@@ -258,9 +360,9 @@ function DetailInfoCard({
       <dd className={ddClassName}>{body}</dd>
     </div>
   );
-}
+});
 
-function CatalogMatchScores({
+const CatalogMatchScores = memo(function CatalogMatchScores({
   accuracyPercent,
   domainMatchPercent,
   descriptionMatchPercent,
@@ -282,9 +384,9 @@ function CatalogMatchScores({
       </span>
     </div>
   );
-}
+});
 
-function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
+const CatalogMatchCard = memo(function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
   return (
     <li className="riskDetail__catalogMatch">
       <div className="riskDetail__catalogMatchHead">
@@ -296,7 +398,7 @@ function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
         />
       </div>
       <div className="riskDetail__catalogMatchTitleRow">
-        <p className="riskDetail__innerCardTitle riskDetail__catalogMatchTitle">{match.title}</p>
+        <p className="riskDetail__innerCardTitle riskDetail__catalogMatchTitle">{formatDisplayValue(match.title)}</p>
         <span className="riskDetail__domainHighlight riskDetail__domainHighlight--inline">
           {formatRiskDomain(match.domain)}
         </span>
@@ -305,9 +407,9 @@ function CatalogMatchCard({ match }: { match: CatalogRiskMatch }) {
       <p className="riskDetail__catalogMatchSummary">{match.matchSummary}</p>
     </li>
   );
-}
+});
 
-export function RiskDetailView({
+export const RiskDetailView = memo(function RiskDetailView({
   risk,
   initialTab = "overview",
   titleElementId,
@@ -316,6 +418,15 @@ export function RiskDetailView({
   hideTabBar = false,
   idPrefix: idPrefixProp,
   tabContentRef,
+  editMode = false,
+  draft,
+  taxonomyDomains = [],
+  onDraftChange,
+  onEdit,
+  onSave,
+  onCancel,
+  saveDisabled = true,
+  saving = false,
 }: RiskDetailViewProps) {
   const generatedId = useId();
   const baseId = idPrefixProp ?? generatedId;
@@ -343,7 +454,7 @@ export function RiskDetailView({
         {!titleElementId ? (
           <>
             <h2 id={`${baseId}-title`} className="riskDetail__srTitle">
-              {risk.title}
+              {formatDisplayValue(risk.title)}
             </h2>
             <header className="riskDetail__header">
               <div className="riskDetail__headerMain">
@@ -384,6 +495,14 @@ export function RiskDetailView({
         >
           {tab === "overview" ? (
             <>
+              <DetailActionBar
+                editMode={editMode}
+                onEdit={onEdit}
+                onSave={onSave}
+                onCancel={onCancel}
+                saveDisabled={saveDisabled}
+                saving={saving}
+              />
               <section
                 className="riskDetail__section riskDetail__section--source riskDetail__cardSection"
                 aria-labelledby={`${baseId}-source`}
@@ -396,9 +515,17 @@ export function RiskDetailView({
                   <dl className="riskDetail__classification riskDetail__sourceGrid">
                     <DetailInfoCard
                       title="Title"
-                      value={risk.articleTitle}
                       icon={BookOpen}
-                    />
+                     >
+                      {editMode && draft && onDraftChange ? (
+                        <EditableText
+                          value={draft.articleTitle}
+                          onChange={(v) => onDraftChange({ articleTitle: v })}
+                        />
+                      ) : (
+                        formatDisplayValue(risk.articleTitle)
+                      )}
+                    </DetailInfoCard>
                     <DetailInfoCard
                       title="URL"
                       icon={Link2}
@@ -447,26 +574,80 @@ export function RiskDetailView({
                 </h3>
                 <dl className="riskDetail__classification">
                   <DetailInfoCard
+                    title="Risk title"
+                    icon={FileText}
+                  >
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText value={draft.riskTitle} onChange={(v) => onDraftChange({ riskTitle: v })} />
+                    ) : (
+                      formatDisplayValue(risk.title)
+                    )}
+                  </DetailInfoCard>
+                  <DetailInfoCard
                     title="Domain"
-                    value={formatRiskDomain(risk.domain)}
                     icon={Globe}
-                  />
+                  >
+                    {editMode && draft && onDraftChange ? (
+                      <select
+                        className="riskDetail__editInput"
+                        value={draft.domains}
+                        onChange={(e) => onDraftChange({ domains: e.target.value })}
+                      >
+                        <option value="">{draft.domains ? "Keep current" : "Select a taxonomy domain…"}</option>
+                        {taxonomyDomains.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                        {draft.domains && !taxonomyDomains.includes(draft.domains) ? (
+                          <option value={draft.domains}>{draft.domains} (current)</option>
+                        ) : null}
+                      </select>
+                    ) : (
+                      formatRiskDomain(risk.domain)
+                    )}
+                  </DetailInfoCard>
                   <DetailInfoCard
                     title="Primary Risk"
-                    value={risk.primaryRisk}
                     icon={AlertTriangle}
-                  />
+                  >
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText autoSize value={draft.primaryRisk} onChange={(v) => onDraftChange({ primaryRisk: v })} />
+                    ) : (
+                      formatDisplayValue(risk.primaryRisk)
+                    )}
+                  </DetailInfoCard>
                   <DetailInfoCard
                     title="Secondary Risk"
-                    value={risk.secondaryRisk}
                     icon={ShieldCheck}
-                  />
-                  <DetailInfoCard title="Intent" value={risk.intent} icon={Flag} />
+                  >
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText autoSize value={draft.secondaryRisk} onChange={(v) => onDraftChange({ secondaryRisk: v })} />
+                    ) : (
+                      formatDisplayValue(risk.secondaryRisk)
+                    )}
+                  </DetailInfoCard>
+                  <DetailInfoCard
+                    title="Intent"
+                    icon={Flag}
+                  >
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText autoSize value={draft.intent} onChange={(v) => onDraftChange({ intent: v })} />
+                    ) : (
+                      formatDisplayValue(risk.intent)
+                    )}
+                  </DetailInfoCard>
                   <DetailInfoCard
                     title="AI Product"
-                    value={formatProductCell(risk.product)}
                     icon={Package}
-                  />
+                  >
+                    {editMode && draft && onDraftChange ? (
+                      <div className="riskDetail__editStack riskDetail__editStack--card">
+                        <EditableText value={draft.aiProductName} onChange={(v) => onDraftChange({ aiProductName: v })} />
+                        <EditableText value={draft.aiProductVendor} onChange={(v) => onDraftChange({ aiProductVendor: v })} />
+                      </div>
+                    ) : (
+                      formatProductCell(risk.product)
+                    )}
+                  </DetailInfoCard>
                 </dl>
               </section>
 
@@ -527,7 +708,14 @@ export function RiskDetailView({
                   <ScrollText size={16} strokeWidth={2} aria-hidden />
                   Description
                 </h3>
-                <DetailText>{risk.description}</DetailText>
+                {editMode && draft && onDraftChange ? (
+                  <EditableText
+                    value={draft.description}
+                    onChange={(v) => onDraftChange({ description: v })}
+                  />
+                ) : (
+                  <DetailText>{formatDisplayValue(risk.description)}</DetailText>
+                )}
               </section>
 
               <div className="riskDetail__dualColRow">
@@ -540,7 +728,14 @@ export function RiskDetailView({
                       <AlertTriangle size={16} strokeWidth={2} aria-hidden />
                       Attack Vector
                     </h3>
-                    <DetailText>{risk.attackVector}</DetailText>
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText
+                        value={draft.attackVector}
+                        onChange={(v) => onDraftChange({ attackVector: v })}
+                      />
+                    ) : (
+                      <DetailText>{formatDisplayValue(risk.attackVector)}</DetailText>
+                    )}
                   </section>
                   <section
                     className="riskDetail__section"
@@ -550,7 +745,14 @@ export function RiskDetailView({
                       <Eye size={16} strokeWidth={2} aria-hidden />
                       Observable Indicators
                     </h3>
-                    <DetailText>{risk.observableIndicators}</DetailText>
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText
+                        value={draft.observableIndicators}
+                        onChange={(v) => onDraftChange({ observableIndicators: v })}
+                      />
+                    ) : (
+                      <DetailText>{formatDisplayValue(risk.observableIndicators)}</DetailText>
+                    )}
                   </section>
                 </div>
                 <div className="riskDetail__dualCol riskDetail__dualCol--stack">
@@ -562,7 +764,11 @@ export function RiskDetailView({
                       <Building2 size={16} strokeWidth={2} aria-hidden />
                       Sector
                     </h3>
-                    <DetailText>{risk.sector}</DetailText>
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText value={draft.sector} onChange={(v) => onDraftChange({ sector: v })} />
+                    ) : (
+                      <DetailText>{formatDisplayValue(risk.sector)}</DetailText>
+                    )}
                   </section>
                   <section
                     className="riskDetail__section"
@@ -572,7 +778,11 @@ export function RiskDetailView({
                       <Factory size={16} strokeWidth={2} aria-hidden />
                       Industry
                     </h3>
-                    <DetailText>{risk.industry}</DetailText>
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText value={draft.industry} onChange={(v) => onDraftChange({ industry: v })} />
+                    ) : (
+                      <DetailText>{formatDisplayValue(risk.industry)}</DetailText>
+                    )}
                   </section>
                   <section
                     className="riskDetail__section"
@@ -582,13 +792,28 @@ export function RiskDetailView({
                       <Clock size={16} strokeWidth={2} aria-hidden />
                       Timing
                     </h3>
-                    <DetailText>{risk.timing}</DetailText>
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText
+                        value={draft.timing}
+                        onChange={(v) => onDraftChange({ timing: v })}
+                      />
+                    ) : (
+                      <DetailText>{formatDisplayValue(risk.timing)}</DetailText>
+                    )}
                   </section>
                 </div>
               </div>
             </>
           ) : tab === "analysis" ? (
             <>
+              <DetailActionBar
+                editMode={editMode}
+                onEdit={onEdit}
+                onSave={onSave}
+                onCancel={onCancel}
+                saveDisabled={saveDisabled}
+                saving={saving}
+              />
               <section
                 className="riskDetail__section"
                 aria-labelledby={`${baseId}-extracted-risk`}
@@ -613,12 +838,23 @@ export function RiskDetailView({
                     ) : null}
                   </div>
                   <div className="riskDetail__catalogMatchTitleRow">
-                    <p className="riskDetail__extractedRiskTitle">{risk.title}</p>
+                    {editMode && draft && onDraftChange ? (
+                      <EditableText value={draft.riskTitle} onChange={(v) => onDraftChange({ riskTitle: v })} />
+                    ) : (
+                      <p className="riskDetail__extractedRiskTitle">{formatDisplayValue(risk.title)}</p>
+                    )}
                     <span className="riskDetail__domainHighlight riskDetail__domainHighlight--inline">
                       {formatRiskDomain(risk.domain)}
                     </span>
                   </div>
-                  <DetailText>{risk.description}</DetailText>
+                  {editMode && draft && onDraftChange ? (
+                    <EditableText
+                      value={draft.description}
+                      onChange={(v) => onDraftChange({ description: v })}
+                    />
+                  ) : (
+                    <DetailText>{formatDisplayValue(risk.description)}</DetailText>
+                  )}
                 </div>
               </section>
 
@@ -713,7 +949,7 @@ export function RiskDetailView({
                   value={risk.scores.overall.value}
                   max={risk.scores.overall.max}
                 />
-                <DetailText>{risk.scores.justification.decision_rationale}</DetailText>
+                <DetailText>{formatDisplayValue(risk.scores.justification.decision_rationale)}</DetailText>
               </section>
 
               <ul className="riskDetail__evidenceList riskDetail__evidenceList--scores">
@@ -791,7 +1027,7 @@ export function RiskDetailView({
                     <Database size={16} strokeWidth={2} aria-hidden />
                     Data to Identify Risk
                   </h3>
-                  <DetailText>{risk.evidence.dataToIdentifyRisk}</DetailText>
+                  <DetailText>{formatDisplayValue(risk.evidence.dataToIdentifyRisk)}</DetailText>
                 </section>
 
                 <section
@@ -802,7 +1038,7 @@ export function RiskDetailView({
                     <Link2 size={16} strokeWidth={2} aria-hidden />
                     Evidence Sources
                   </h3>
-                  <DetailText>{risk.evidence.sources}</DetailText>
+                  <DetailText>{formatDisplayValue(risk.evidence.sources)}</DetailText>
                 </section>
               </div>
 
@@ -875,4 +1111,4 @@ export function RiskDetailView({
       </article>
     </div>
   );
-}
+});

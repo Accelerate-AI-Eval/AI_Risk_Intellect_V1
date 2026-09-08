@@ -64,7 +64,10 @@ export type RiskDto = {
   sector: string;
   industry: string;
   intent: string;
+  /** Display string on the 0–1 scale, or "—" when unscored. Not machine-safe. */
   qualityScore: string;
+  /** Same value as a number on the 0–1 scale, or null. Use this for thresholds. */
+  qualityScoreUnit: number | null;
   reviewWhy: string;
   reviewReason: string;
   primaryKey: string;
@@ -256,10 +259,15 @@ function confidenceFromScore(
   return "LOW";
 }
 
+/** Stored scores are 0–100; the API publishes 0–1. */
+function qualityScoreToUnit(score: number | null): number | null {
+  if (score == null) return null;
+  return Number((score <= 1 ? score : score / 100).toFixed(2));
+}
+
 function formatQualityScore(score: number | null): string {
-  if (score == null) return "—";
-  if (score <= 1) return score.toFixed(2);
-  return (score / 100).toFixed(2);
+  const unit = qualityScoreToUnit(score);
+  return unit == null ? "—" : unit.toFixed(2);
 }
 
 function mapEvidenceBreakdown(
@@ -404,6 +412,9 @@ export function mapRiskRowToDto(
     industry: str(row.industry ?? risk.industry, "—"),
     intent: str(row.intent ?? risk.intent, "—"),
     qualityScore: formatQualityScore(
+      typeof quality === "number" && !Number.isNaN(quality) ? quality : null,
+    ),
+    qualityScoreUnit: qualityScoreToUnit(
       typeof quality === "number" && !Number.isNaN(quality) ? quality : null,
     ),
     reviewWhy: reviewWhy.label,

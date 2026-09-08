@@ -59,13 +59,13 @@ async function promoteFromJson(): Promise<number> {
     const productName =
       typeof ext.risk?.ai_product_name === "string" &&
       ext.risk.ai_product_name.trim()
-        ? ext.risk.ai_product_name.trim().slice(0, 256)
+        ? ext.risk.ai_product_name.trim()
         : null;
     const productVendor =
       productName != null &&
       typeof ext.risk?.ai_product_vendor === "string" &&
       ext.risk.ai_product_vendor.trim()
-        ? ext.risk.ai_product_vendor.trim().slice(0, 256)
+        ? ext.risk.ai_product_vendor.trim()
         : null;
 
     if (

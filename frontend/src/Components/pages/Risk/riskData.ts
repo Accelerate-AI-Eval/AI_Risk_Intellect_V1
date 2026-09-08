@@ -49,18 +49,26 @@ export const EMPTY_RISK_SCORING: RiskScoringInfo = {
   lossCategories: [],
 };
 
+/** Display-time vocabulary: first letter capital, empty values as an em dash. */
+export function formatDisplayValue(value: string | null | undefined): string {
+  const raw = value?.trim() ?? "";
+  if (!raw || raw === "—") return "—";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 /** Table cell text for severity, e.g. "High (12)" or "—". */
 export function formatSeverityCell(scoring: RiskScoringInfo | undefined): string {
   if (!scoring || scoring.severityScore == null || scoring.severityBand === "—") {
     return "—";
   }
-  return `${scoring.severityBand} (${scoring.severityScore})`;
+  return `${formatDisplayValue(scoring.severityBand)} (${scoring.severityScore})`;
 }
 
 /** Table cell text for AI product, e.g. "ChatGPT — OpenAI" or "—". */
 export function formatProductCell(product: ProductInfo | undefined): string {
   if (!product?.name) return "—";
-  return product.vendor ? `${product.name} — ${product.vendor}` : product.name;
+  const name = formatDisplayValue(product.name);
+  return product.vendor ? `${name} — ${formatDisplayValue(product.vendor)}` : name;
 }
 
 export type RiskDetail = {
@@ -120,6 +128,16 @@ export type RiskDetail = {
   humanReview?: HumanReviewInfo;
   riskScoring?: RiskScoringInfo;
   product?: ProductInfo;
+  /** Present on Review Queue rows: who the review is assigned to (may be null). */
+  assignment?: ReviewAssignmentInfo;
+};
+
+export type ReviewAssignmentInfo = {
+  assignedTo: string | null;
+  assignedAt: string | null;
+  assignedBy: string | null;
+  assigneeUsername: string | null;
+  assigneeName: string | null;
 };
 
 export type EvidenceBreakdownItem = {
@@ -214,7 +232,7 @@ export function riskBackNavTitle(
     .replace(new RegExp(`^\\s*${escaped}\\s*(?:[:\\-|–—]\\s*)?`, "i"), "")
     .trim();
 
-  return withoutId || title;
+  return formatDisplayValue(withoutId || title);
 }
 
 /** Article id for display (matches articles list: #123). */
@@ -239,7 +257,7 @@ export function formatEvidenceFactValue(value: string): string {
   if (!/\s/.test(trimmed)) {
     return formatEvidenceStrength(trimmed);
   }
-  return trimmed;
+  return formatDisplayValue(trimmed);
 }
 
 /** Domain label without catalog numbering (e.g. "7. AI SYSTEM SAFETY" → "AI SYSTEM SAFETY"). */
@@ -505,10 +523,16 @@ export type RiskListMetrics = {
 export function normalizeRisksFromApi(raw: unknown): {
   risks: RiskDetail[];
   metrics: RiskListMetrics;
+  total: number;
+  hasMore: boolean;
+  metricsIncluded: boolean;
 } {
   const data = raw as {
     risks?: RiskDetail[];
     metrics?: Partial<RiskListMetrics>;
+    total?: number;
+    hasMore?: boolean;
+    metricsIncluded?: boolean;
   };
 
   const risks = (data.risks ?? []).map((r) => ({
@@ -581,16 +605,31 @@ export function normalizeRisksFromApi(raw: unknown): {
       reviewedAt: r.humanReview?.reviewedAt ?? null,
       feedback: r.humanReview?.feedback ?? null,
     },
+    assignment: r.assignment
+      ? {
+          assignedTo: r.assignment.assignedTo ?? null,
+          assignedAt: r.assignment.assignedAt ?? null,
+          assignedBy: r.assignment.assignedBy ?? null,
+          assigneeUsername: r.assignment.assigneeUsername ?? null,
+          assigneeName: r.assignment.assigneeName ?? null,
+        }
+      : undefined,
   }));
+
+  const metrics = {
+    total: data.metrics?.total ?? risks.length,
+    technical: data.metrics?.technical ?? 0,
+    operational: data.metrics?.operational ?? 0,
+    business: data.metrics?.business ?? 0,
+  };
+  const metricsIncluded = data.metricsIncluded !== false && data.metrics != null;
 
   return {
     risks,
-    metrics: {
-      total: data.metrics?.total ?? risks.length,
-      technical: data.metrics?.technical ?? 0,
-      operational: data.metrics?.operational ?? 0,
-      business: data.metrics?.business ?? 0,
-    },
+    metrics,
+    total: typeof data.total === "number" ? data.total : metrics.total,
+    hasMore: Boolean(data.hasMore),
+    metricsIncluded,
   };
 }
 

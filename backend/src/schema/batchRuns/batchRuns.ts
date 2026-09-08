@@ -23,7 +23,7 @@ export const batchRuns = pgTable(
   {
     id: serial("id").primaryKey(),
     modelName: varchar("model_name", { length: 128 }).notNull(),
-    modelLabel: varchar("model_label", { length: 256 }),
+    modelLabel: text("model_label"),
     status: batchRunStatusEnum("status").notNull().default("pending"),
     rssItemCount: integer("rss_item_count").notNull().default(0),
     etlItemCount: integer("etl_item_count").notNull().default(0),

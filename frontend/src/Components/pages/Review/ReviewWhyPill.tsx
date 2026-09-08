@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { positionTableTip } from "../../../utils/positionTableTip";
 
@@ -18,7 +18,7 @@ function briefForWhy(label: string, reason?: string): string {
   return WHY_BRIEFS[label] ?? WHY_BRIEFS.Review;
 }
 
-export function ReviewWhyPill({
+export const ReviewWhyPill = memo(function ReviewWhyPill({
   label,
   reason,
 }: {
@@ -163,4 +163,4 @@ export function ReviewWhyPill({
         : null}
     </div>
   );
-}
+});

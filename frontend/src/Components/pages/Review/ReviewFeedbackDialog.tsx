@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Info, X } from "lucide-react";
+import { CircleX, Info, Pencil, Save, X } from "lucide-react";
 import { formatDisplayDate } from "../../../utils/formatDate";
-import { formatRiskDomain, type HumanReviewInfo } from "../Risk/riskData";
+import { formatDisplayValue, formatRiskDomain, type HumanReviewInfo, type RiskDetail } from "../Risk/riskData";
+import { capitalizeDisplayName } from "../../../utils/reviewOpsApi";
 import {
   canPromoteReviewToRisks,
   humanReviewStatusLabel,
@@ -10,6 +11,7 @@ import {
   type ReviewClassification,
 } from "../Risk/humanReviewHelpers";
 import "../Users/usersPage.css";
+import "./reviewPage.css";
 
 export type { ReviewClassification };
 
@@ -25,6 +27,15 @@ interface ReviewFeedbackDialogProps {
   taxonomyDomains?: string[];
   submitting: boolean;
   initialReview?: HumanReviewInfo | null;
+  /** When present (edit mode), enables the allow-listed field editor. */
+  editableRisk?: RiskDetail | null;
+  /** Admin-only: Overview field edits and domain remap. */
+  canEditFields?: boolean;
+  savingFields?: boolean;
+  onSaveFields?: (fields: Record<string, unknown>, reason: string) => void;
+  onOpenAnalysis?: () => void;
+  /** Close the popup and open Overview in edit mode. */
+  onEditFields?: () => void;
   onClose: () => void;
   onSubmitRaw: (feedback: string) => void;
   onSubmitStructured: (feedback: string) => void;
@@ -72,6 +83,9 @@ export function ReviewFeedbackDialog({
   taxonomyDomains = [],
   submitting,
   initialReview,
+  canEditFields = false,
+  onOpenAnalysis,
+  onEditFields,
   onClose,
   onSubmitRaw,
   onSubmitStructured,
@@ -137,7 +151,7 @@ export function ReviewFeedbackDialog({
   if (!open) return null;
 
   const hasClassification = classification != null;
-  const hasFeedback = feedback.trim().length > 0;
+  const hasFeedback = feedback.trim().length >= 3;
   const hasMappedDomain = !needsDomainRemap || Boolean(selectedDomain);
   const canUseMoveToggle =
     mode === "edit" &&
@@ -247,8 +261,8 @@ export function ReviewFeedbackDialog({
             <h2 id={`${baseId}-title`} className="usersPage__dialogTitle">
               {dialogTitle}
             </h2>
-            <p className="reviewFeedbackDialog__subtitle" title={riskTitle}>
-              {riskTitle}
+            <p className="reviewFeedbackDialog__subtitle" title={formatDisplayValue(riskTitle)}>
+              {formatDisplayValue(riskTitle)}
             </p>
           </div>
           <button
@@ -279,7 +293,30 @@ export function ReviewFeedbackDialog({
               </p>
             </section>
           ) : null}
-          {needsDomainRemap && !isViewMode ? (
+          {onOpenAnalysis || onEditFields ? (
+            <div className="reviewFeedbackDialog__analysisActions">
+              {onOpenAnalysis ? (
+                <button
+                  type="button"
+                  className="usersPage__btn"
+                  onClick={onOpenAnalysis}
+                >
+                  Open Analysis
+                </button>
+              ) : null}
+              {onEditFields && !isViewMode ? (
+                <button
+                  type="button"
+                  className="usersPage__btn usersPage__btn--primary"
+                  onClick={onEditFields}
+                >
+                  <Pencil size={16} strokeWidth={2} aria-hidden />
+                  Edit
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {needsDomainRemap && !isViewMode && canEditFields ? (
             <section className="reviewFeedbackDialog__domainMap" aria-label="Map domain">
               <label htmlFor={`${baseId}-domain`} className="reviewFeedbackDialog__label">
                 Move to taxonomy domain
@@ -315,7 +352,7 @@ export function ReviewFeedbackDialog({
               {initialReview?.reviewedBy ? (
                 <div className="reviewFeedbackDialog__metaRow">
                   <dt>Reviewed by</dt>
-                  <dd>{initialReview.reviewedBy}</dd>
+                  <dd>{capitalizeDisplayName(initialReview.reviewedBy)}</dd>
                 </div>
               ) : null}
               {reviewedAtDisplay ? (
@@ -391,6 +428,11 @@ export function ReviewFeedbackDialog({
                 disabled={submitting || !feedbackEditable}
                 readOnly={!feedbackEditable}
               />
+              {feedbackEditable && feedback.trim().length > 0 && feedback.trim().length < 3 ? (
+                <p className="usersPage__fieldError" role="alert">
+                  Feedback must be at least 3 characters.
+                </p>
+              ) : null}
 
               {showMoveToRisksRow ? (
                 <div
@@ -456,7 +498,17 @@ export function ReviewFeedbackDialog({
             onClick={close}
             disabled={submitting}
           >
-            {isReadOnly ? "Close" : "Cancel"}
+            {isReadOnly ? (
+              <>
+                <X size={16} strokeWidth={1.75} aria-hidden />
+                Close
+              </>
+            ) : (
+              <>
+                <CircleX size={16} strokeWidth={1.75} aria-hidden />
+                Cancel
+              </>
+            )}
           </button>
           {!isViewMode && !isOnRisks ? (
             <button
@@ -466,6 +518,7 @@ export function ReviewFeedbackDialog({
               aria-busy={submitting}
               onClick={handleSubmit}
             >
+              <Save size={16} strokeWidth={2} aria-hidden />
               {submitLabel}
             </button>
           ) : null}
@@ -500,7 +553,7 @@ export function ReviewFeedbackDialog({
                 id={`${baseId}-confirm-desc`}
                 className="reviewFeedbackDialog__confirmText"
               >
-                This will promote <strong>{riskTitle}</strong> to the Risks
+                This will promote <strong>{formatDisplayValue(riskTitle)}</strong> to the Risks
                 page as <strong>{classification === "raw" ? "Raw" : "Structured"}</strong>
                 {selectedDomain ? (
                   <>
@@ -517,6 +570,7 @@ export function ReviewFeedbackDialog({
                 className="usersPage__btn usersPage__btn--logoutTone"
                 onClick={() => setMoveConfirmOpen(false)}
               >
+                <CircleX size={16} strokeWidth={1.75} aria-hidden />
                 Cancel
               </button>
               <button

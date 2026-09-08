@@ -11,9 +11,7 @@ import {
   startDiscoveryProcess,
 } from "./discoveryManager.service.js";
 import {
-  getReportRefsByUploadIds,
-  resolveActiveReportUploadsByIds,
-  resolveReportRefsByIds,
+  resolveSelectedReportRefs,
   type ReportItemRef,
 } from "./etlReportUploads.service.js";
 import {
@@ -34,6 +32,7 @@ export type StartBatchRunInput = {
   ingestLinkItemIds?: number[];
   uploadIds?: number[];
   reportIds?: number[];
+  excludeReportIds?: number[];
 };
 
 export type BatchRunItemProcessingStatus =
@@ -1016,23 +1015,17 @@ async function resolveRssRefs(input: StartBatchRunInput): Promise<
 async function resolveEtlRefs(input: StartBatchRunInput): Promise<ReportItemRef[]> {
   const requestedReportIds = input.reportIds ?? [];
   const requestedUploadIds = input.uploadIds ?? [];
+  const excludeReportIds = input.excludeReportIds ?? [];
 
-  let refs =
-    requestedReportIds.length > 0
-      ? await resolveReportRefsByIds(requestedReportIds)
-      : [];
-
-  const resolvedUploadIds =
-    requestedUploadIds.length > 0
-      ? (await resolveActiveReportUploadsByIds(requestedUploadIds)).map(
-          (upload) => upload.id,
-        )
-      : [...new Set(refs.map((ref) => ref.uploadId))];
-
-  if (refs.length === 0 && resolvedUploadIds.length > 0) {
-    refs = await getReportRefsByUploadIds(resolvedUploadIds);
+  if (requestedReportIds.length === 0 && requestedUploadIds.length === 0) {
+    return [];
   }
 
+  const { refs } = await resolveSelectedReportRefs({
+    uploadIds: requestedUploadIds,
+    reportIds: requestedReportIds,
+    excludeReportIds,
+  });
   return refs;
 }
 

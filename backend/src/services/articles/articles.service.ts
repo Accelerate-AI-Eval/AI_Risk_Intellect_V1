@@ -44,6 +44,40 @@ function buildArticleFilters(query: ListArticlesQuery): SQL | undefined {
   return parts.length === 1 ? parts[0] : and(...parts);
 }
 
+const ARTICLE_METRICS_TTL_MS = 15_000;
+const EMPTY_ARTICLE_METRICS: ArticleListMetrics = {
+  total: 0,
+  risksExtracted: 0,
+  avgRisksPerArticle: 0,
+};
+let articleMetricsCache: { at: number; value: ArticleListMetrics } | null =
+  null;
+
+async function unfilteredArticleMetrics(): Promise<ArticleListMetrics> {
+  const now = Date.now();
+  if (
+    articleMetricsCache &&
+    now - articleMetricsCache.at < ARTICLE_METRICS_TTL_MS
+  ) {
+    return articleMetricsCache.value;
+  }
+  const [agg] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      risksExtracted: sql<number>`coalesce(sum(${articles.riskCount}), 0)::int`,
+    })
+    .from(articles);
+  const total = agg?.total ?? 0;
+  const risksExtracted = agg?.risksExtracted ?? 0;
+  const value: ArticleListMetrics = {
+    total,
+    risksExtracted,
+    avgRisksPerArticle: total > 0 ? risksExtracted / total : 0,
+  };
+  articleMetricsCache = { at: now, value };
+  return value;
+}
+
 export async function listArticles(query: ListArticlesQuery): Promise<{
   articles: ArticleListItem[];
   metrics: ArticleListMetrics;
@@ -55,37 +89,46 @@ export async function listArticles(query: ListArticlesQuery): Promise<{
       ? asc(articles.createdAt)
       : desc(articles.createdAt);
   const offset = query.page * query.pageSize;
+  const skipTotals = query.page > 0;
 
-  const [rows, [filtered], [agg]] = await Promise.all([
-    db
-      .select({
-        id: articles.id,
-        title: articles.title,
-        url: articles.url,
-        riskCount: articles.riskCount,
-        createdAt: articles.createdAt,
-        updatedAt: articles.updatedAt,
-      })
-      .from(articles)
-      .where(filters)
-      .orderBy(orderBy)
-      .limit(query.pageSize)
-      .offset(offset),
-    db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(articles)
-      .where(filters),
-    db
-      .select({
-        total: sql<number>`count(*)::int`,
-        risksExtracted: sql<number>`coalesce(sum(${articles.riskCount}), 0)::int`,
-      })
-      .from(articles),
-  ]);
+  const pageQuery = db
+    .select({
+      id: articles.id,
+      title: articles.title,
+      url: articles.url,
+      riskCount: articles.riskCount,
+      createdAt: articles.createdAt,
+      updatedAt: articles.updatedAt,
+    })
+    .from(articles)
+    .where(filters)
+    .orderBy(orderBy)
+    .limit(query.pageSize)
+    .offset(offset);
 
-  const filteredTotal = filtered?.total ?? 0;
-  const total = agg?.total ?? 0;
-  const risksExtracted = agg?.risksExtracted ?? 0;
+  let rows;
+  let filteredTotal: number;
+  let metrics: ArticleListMetrics;
+
+  if (skipTotals) {
+    rows = await pageQuery;
+    filteredTotal = 0;
+    metrics = EMPTY_ARTICLE_METRICS;
+  } else {
+    const metricsPromise = unfilteredArticleMetrics();
+    [rows, filteredTotal, metrics] = await Promise.all([
+      pageQuery,
+      filters
+        ? db
+            .select({ total: sql<number>`count(*)::int` })
+            .from(articles)
+            .where(filters)
+            .then((countRows) => countRows[0]?.total ?? 0)
+        : metricsPromise.then((m) => m.total),
+      metricsPromise,
+    ]);
+  }
+
   const pageCount = Math.max(1, Math.ceil(filteredTotal / query.pageSize));
 
   return {
@@ -93,11 +136,7 @@ export async function listArticles(query: ListArticlesQuery): Promise<{
       ...row,
       title: row.title ? decodeDisplayTitle(row.title) : null,
     })),
-    metrics: {
-      total,
-      risksExtracted,
-      avgRisksPerArticle: total > 0 ? risksExtracted / total : 0,
-    },
+    metrics,
     pagination: {
       page: query.page,
       pageSize: query.pageSize,

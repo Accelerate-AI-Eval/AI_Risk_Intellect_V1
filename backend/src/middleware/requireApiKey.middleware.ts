@@ -77,6 +77,7 @@ export async function authenticateApiKey(req: Request): Promise<void> {
       id: users.id,
       email: users.email,
       username: users.username,
+      role: users.role,
       isActive: users.isActive,
     })
     .from(users)
@@ -94,6 +95,7 @@ export async function authenticateApiKey(req: Request): Promise<void> {
     sub: owner.id,
     email: owner.email,
     username: owner.username,
+    role: owner.role,
   } satisfies AccessTokenPayload;
   req.authMethod = "api_key";
 

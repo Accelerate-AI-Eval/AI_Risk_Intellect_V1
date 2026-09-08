@@ -306,13 +306,13 @@ async function buildPersistedExtraction(input: {
   const severityScore = scoring.severityScore;
   const aiProductName =
     typeof risk.ai_product_name === "string" && risk.ai_product_name.trim()
-      ? risk.ai_product_name.trim().slice(0, 256)
+      ? risk.ai_product_name.trim()
       : null;
   const aiProductVendor =
     aiProductName != null &&
     typeof risk.ai_product_vendor === "string" &&
     risk.ai_product_vendor.trim()
-      ? risk.ai_product_vendor.trim().slice(0, 256)
+      ? risk.ai_product_vendor.trim()
       : null;
 
   return {

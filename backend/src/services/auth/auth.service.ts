@@ -159,6 +159,7 @@ export async function updateUserProfileRecord(input: {
   fullName?: string;
   reason: string;
   isActive?: boolean;
+  role?: "admin" | "user";
 }): Promise<SafeUser> {
   const normalized = input.username.trim();
   const reason = input.reason.trim();
@@ -202,6 +203,7 @@ export async function updateUserProfileRecord(input: {
       updatedAt: Date;
       fullName?: string | null;
       isActive?: boolean;
+      role?: "admin" | "user";
     } = {
       username: normalized,
       updatedAt: new Date(),
@@ -220,6 +222,13 @@ export async function updateUserProfileRecord(input: {
       patch.isActive = input.isActive;
       if (before.isActive !== input.isActive) {
         changes.isActive = { from: before.isActive, to: input.isActive };
+      }
+    }
+
+    if (input.role !== undefined) {
+      patch.role = input.role;
+      if (before.role !== input.role) {
+        changes.role = { from: before.role, to: input.role };
       }
     }
 
@@ -288,6 +297,7 @@ export async function listUsers(): Promise<SafeUser[]> {
 /** Ensures a users row exists for this invite (pending until registration). */
 export async function upsertInvitedUser(
   email: string,
+  role: "admin" | "user" = "user",
 ): Promise<{ userId: string }> {
   const [existing] = await db
     .select()
@@ -304,6 +314,7 @@ export async function upsertInvitedUser(
       .set({
         updatedAt: new Date(),
         accountStatus: "pending",
+        role,
       })
       .where(eq(users.id, existing.id));
     return { userId: existing.id };
@@ -318,6 +329,7 @@ export async function upsertInvitedUser(
       passwordHash: null,
       fullName: null,
       isActive: false,
+      role,
     })
     .returning({ id: users.id });
 

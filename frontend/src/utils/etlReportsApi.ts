@@ -107,12 +107,21 @@ export function reportUploadItemDisplayCount(
   row: EtlReportUploadRow,
   items?: EtlReportUploadItemRow[],
 ): number {
-  if (items) {
-    return items.length;
+  if (row.status === "pending" || row.status === "processing") {
+    return items?.length ?? 0;
   }
-  if (row.status === "pending" || row.status === "processing") return 0;
-  return row.importedRows;
+  if (row.importedRows > 0) return row.importedRows;
+  return items?.length ?? 0;
 }
+
+export type EtlReportRunSelection = {
+  uploadIds: number[];
+  reportIds: number[];
+  excludeReportIds?: number[];
+  selectedReportCount: number;
+};
+
+export const ETL_REPORT_ITEMS_PAGE_SIZE = 40;
 
 export type EtlReportUploadRow = {
   id: number;
@@ -199,14 +208,38 @@ export async function fetchEtlReportUploads(): Promise<
 
 export async function fetchEtlReportUploadItems(
   uploadId: number,
+  options?: { limit?: number; offset?: number; afterId?: number },
 ): Promise<
-  | { ok: true; items: EtlReportUploadItemRow[] }
+  | {
+      ok: true;
+      items: EtlReportUploadItemRow[];
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    }
   | { ok: false; message: string }
 > {
+  const limit = options?.limit ?? ETL_REPORT_ITEMS_PAGE_SIZE;
+  const offset = options?.offset ?? 0;
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  if (options?.afterId != null && options.afterId > 0) {
+    params.set("afterId", String(options.afterId));
+  }
+
   try {
-    const res = await authFetch(`/admin/etl/reports/uploads/${uploadId}/items`);
+    const res = await authFetch(
+      `/admin/etl/reports/uploads/${uploadId}/items?${params.toString()}`,
+    );
     const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
       items?: EtlReportUploadItemRow[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+      hasMore?: boolean;
     };
 
     if (!res.ok) {
@@ -216,7 +249,23 @@ export async function fetchEtlReportUploadItems(
       };
     }
 
-    return { ok: true, items: data.items ?? [] };
+    const items = data.items ?? [];
+    const total = data.total ?? items.length;
+    const pageLimit = data.limit ?? limit;
+    const pageOffset = data.offset ?? offset;
+    const hasMore =
+      typeof data.hasMore === "boolean"
+        ? data.hasMore
+        : pageOffset + items.length < total;
+
+    return {
+      ok: true,
+      items,
+      total,
+      limit: pageLimit,
+      offset: pageOffset,
+      hasMore,
+    };
   } catch {
     return {
       ok: false,
@@ -226,7 +275,11 @@ export async function fetchEtlReportUploadItems(
 }
 
 export async function startEtlReportsRun(
-  selection: { uploadIds: number[]; reportIds: number[] },
+  selection: {
+    uploadIds: number[];
+    reportIds: number[];
+    excludeReportIds?: number[];
+  },
 ): Promise<
   | {
       ok: true;
@@ -240,7 +293,17 @@ export async function startEtlReportsRun(
     const res = await authFetch("/admin/etl/reports/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(selection),
+      body: JSON.stringify({
+        ...(selection.uploadIds.length > 0
+          ? { uploadIds: selection.uploadIds }
+          : {}),
+        ...(selection.reportIds.length > 0
+          ? { reportIds: selection.reportIds }
+          : {}),
+        ...(selection.excludeReportIds && selection.excludeReportIds.length > 0
+          ? { excludeReportIds: selection.excludeReportIds }
+          : {}),
+      }),
     });
     const data = (await res.json().catch(() => ({}))) as ApiErrorBody & {
       message?: string;

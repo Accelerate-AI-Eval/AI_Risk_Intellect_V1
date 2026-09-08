@@ -31,6 +31,7 @@ async function main() {
     passwordHash,
     fullName: "Administrator",
     accountStatus: "completed",
+    role: "admin",
   });
 
   console.log(`Seeded user: ${EMAIL} / username: ${USERNAME}`);

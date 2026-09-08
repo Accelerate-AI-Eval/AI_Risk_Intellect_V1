@@ -14,7 +14,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { authFetch } from "../../../utils/authFetch";
-import { startEtlReportsRun } from "../../../utils/etlReportsApi";
+import { startEtlReportsRun, type EtlReportRunSelection } from "../../../utils/etlReportsApi";
 import {
   exportArticlesToExcel,
   exportReviewToExcel,
@@ -154,10 +154,7 @@ export function AdminPage() {
     });
   }, []);
 
-  const handleReportsStart = async (selection: {
-    uploadIds: number[];
-    reportIds: number[];
-  }) => {
+  const handleReportsStart = async (selection: EtlReportRunSelection) => {
     setPendingAction((pending) => ({ ...pending, worker: "starting" }));
 
     try {

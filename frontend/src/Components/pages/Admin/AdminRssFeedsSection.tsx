@@ -21,8 +21,8 @@ import {
   Link2,
   MoreHorizontal,
   Pencil,
-  Play,
   Plus,
+  Save,
   RefreshCw,
   Rss,
   Search,
@@ -756,7 +756,7 @@ export function AdminRssFeedsSection({
                 value={editSuggestedName}
                 onChange={(e) => setEditSuggestedName(e.target.value)}
                 autoComplete="off"
-                maxLength={256}
+                maxLength={2000}
                 disabled={editSaving}
               />
               <label className="usersPage__label usersPage__label--withIcon">
@@ -799,7 +799,7 @@ export function AdminRssFeedsSection({
                   onClick={() => void handleSaveLink()}
                   disabled={editSaving}
                 >
-                  <Play size={16} strokeWidth={2} aria-hidden />
+                  <Save size={16} strokeWidth={2} aria-hidden />
                   {editSaving ? "Saving…" : "Save"}
                 </button>
               </div>

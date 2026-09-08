@@ -6,6 +6,7 @@ import {
   listReportUploads,
   restoreReportUpload,
 } from "../../services/admin/etlReportUploads.service.js";
+import type { ListReportUploadItemsQuery } from "../../validators/admin.validators.js";
 
 export async function listReportUploadsHandler(
   _req: Request,
@@ -20,8 +21,14 @@ export async function listReportUploadItemsHandler(
   res: Response,
 ): Promise<void> {
   const id = Number(req.params.id);
-  const items = await listReportUploadItems(id);
-  res.json({ items });
+  const query = req.query as unknown as ListReportUploadItemsQuery;
+  const afterId = Number(query.afterId);
+  const result = await listReportUploadItems(id, {
+    limit: Number(query.limit) || 50,
+    offset: Number(query.offset) || 0,
+    afterId: Number.isFinite(afterId) && afterId > 0 ? afterId : undefined,
+  });
+  res.json(result);
 }
 
 export async function exportReportUploadItemsHandler(

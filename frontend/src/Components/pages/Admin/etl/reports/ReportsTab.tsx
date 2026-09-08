@@ -1,5 +1,6 @@
 import {
   Fragment,
+  memo,
   useCallback,
   useEffect,
   useId,
@@ -17,6 +18,7 @@ import {
   ChevronRight,
   Database,
   Download,
+  Loader2,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -52,7 +54,9 @@ import {
   restoreEtlReportUpload,
   reuploadEtlReportUpload,
   reportUploadItemDisplayCount,
+  ETL_REPORT_ITEMS_PAGE_SIZE,
   type EtlExtractionDisplayStatus,
+  type EtlReportRunSelection,
   type EtlReportUploadItemRow,
   type EtlReportUploadRow,
 } from "../../../../../utils/etlReportsApi";
@@ -71,10 +75,7 @@ interface ReportsTabProps {
   idPrefix: string;
   workerStatus: ServiceState;
   workerApiRunning: boolean;
-  onReportsStart: (selection: {
-    uploadIds: number[];
-    reportIds: number[];
-  }) => void;
+  onReportsStart: (selection: EtlReportRunSelection) => void;
   onWorkerStop: () => void;
 }
 
@@ -243,7 +244,13 @@ export function ReportsTab({
   const [uploadItemsById, setUploadItemsById] = useState<
     Record<number, EtlReportUploadItemRow[]>
   >({});
+  const [uploadItemsHasMoreById, setUploadItemsHasMoreById] = useState<
+    Record<number, boolean>
+  >({});
   const [uploadItemsLoadingId, setUploadItemsLoadingId] = useState<number | null>(
+    null,
+  );
+  const [itemsScrollerEl, setItemsScrollerEl] = useState<HTMLDivElement | null>(
     null,
   );
   const [startDialogOpen, setStartDialogOpen] = useState(false);
@@ -578,6 +585,11 @@ export function ReportsTab({
         delete next[id];
         return next;
       });
+      setUploadItemsHasMoreById((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       void loadUploads({ silent: true });
       if (expandedUploadId === id) {
         void loadUploadItems(id);
@@ -647,31 +659,59 @@ export function ReportsTab({
     toast.success(`Exported ${result.fileName}.`, { autoClose: 2800 });
   }
 
-  const loadUploadItems = useCallback(async (uploadId: number) => {
-    setUploadItemsLoadingId(uploadId);
-    const result = await fetchEtlReportUploadItems(uploadId);
-    setUploadItemsLoadingId(null);
+  const loadUploadItems = useCallback(
+    async (uploadId: number, offset = 0, afterId?: number) => {
+      setUploadItemsLoadingId(uploadId);
+      const result = await fetchEtlReportUploadItems(uploadId, {
+        limit: ETL_REPORT_ITEMS_PAGE_SIZE,
+        offset,
+        afterId,
+      });
+      setUploadItemsLoadingId(null);
 
-    if (!result.ok) {
-      toast.error(result.message, { autoClose: 3000 });
-      return;
-    }
+      if (!result.ok) {
+        toast.error(result.message, { autoClose: 3000 });
+        return;
+      }
 
-    setUploadItemsById((prev) => ({ ...prev, [uploadId]: result.items }));
-  }, []);
+      setUploadItemsById((prev) => {
+        const existing = offset === 0 ? [] : (prev[uploadId] ?? []);
+        const seen = new Set(existing.map((item) => item.id));
+        return {
+          ...prev,
+          [uploadId]: [
+            ...existing,
+            ...result.items.filter((item) => !seen.has(item.id)),
+          ],
+        };
+      });
+      setUploadItemsHasMoreById((prev) => ({
+        ...prev,
+        [uploadId]: result.hasMore,
+      }));
+    },
+    [],
+  );
 
   useEffect(() => {
     if (expandedUploadId == null) return;
-    void loadUploadItems(expandedUploadId);
+    void loadUploadItems(expandedUploadId, 0);
   }, [expandedUploadId, loadUploadItems]);
 
-  useEffect(() => {
-    for (const row of uploads) {
-      if (row.status === "pending" || row.status === "processing") continue;
-      if (uploadItemsById[row.id]) continue;
-      void loadUploadItems(row.id);
-    }
-  }, [uploads, loadUploadItems, uploadItemsById]);
+  const loadMoreExpandedItems = useCallback(() => {
+    if (expandedUploadId == null) return;
+    if (uploadItemsLoadingId === expandedUploadId) return;
+    if (!uploadItemsHasMoreById[expandedUploadId]) return;
+    const loaded = uploadItemsById[expandedUploadId] ?? [];
+    const lastId = loaded[loaded.length - 1]?.id;
+    void loadUploadItems(expandedUploadId, loaded.length, lastId);
+  }, [
+    expandedUploadId,
+    loadUploadItems,
+    uploadItemsById,
+    uploadItemsHasMoreById,
+    uploadItemsLoadingId,
+  ]);
 
   function toggleUploadDetails(id: number) {
     setExpandedUploadId((prev) => (prev === id ? null : id));
@@ -943,7 +983,7 @@ export function ReportsTab({
                       const isExpanded = expandedUploadId === row.id;
                       const uploadItems = uploadItemsById[row.id] ?? [];
                       const displayItems = uploadItems;
-                      const items = itemCountForRow(row, uploadItems);
+                      const items = itemCountForRow(row);
                       const itemsLoading = uploadItemsLoadingId === row.id;
                       const progress = discoveryProgressByUpload.get(row.id) ?? {
                         total: 0,
@@ -993,11 +1033,7 @@ export function ReportsTab({
                                   type="button"
                                   className="adminPage__itemsBtn"
                                   onClick={() => toggleUploadDetails(row.id)}
-                                  disabled={
-                                    items === 0 &&
-                                    uploadItems.length === 0 &&
-                                    !isExpanded
-                                  }
+                                  disabled={items === 0 && !isExpanded}
                                   aria-expanded={isExpanded}
                                   aria-label={
                                     items > 0
@@ -1203,11 +1239,17 @@ export function ReportsTab({
                                       row.fileName ||
                                       `Upload #${row.id}`}
                                   </p>
-                                  {itemsLoading ? (
+                                  {itemsLoading && displayItems.length === 0 ? (
                                     <p
-                                      className="adminPage__itemsPanelEmpty"
+                                      className="adminPage__itemsPanelEmpty adminPage__discoveryItemsStatus--loading"
                                       role="status"
                                     >
+                                      <Loader2
+                                        size={14}
+                                        strokeWidth={2}
+                                        className="adminPage__discoveryItemsSpinner"
+                                        aria-hidden
+                                      />
                                       Loading report URLs…
                                     </p>
                                   ) : displayItems.length === 0 ? (
@@ -1218,6 +1260,10 @@ export function ReportsTab({
                                       {uploadItemsEmptyMessage(row)}
                                     </p>
                                   ) : (
+                                    <div
+                                      ref={setItemsScrollerEl}
+                                      className="adminPage__itemsPanelScroller"
+                                    >
                                     <table className="adminPage__itemsTable">
                                       <colgroup>
                                         <col className="adminPage__itemsColIndex" />
@@ -1230,31 +1276,42 @@ export function ReportsTab({
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {displayItems.map((item, index) => (
-                                            <tr key={item.id}>
-                                              <td>
-                                                <span
-                                                  className="adminPage__id"
-                                                  title={`Item ${index + 1}`}
-                                                >
-                                                  #{index + 1}
-                                                </span>
-                                              </td>
-                                              <td>
-                                                <a
-                                                  href={item.url}
-                                                  className="adminPage__cellUrl"
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  title={item.url}
-                                                >
-                                                  {item.url}
-                                                </a>
-                                              </td>
-                                            </tr>
+                                        {displayItems.map((item) => (
+                                          <MemoExpandedUrlRow key={item.id} item={item} />
                                         ))}
                                       </tbody>
                                     </table>
+                                    {uploadItemsHasMoreById[row.id] ? (
+                                      <ItemsPanelSentinel
+                                        root={itemsScrollerEl}
+                                        loading={itemsLoading}
+                                        onVisible={loadMoreExpandedItems}
+                                      />
+                                    ) : null}
+                                    {itemsLoading ? (
+                                      <p
+                                        className="adminPage__itemsPanelEmpty adminPage__discoveryItemsStatus--loading"
+                                        role="status"
+                                      >
+                                        <Loader2
+                                          size={14}
+                                          strokeWidth={2}
+                                          className="adminPage__discoveryItemsSpinner"
+                                          aria-hidden
+                                        />
+                                        Loading more URLs… {displayItems.length} of{" "}
+                                        {items || displayItems.length}
+                                      </p>
+                                    ) : uploadItemsHasMoreById[row.id] ? (
+                                      <p
+                                        className="adminPage__itemsPanelEmpty"
+                                        role="status"
+                                      >
+                                        Showing {displayItems.length} of {items}.
+                                        Scroll for more.
+                                      </p>
+                                    ) : null}
+                                    </div>
                                   )}
                                 </div>
                               </td>
@@ -1414,4 +1471,61 @@ export function ReportsTab({
       />
     </>
   );
+}
+
+function ExpandedUrlRow({ item }: { item: EtlReportUploadItemRow }) {
+  return (
+    <tr>
+      <td>
+        <span className="adminPage__id" title={`Item ${item.rowOrder}`}>
+          #{item.rowOrder}
+        </span>
+      </td>
+      <td>
+        <a
+          href={item.url}
+          className="adminPage__cellUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          title={item.url}
+        >
+          {item.url}
+        </a>
+      </td>
+    </tr>
+  );
+}
+
+const MemoExpandedUrlRow = memo(ExpandedUrlRow);
+
+function ItemsPanelSentinel({
+  root,
+  loading,
+  onVisible,
+}: {
+  root: HTMLElement | null;
+  loading: boolean;
+  onVisible: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const onVisibleRef = useRef(onVisible);
+  onVisibleRef.current = onVisible;
+
+  useEffect(() => {
+    if (loading || !root) return;
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          onVisibleRef.current();
+        }
+      },
+      { root, rootMargin: "48px", threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading, root]);
+
+  return <div ref={ref} className="adminPage__itemsPanelSentinel" aria-hidden />;
 }

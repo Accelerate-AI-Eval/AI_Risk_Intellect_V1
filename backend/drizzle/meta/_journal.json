@@ -344,6 +344,48 @@
       "when": 1784100000000,
       "tag": "0048_batch_runs_disabled",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1788286717491,
+      "tag": "0049_human_review_ops",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1788386717491,
+      "tag": "0050_user_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1788486717491,
+      "tag": "0051_varchar_to_text",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1788586717491,
+      "tag": "0052_risk_review_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1788686717491,
+      "tag": "0053_aiid_reports_upload_id_id_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1788786717491,
+      "tag": "0054_articles_risk_count_idx",
+      "breakpoints": true
     }
   ]
 }

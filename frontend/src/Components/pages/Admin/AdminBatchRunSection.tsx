@@ -29,6 +29,7 @@ import {
 } from "../../../utils/discoveryLogsApi";
 import {
   fetchEtlReportUploads,
+  type EtlReportRunSelection,
   type EtlReportUploadRow,
 } from "../../../utils/etlReportsApi";
 import {
@@ -52,10 +53,7 @@ type DiscoverySelection = {
   ingestLinkItemIds: number[];
 };
 
-type EtlSelection = {
-  uploadIds: number[];
-  reportIds: number[];
-};
+type EtlSelection = EtlReportRunSelection;
 
 type AdminBatchRunSectionProps = {
   idPrefix: string;
@@ -448,7 +446,7 @@ export function AdminBatchRunSection({
   // };
 
   const rssItemCount = rssSelection?.ingestLinkItemIds.length ?? 0;
-  const etlReportCount = etlSelection?.reportIds.length ?? 0;
+  const etlReportCount = etlSelection?.selectedReportCount ?? 0;
   const hasRss = rssItemCount > 0;
   const hasEtl = etlReportCount > 0;
   const canRun =
@@ -543,6 +541,7 @@ export function AdminBatchRunSection({
         ingestLinkItemIds: rssSelection?.ingestLinkItemIds,
         uploadIds: etlSelection?.uploadIds,
         reportIds: etlSelection?.reportIds,
+        excludeReportIds: etlSelection?.excludeReportIds,
       });
 
       if (!result.ok) {
@@ -1029,8 +1028,8 @@ export function AdminBatchRunSection({
           setEtlSelection(selection);
           setEtlDialogOpen(false);
           toast.success(
-            `Selected ${selection.reportIds.length} ETL report${
-              selection.reportIds.length === 1 ? "" : "s"
+            `Selected ${selection.selectedReportCount} ETL report${
+              selection.selectedReportCount === 1 ? "" : "s"
             }.`,
             { autoClose: 2500 },
           );

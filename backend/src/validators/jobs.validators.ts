@@ -26,7 +26,7 @@ export type ListJobsQuery = z.infer<typeof listJobsQuerySchema>;
 
 export const executeJobUrlSchema = z.object({
   modelName: z.string().trim().min(1).max(256).optional(),
-  modelLabel: z.string().trim().max(256).optional(),
+  modelLabel: z.string().trim().max(2000).optional(),
 });
 
 export type ExecuteJobUrlInput = z.infer<typeof executeJobUrlSchema>;

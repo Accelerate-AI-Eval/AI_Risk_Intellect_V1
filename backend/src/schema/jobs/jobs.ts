@@ -61,7 +61,7 @@ export const jobs = pgTable(
     }),
     /** LLM model assigned when the job was queued (not the live Controls model). */
     modelName: varchar("model_name", { length: 128 }),
-    modelLabel: varchar("model_label", { length: 256 }),
+    modelLabel: text("model_label"),
     tries: integer("tries").notNull().default(0),
     errorMessage: text("error_message"),
     startedAt: timestamp("started_at", { withTimezone: true }),
