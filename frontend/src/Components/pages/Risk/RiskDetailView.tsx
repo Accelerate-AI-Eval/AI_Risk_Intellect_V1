@@ -1,4 +1,4 @@
-import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useState, type RefObject } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -45,7 +45,24 @@ import {
   type RiskDetail,
 } from "./riskData";
 import type { RiskEditDraft } from "./riskEditDraft";
+import { FieldEditDialog, type FieldEditSpec } from "./FieldEditDialog";
 import "./riskDetailDialog.css";
+
+type EditableFieldKey =
+  | "articleTitle"
+  | "riskTitle"
+  | "domains"
+  | "primaryRisk"
+  | "secondaryRisk"
+  | "intent"
+  | "aiProduct"
+  | "description"
+  | "attackVector"
+  | "observableIndicators"
+  | "sector"
+  | "industry"
+  | "timing"
+  | "extractedRisk";
 
 export type RiskDetailTab = "overview" | "analysis" | "scores" | "evidence";
 
@@ -196,38 +213,188 @@ function DetailActionBar({
   return null;
 }
 
-function EditableText({
-  value,
-  onChange,
-  autoSize = false,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  autoSize?: boolean;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useLayoutEffect(() => {
-    if (!autoSize) return;
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [autoSize, value]);
-
+function EditFieldButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <textarea
-      ref={ref}
-      className={
-        autoSize
-          ? "riskDetail__editInput riskDetail__editInput--auto"
-          : "riskDetail__editInput riskDetail__editInput--area"
-      }
-      rows={autoSize ? 1 : 4}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <button
+      type="button"
+      className="riskDetail__classCardAction riskDetail__classCardAction--edit"
+      onClick={onClick}
+      aria-label={`Edit ${label}`}
+      title={`Edit ${label}`}
+    >
+      <Pencil size={15} strokeWidth={2} aria-hidden />
+    </button>
   );
+}
+
+function SectionHeading({
+  id,
+  icon: Icon,
+  children,
+  onEdit,
+}: {
+  id: string;
+  icon: LucideIcon;
+  children: string;
+  onEdit?: () => void;
+}) {
+  return (
+    <div className="riskDetail__sectionTitleRow">
+      <h3 id={id} className="riskDetail__sectionTitle">
+        <Icon size={16} strokeWidth={2} aria-hidden />
+        {children}
+      </h3>
+      {onEdit ? <EditFieldButton label={children} onClick={onEdit} /> : null}
+    </div>
+  );
+}
+
+function domainFieldOptions(current: string, taxonomyDomains: string[]) {
+  const options = [
+    { value: "", label: current ? "Keep current" : "Select a taxonomy domain…" },
+    ...taxonomyDomains.map((domain) => ({ value: domain, label: domain })),
+  ];
+  if (current && !taxonomyDomains.includes(current)) {
+    options.push({ value: current, label: `${current} (current)` });
+  }
+  return options;
+}
+
+function fieldEditSpecFor(
+  key: EditableFieldKey,
+  draft: RiskEditDraft,
+  taxonomyDomains: string[],
+): FieldEditSpec {
+  switch (key) {
+    case "articleTitle":
+      return {
+        key,
+        title: "Title",
+        fields: [{ key: "articleTitle", value: draft.articleTitle, control: "textarea", rows: 8 }],
+      };
+    case "riskTitle":
+      return {
+        key,
+        title: "Risk title",
+        fields: [{ key: "riskTitle", value: draft.riskTitle, control: "textarea", rows: 6 }],
+      };
+    case "domains":
+      return {
+        key,
+        title: "Domain",
+        fields: [
+          {
+            key: "domains",
+            value: draft.domains,
+            control: "select",
+            options: domainFieldOptions(draft.domains, taxonomyDomains),
+          },
+        ],
+      };
+    case "primaryRisk":
+      return {
+        key,
+        title: "Primary Risk",
+        fields: [{ key: "primaryRisk", value: draft.primaryRisk, control: "textarea", rows: 6 }],
+      };
+    case "secondaryRisk":
+      return {
+        key,
+        title: "Secondary Risk",
+        fields: [{ key: "secondaryRisk", value: draft.secondaryRisk, control: "textarea", rows: 6 }],
+      };
+    case "intent":
+      return {
+        key,
+        title: "Intent",
+        fields: [{ key: "intent", value: draft.intent, control: "textarea", rows: 6 }],
+      };
+    case "aiProduct":
+      return {
+        key,
+        title: "AI Product",
+        fields: [
+          {
+            key: "aiProductName",
+            label: "Product name",
+            value: draft.aiProductName,
+            control: "textarea",
+            rows: 4,
+          },
+          {
+            key: "aiProductVendor",
+            label: "Vendor",
+            value: draft.aiProductVendor,
+            control: "textarea",
+            rows: 4,
+          },
+        ],
+      };
+    case "description":
+      return {
+        key,
+        title: "Description",
+        fields: [{ key: "description", value: draft.description, control: "textarea", rows: 12 }],
+      };
+    case "attackVector":
+      return {
+        key,
+        title: "Attack Vector",
+        fields: [{ key: "attackVector", value: draft.attackVector, control: "textarea", rows: 10 }],
+      };
+    case "observableIndicators":
+      return {
+        key,
+        title: "Observable Indicators",
+        fields: [
+          {
+            key: "observableIndicators",
+            value: draft.observableIndicators,
+            control: "textarea",
+            rows: 10,
+          },
+        ],
+      };
+    case "sector":
+      return {
+        key,
+        title: "Sector",
+        fields: [{ key: "sector", value: draft.sector, control: "textarea", rows: 6 }],
+      };
+    case "industry":
+      return {
+        key,
+        title: "Industry",
+        fields: [{ key: "industry", value: draft.industry, control: "textarea", rows: 6 }],
+      };
+    case "timing":
+      return {
+        key,
+        title: "Timing",
+        fields: [{ key: "timing", value: draft.timing, control: "textarea", rows: 6 }],
+      };
+    case "extractedRisk":
+      return {
+        key,
+        title: "Extracted Risk",
+        fields: [
+          {
+            key: "riskTitle",
+            label: "Risk title",
+            value: draft.riskTitle,
+            control: "textarea",
+            rows: 4,
+          },
+          {
+            key: "description",
+            label: "Description",
+            value: draft.description,
+            control: "textarea",
+            rows: 10,
+          },
+        ],
+      };
+  }
 }
 
 function confidenceLabel(level: RiskDetail["confidence"]): string {
@@ -312,6 +479,7 @@ const DetailInfoCard = memo(function DetailInfoCard({
   icon: Icon,
   headerHref,
   headerActionLabel,
+  onEdit,
 }: {
   title: string;
   value?: string;
@@ -320,10 +488,11 @@ const DetailInfoCard = memo(function DetailInfoCard({
   icon?: LucideIcon;
   headerHref?: string;
   headerActionLabel?: string;
+  onEdit?: () => void;
 }) {
   const body = children ?? value ?? "—";
   const openHref = headerHref?.trim();
-  const showHeaderAction = Boolean(openHref);
+  const showHeaderAction = Boolean(openHref) || Boolean(onEdit);
 
   const cardHead = Icon ? (
     <div className="riskDetail__classCardHead">
@@ -338,21 +507,26 @@ const DetailInfoCard = memo(function DetailInfoCard({
 
   return (
     <div
-      className={`riskDetail__classCard${Icon ? "" : " riskDetail__classCard--noIcon"}${showHeaderAction ? " riskDetail__classCard--withAction" : ""}`}
+      className={`riskDetail__classCard${Icon ? "" : " riskDetail__classCard--noIcon"}${showHeaderAction ? " riskDetail__classCard--withAction" : ""}${onEdit ? " riskDetail__classCard--editable" : ""}`}
     >
       {showHeaderAction ? (
         <div className="riskDetail__classCardHeadRow">
           {cardHead}
-          <a
-            href={openHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="riskDetail__classCardAction"
-            aria-label={headerActionLabel ?? `Open ${title}`}
-            title={headerActionLabel ?? `Open ${title}`}
-          >
-            <ExternalLink size={16} strokeWidth={2} aria-hidden />
-          </a>
+          <div className="riskDetail__classCardActions">
+            {onEdit ? <EditFieldButton label={title} onClick={onEdit} /> : null}
+            {openHref ? (
+              <a
+                href={openHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="riskDetail__classCardAction"
+                aria-label={headerActionLabel ?? `Open ${title}`}
+                title={headerActionLabel ?? `Open ${title}`}
+              >
+                <ExternalLink size={16} strokeWidth={2} aria-hidden />
+              </a>
+            ) : null}
+          </div>
         </div>
       ) : (
         cardHead
@@ -442,6 +616,43 @@ export const RiskDetailView = memo(function RiskDetailView({
     if (controlledTab === undefined) setInternalTab(initialTab);
   }, [risk.id, initialTab, controlledTab]);
 
+  const [editingKey, setEditingKey] = useState<EditableFieldKey | null>(null);
+  const live = editMode && draft && onDraftChange ? draft : null;
+
+  const requestEdit = useCallback((key: EditableFieldKey) => {
+    setEditingKey(key);
+  }, []);
+
+  const fieldEditSpec = useMemo(() => {
+    if (!editingKey || !live) return null;
+    return fieldEditSpecFor(editingKey, live, taxonomyDomains);
+  }, [editingKey, live, taxonomyDomains]);
+
+  const handleFieldApply = useCallback(
+    (values: Record<string, string>) => {
+      if (!onDraftChange || !editingKey) return;
+      if (editingKey === "aiProduct") {
+        onDraftChange({
+          aiProductName: values.aiProductName ?? "",
+          aiProductVendor: values.aiProductVendor ?? "",
+        });
+      } else if (editingKey === "extractedRisk") {
+        onDraftChange({
+          riskTitle: values.riskTitle ?? "",
+          description: values.description ?? "",
+        });
+      } else {
+        onDraftChange({ [editingKey]: values[editingKey] ?? "" } as Partial<RiskEditDraft>);
+      }
+      setEditingKey(null);
+    },
+    [editingKey, onDraftChange],
+  );
+
+  useEffect(() => {
+    if (!editMode) setEditingKey(null);
+  }, [editMode]);
+
   const tabPanelId = `${baseId}-panel`;
   const bestCatalogMatch = (risk.riskAnalysis.catalogMatches ?? [])[0];
 
@@ -516,15 +727,9 @@ export const RiskDetailView = memo(function RiskDetailView({
                     <DetailInfoCard
                       title="Title"
                       icon={BookOpen}
-                     >
-                      {editMode && draft && onDraftChange ? (
-                        <EditableText
-                          value={draft.articleTitle}
-                          onChange={(v) => onDraftChange({ articleTitle: v })}
-                        />
-                      ) : (
-                        formatDisplayValue(risk.articleTitle)
-                      )}
+                      onEdit={live ? () => requestEdit("articleTitle") : undefined}
+                    >
+                      {formatDisplayValue(live ? live.articleTitle : risk.articleTitle)}
                     </DetailInfoCard>
                     <DetailInfoCard
                       title="URL"
@@ -576,76 +781,47 @@ export const RiskDetailView = memo(function RiskDetailView({
                   <DetailInfoCard
                     title="Risk title"
                     icon={FileText}
+                    onEdit={live ? () => requestEdit("riskTitle") : undefined}
                   >
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText value={draft.riskTitle} onChange={(v) => onDraftChange({ riskTitle: v })} />
-                    ) : (
-                      formatDisplayValue(risk.title)
-                    )}
+                    {formatDisplayValue(live ? live.riskTitle : risk.title)}
                   </DetailInfoCard>
                   <DetailInfoCard
                     title="Domain"
                     icon={Globe}
+                    onEdit={live ? () => requestEdit("domains") : undefined}
                   >
-                    {editMode && draft && onDraftChange ? (
-                      <select
-                        className="riskDetail__editInput"
-                        value={draft.domains}
-                        onChange={(e) => onDraftChange({ domains: e.target.value })}
-                      >
-                        <option value="">{draft.domains ? "Keep current" : "Select a taxonomy domain…"}</option>
-                        {taxonomyDomains.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                        {draft.domains && !taxonomyDomains.includes(draft.domains) ? (
-                          <option value={draft.domains}>{draft.domains} (current)</option>
-                        ) : null}
-                      </select>
-                    ) : (
-                      formatRiskDomain(risk.domain)
-                    )}
+                    {formatRiskDomain(live ? live.domains : risk.domain)}
                   </DetailInfoCard>
                   <DetailInfoCard
                     title="Primary Risk"
                     icon={AlertTriangle}
+                    onEdit={live ? () => requestEdit("primaryRisk") : undefined}
                   >
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText autoSize value={draft.primaryRisk} onChange={(v) => onDraftChange({ primaryRisk: v })} />
-                    ) : (
-                      formatDisplayValue(risk.primaryRisk)
-                    )}
+                    {formatDisplayValue(live ? live.primaryRisk : risk.primaryRisk)}
                   </DetailInfoCard>
                   <DetailInfoCard
                     title="Secondary Risk"
                     icon={ShieldCheck}
+                    onEdit={live ? () => requestEdit("secondaryRisk") : undefined}
                   >
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText autoSize value={draft.secondaryRisk} onChange={(v) => onDraftChange({ secondaryRisk: v })} />
-                    ) : (
-                      formatDisplayValue(risk.secondaryRisk)
-                    )}
+                    {formatDisplayValue(live ? live.secondaryRisk : risk.secondaryRisk)}
                   </DetailInfoCard>
                   <DetailInfoCard
                     title="Intent"
                     icon={Flag}
+                    onEdit={live ? () => requestEdit("intent") : undefined}
                   >
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText autoSize value={draft.intent} onChange={(v) => onDraftChange({ intent: v })} />
-                    ) : (
-                      formatDisplayValue(risk.intent)
-                    )}
+                    {formatDisplayValue(live ? live.intent : risk.intent)}
                   </DetailInfoCard>
                   <DetailInfoCard
                     title="AI Product"
                     icon={Package}
+                    onEdit={live ? () => requestEdit("aiProduct") : undefined}
                   >
-                    {editMode && draft && onDraftChange ? (
-                      <div className="riskDetail__editStack riskDetail__editStack--card">
-                        <EditableText value={draft.aiProductName} onChange={(v) => onDraftChange({ aiProductName: v })} />
-                        <EditableText value={draft.aiProductVendor} onChange={(v) => onDraftChange({ aiProductVendor: v })} />
-                      </div>
-                    ) : (
-                      formatProductCell(risk.product)
+                    {formatProductCell(
+                      live
+                        ? { name: live.aiProductName, vendor: live.aiProductVendor }
+                        : risk.product,
                     )}
                   </DetailInfoCard>
                 </dl>
@@ -704,18 +880,14 @@ export const RiskDetailView = memo(function RiskDetailView({
                 className="riskDetail__section"
                 aria-labelledby={`${baseId}-description`}
               >
-                <h3 id={`${baseId}-description`} className="riskDetail__sectionTitle">
-                  <ScrollText size={16} strokeWidth={2} aria-hidden />
+                <SectionHeading
+                  id={`${baseId}-description`}
+                  icon={ScrollText}
+                  onEdit={live ? () => requestEdit("description") : undefined}
+                >
                   Description
-                </h3>
-                {editMode && draft && onDraftChange ? (
-                  <EditableText
-                    value={draft.description}
-                    onChange={(v) => onDraftChange({ description: v })}
-                  />
-                ) : (
-                  <DetailText>{formatDisplayValue(risk.description)}</DetailText>
-                )}
+                </SectionHeading>
+                <DetailText>{formatDisplayValue(live ? live.description : risk.description)}</DetailText>
               </section>
 
               <div className="riskDetail__dualColRow">
@@ -724,35 +896,29 @@ export const RiskDetailView = memo(function RiskDetailView({
                     className="riskDetail__section"
                     aria-labelledby={`${baseId}-attack`}
                   >
-                    <h3 id={`${baseId}-attack`} className="riskDetail__sectionTitle">
-                      <AlertTriangle size={16} strokeWidth={2} aria-hidden />
+                    <SectionHeading
+                      id={`${baseId}-attack`}
+                      icon={AlertTriangle}
+                      onEdit={live ? () => requestEdit("attackVector") : undefined}
+                    >
                       Attack Vector
-                    </h3>
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText
-                        value={draft.attackVector}
-                        onChange={(v) => onDraftChange({ attackVector: v })}
-                      />
-                    ) : (
-                      <DetailText>{formatDisplayValue(risk.attackVector)}</DetailText>
-                    )}
+                    </SectionHeading>
+                    <DetailText>{formatDisplayValue(live ? live.attackVector : risk.attackVector)}</DetailText>
                   </section>
                   <section
                     className="riskDetail__section"
                     aria-labelledby={`${baseId}-indicators`}
                   >
-                    <h3 id={`${baseId}-indicators`} className="riskDetail__sectionTitle">
-                      <Eye size={16} strokeWidth={2} aria-hidden />
+                    <SectionHeading
+                      id={`${baseId}-indicators`}
+                      icon={Eye}
+                      onEdit={live ? () => requestEdit("observableIndicators") : undefined}
+                    >
                       Observable Indicators
-                    </h3>
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText
-                        value={draft.observableIndicators}
-                        onChange={(v) => onDraftChange({ observableIndicators: v })}
-                      />
-                    ) : (
-                      <DetailText>{formatDisplayValue(risk.observableIndicators)}</DetailText>
-                    )}
+                    </SectionHeading>
+                    <DetailText>
+                      {formatDisplayValue(live ? live.observableIndicators : risk.observableIndicators)}
+                    </DetailText>
                   </section>
                 </div>
                 <div className="riskDetail__dualCol riskDetail__dualCol--stack">
@@ -760,46 +926,40 @@ export const RiskDetailView = memo(function RiskDetailView({
                     className="riskDetail__section"
                     aria-labelledby={`${baseId}-sector`}
                   >
-                    <h3 id={`${baseId}-sector`} className="riskDetail__sectionTitle">
-                      <Building2 size={16} strokeWidth={2} aria-hidden />
+                    <SectionHeading
+                      id={`${baseId}-sector`}
+                      icon={Building2}
+                      onEdit={live ? () => requestEdit("sector") : undefined}
+                    >
                       Sector
-                    </h3>
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText value={draft.sector} onChange={(v) => onDraftChange({ sector: v })} />
-                    ) : (
-                      <DetailText>{formatDisplayValue(risk.sector)}</DetailText>
-                    )}
+                    </SectionHeading>
+                    <DetailText>{formatDisplayValue(live ? live.sector : risk.sector)}</DetailText>
                   </section>
                   <section
                     className="riskDetail__section"
                     aria-labelledby={`${baseId}-industry`}
                   >
-                    <h3 id={`${baseId}-industry`} className="riskDetail__sectionTitle">
-                      <Factory size={16} strokeWidth={2} aria-hidden />
+                    <SectionHeading
+                      id={`${baseId}-industry`}
+                      icon={Factory}
+                      onEdit={live ? () => requestEdit("industry") : undefined}
+                    >
                       Industry
-                    </h3>
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText value={draft.industry} onChange={(v) => onDraftChange({ industry: v })} />
-                    ) : (
-                      <DetailText>{formatDisplayValue(risk.industry)}</DetailText>
-                    )}
+                    </SectionHeading>
+                    <DetailText>{formatDisplayValue(live ? live.industry : risk.industry)}</DetailText>
                   </section>
                   <section
                     className="riskDetail__section"
                     aria-labelledby={`${baseId}-timing`}
                   >
-                    <h3 id={`${baseId}-timing`} className="riskDetail__sectionTitle">
-                      <Clock size={16} strokeWidth={2} aria-hidden />
+                    <SectionHeading
+                      id={`${baseId}-timing`}
+                      icon={Clock}
+                      onEdit={live ? () => requestEdit("timing") : undefined}
+                    >
                       Timing
-                    </h3>
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText
-                        value={draft.timing}
-                        onChange={(v) => onDraftChange({ timing: v })}
-                      />
-                    ) : (
-                      <DetailText>{formatDisplayValue(risk.timing)}</DetailText>
-                    )}
+                    </SectionHeading>
+                    <DetailText>{formatDisplayValue(live ? live.timing : risk.timing)}</DetailText>
                   </section>
                 </div>
               </div>
@@ -818,10 +978,13 @@ export const RiskDetailView = memo(function RiskDetailView({
                 className="riskDetail__section"
                 aria-labelledby={`${baseId}-extracted-risk`}
               >
-                <h3 id={`${baseId}-extracted-risk`} className="riskDetail__sectionTitle">
-                  <FileText size={16} strokeWidth={2} aria-hidden />
+                <SectionHeading
+                  id={`${baseId}-extracted-risk`}
+                  icon={FileText}
+                  onEdit={live ? () => requestEdit("extractedRisk") : undefined}
+                >
                   Extracted Risk (from article)
-                </h3>
+                </SectionHeading>
                 <div className="riskDetail__extractedRisk">
                   <div className="riskDetail__catalogMatchHead">
                     <span className="riskDetail__riskIdPill riskDetail__extractedRiskId">
@@ -838,23 +1001,14 @@ export const RiskDetailView = memo(function RiskDetailView({
                     ) : null}
                   </div>
                   <div className="riskDetail__catalogMatchTitleRow">
-                    {editMode && draft && onDraftChange ? (
-                      <EditableText value={draft.riskTitle} onChange={(v) => onDraftChange({ riskTitle: v })} />
-                    ) : (
-                      <p className="riskDetail__extractedRiskTitle">{formatDisplayValue(risk.title)}</p>
-                    )}
+                    <p className="riskDetail__extractedRiskTitle">
+                      {formatDisplayValue(live ? live.riskTitle : risk.title)}
+                    </p>
                     <span className="riskDetail__domainHighlight riskDetail__domainHighlight--inline">
-                      {formatRiskDomain(risk.domain)}
+                      {formatRiskDomain(live ? live.domains : risk.domain)}
                     </span>
                   </div>
-                  {editMode && draft && onDraftChange ? (
-                    <EditableText
-                      value={draft.description}
-                      onChange={(v) => onDraftChange({ description: v })}
-                    />
-                  ) : (
-                    <DetailText>{formatDisplayValue(risk.description)}</DetailText>
-                  )}
+                  <DetailText>{formatDisplayValue(live ? live.description : risk.description)}</DetailText>
                 </div>
               </section>
 
@@ -1109,6 +1263,14 @@ export const RiskDetailView = memo(function RiskDetailView({
           )}
         </div>
       </article>
+      {fieldEditSpec ? (
+        <FieldEditDialog
+          key={fieldEditSpec.key}
+          spec={fieldEditSpec}
+          onClose={() => setEditingKey(null)}
+          onApply={handleFieldApply}
+        />
+      ) : null}
     </div>
   );
 });
